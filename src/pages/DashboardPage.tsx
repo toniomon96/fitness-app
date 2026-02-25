@@ -15,6 +15,7 @@ import { getProgramWeekCursor } from '../utils/localStorage';
 import { calculateStreak, getWeekStart } from '../utils/dateUtils';
 import { Play, AlertCircle } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
+import { CourseRecommendations } from '../components/learn/CourseRecommendations';
 
 export function DashboardPage() {
   const { state } = useApp();
@@ -94,6 +95,12 @@ export function DashboardPage() {
             </Button>
           </Card>
         )}
+
+        {/* Personalized course recommendations */}
+        <CourseRecommendations
+          goal={user.goal}
+          experienceLevel={user.experienceLevel}
+        />
       </div>
     </AppShell>
   );

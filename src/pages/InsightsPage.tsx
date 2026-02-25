@@ -5,10 +5,18 @@ import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { MarkdownText } from '../components/ui/MarkdownText';
+import { ArticleFeed } from '../components/insights/ArticleFeed';
 import { useApp } from '../store/AppContext';
 import { getWorkoutInsights } from '../services/claudeService';
 import { buildInsightRequest } from '../services/insightsService';
-import { Sparkles, Loader, Shield, MessageCircle, BarChart2 } from 'lucide-react';
+import { Sparkles, Loader, Shield, MessageCircle, BarChart2, Newspaper } from 'lucide-react';
+import type { LearningCategory, Goal } from '../types';
+
+const GOAL_CATEGORY: Record<Goal, LearningCategory> = {
+  'hypertrophy': 'strength-training',
+  'fat-loss': 'nutrition',
+  'general-fitness': 'strength-training',
+};
 
 const QUICK_QUESTIONS = [
   'How can I improve my recovery between sessions?',
@@ -167,6 +175,17 @@ export function InsightsPage() {
             </p>
           </div>
         </Card>
+
+        {/* Research feed */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Newspaper size={16} className="text-slate-400" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Latest Research
+            </p>
+          </div>
+          <ArticleFeed initialCategory={GOAL_CATEGORY[user.goal]} />
+        </div>
 
       </div>
     </AppShell>

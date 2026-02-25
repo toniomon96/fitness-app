@@ -1,7 +1,11 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "^/api/(.*)", "dest": "/api/$1" },
+    { "src": "^/@(.*)", "dest": "/@$1" },
+    { "src": "^/src/(.*)", "dest": "/src/$1" },
+    { "src": "^/node_modules/(.*)", "dest": "/node_modules/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
