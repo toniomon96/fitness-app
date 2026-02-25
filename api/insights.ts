@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 
 // ─── System prompt ─────────────────────────────────────────────────────────────
@@ -37,18 +38,29 @@ HARD CONSTRAINTS
 End with:
 ⚠️ These insights are educational only, not medical advice. Consult a healthcare professional for personal health concerns.`;
 
+// ─── Constants ──────────────────────────────────────────────────────────────────
+
+const MAX_SUMMARY_LENGTH = 10_000;
+
 // ─── Handler ────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[/api/insights] ANTHROPIC_API_KEY is not configured');
+    return res.status(500).json({ error: 'AI service is not configured' });
   }
 
   const { userGoal, userExperience, workoutSummary } = req.body ?? {};
 
   if (!workoutSummary || typeof workoutSummary !== 'string') {
     return res.status(400).json({ error: 'workoutSummary is required' });
+  }
+  if (workoutSummary.length > MAX_SUMMARY_LENGTH) {
+    return res.status(400).json({ error: `workoutSummary too long (max ${MAX_SUMMARY_LENGTH} characters)` });
   }
 
   try {
