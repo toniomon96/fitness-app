@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { HealthArticle, LearningCategory } from '../src/types';
 
 // ─── PubMed search queries per category ──────────────────────────────────────
@@ -81,8 +82,7 @@ async function fetchAbstracts(ids: string[]): Promise<Record<string, string>> {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

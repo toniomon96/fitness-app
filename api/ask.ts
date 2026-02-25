@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 
 // ─── System prompt ─────────────────────────────────────────────────────────────
@@ -27,10 +28,14 @@ End EVERY response with this exact line:
 
 // ─── Handler ────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[/api/ask] ANTHROPIC_API_KEY is not configured');
+    return res.status(500).json({ error: 'AI service is not configured' });
   }
 
   const { question, userContext } = req.body ?? {};
