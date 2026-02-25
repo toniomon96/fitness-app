@@ -5,13 +5,15 @@ import {
   useEffect,
   type ReactNode,
 } from 'react';
-import type { User, WorkoutSession, WorkoutHistory } from '../types';
+import type { User, WorkoutSession, WorkoutHistory, LearningProgress, QuizAttempt } from '../types';
 import {
   getUser,
   getHistory,
   getActiveSession,
   getTheme,
   setTheme as persistTheme,
+  getLearningProgress,
+  setLearningProgress,
 } from '../utils/localStorage';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -21,6 +23,7 @@ interface AppState {
   history: WorkoutHistory;
   activeSession: WorkoutSession | null;
   theme: 'dark' | 'light';
+  learningProgress: LearningProgress;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -34,7 +37,12 @@ type Action =
   | { type: 'APPEND_SESSION'; payload: WorkoutSession }
   | { type: 'SET_HISTORY'; payload: WorkoutHistory }
   | { type: 'TOGGLE_THEME' }
-  | { type: 'SET_THEME'; payload: 'dark' | 'light' };
+  | { type: 'SET_THEME'; payload: 'dark' | 'light' }
+  | { type: 'SET_LEARNING_PROGRESS'; payload: LearningProgress }
+  | { type: 'COMPLETE_LESSON'; payload: string }
+  | { type: 'COMPLETE_MODULE'; payload: string }
+  | { type: 'COMPLETE_COURSE'; payload: string }
+  | { type: 'RECORD_QUIZ_ATTEMPT'; payload: { moduleId: string; attempt: QuizAttempt } };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -67,6 +75,55 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_THEME':
       persistTheme(action.payload);
       return { ...state, theme: action.payload };
+    case 'SET_LEARNING_PROGRESS':
+      setLearningProgress(action.payload);
+      return { ...state, learningProgress: action.payload };
+    case 'COMPLETE_LESSON': {
+      const lessonId = action.payload;
+      if (state.learningProgress.completedLessons.includes(lessonId)) return state;
+      const updated: LearningProgress = {
+        ...state.learningProgress,
+        completedLessons: [...state.learningProgress.completedLessons, lessonId],
+        lastActivityAt: new Date().toISOString(),
+      };
+      setLearningProgress(updated);
+      return { ...state, learningProgress: updated };
+    }
+    case 'COMPLETE_MODULE': {
+      const moduleId = action.payload;
+      if (state.learningProgress.completedModules.includes(moduleId)) return state;
+      const updated: LearningProgress = {
+        ...state.learningProgress,
+        completedModules: [...state.learningProgress.completedModules, moduleId],
+        lastActivityAt: new Date().toISOString(),
+      };
+      setLearningProgress(updated);
+      return { ...state, learningProgress: updated };
+    }
+    case 'COMPLETE_COURSE': {
+      const courseId = action.payload;
+      if (state.learningProgress.completedCourses.includes(courseId)) return state;
+      const updated: LearningProgress = {
+        ...state.learningProgress,
+        completedCourses: [...state.learningProgress.completedCourses, courseId],
+        lastActivityAt: new Date().toISOString(),
+      };
+      setLearningProgress(updated);
+      return { ...state, learningProgress: updated };
+    }
+    case 'RECORD_QUIZ_ATTEMPT': {
+      const { moduleId, attempt } = action.payload;
+      const existing = state.learningProgress.quizScores[moduleId];
+      // Only persist if it's a new best score
+      if (existing && existing.score >= attempt.score) return state;
+      const updated: LearningProgress = {
+        ...state.learningProgress,
+        quizScores: { ...state.learningProgress.quizScores, [moduleId]: attempt },
+        lastActivityAt: new Date().toISOString(),
+      };
+      setLearningProgress(updated);
+      return { ...state, learningProgress: updated };
+    }
     default:
       return state;
   }
@@ -89,6 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     history: getHistory(),
     activeSession: getActiveSession(),
     theme: getTheme(),
+    learningProgress: getLearningProgress(),
   };
 
   const [state, dispatch] = useReducer(reducer, initialState);

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { exercises } from '../../data/exercises';
 import { SearchBar } from '../exercise-library/SearchBar';
-import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 
 interface AddExerciseDrawerProps {

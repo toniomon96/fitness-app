@@ -141,3 +141,126 @@ export interface WorkoutHistory {
   sessions: WorkoutSession[];
   personalRecords: PersonalRecord[];
 }
+
+// ─── Learning System ──────────────────────────────────────────────────────────
+
+export type LearningCategory =
+  | 'strength-training'
+  | 'nutrition'
+  | 'recovery'
+  | 'sleep'
+  | 'metabolic-health'
+  | 'cardio'
+  | 'mobility';
+
+export interface ContentReference {
+  title: string;
+  authors?: string;
+  journal?: string;
+  year?: number;
+  url?: string;
+  type: 'journal' | 'guideline' | 'book' | 'organization' | 'meta-analysis';
+}
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
+export interface Quiz {
+  id: string;
+  questions: QuizQuestion[];
+}
+
+export interface Lesson {
+  id: string;
+  title: string;
+  content: string; // Markdown prose
+  keyPoints: string[];
+  references: ContentReference[];
+  estimatedMinutes: number;
+}
+
+export interface CourseModule {
+  id: string;
+  title: string;
+  lessons: Lesson[];
+  quiz?: Quiz;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  description: string;
+  category: LearningCategory;
+  difficulty: ExperienceLevel;
+  estimatedMinutes: number;
+  relatedGoals: Goal[];
+  tags: string[];
+  modules: CourseModule[];
+  coverEmoji: string;
+}
+
+// ─── Learning Progress ────────────────────────────────────────────────────────
+
+export interface QuizAttempt {
+  score: number;         // 0–100
+  correctCount: number;
+  totalQuestions: number;
+  attemptedAt: string;
+}
+
+export interface LearningProgress {
+  completedLessons: string[];   // lesson IDs
+  completedModules: string[];   // module IDs
+  completedCourses: string[];   // course IDs
+  quizScores: Record<string, QuizAttempt>; // moduleId → best attempt
+  lastActivityAt: string;
+}
+
+// ─── AI Insights & Q&A ────────────────────────────────────────────────────────
+
+export type InsightCategory =
+  | 'workout-analysis'
+  | 'nutrition'
+  | 'recovery'
+  | 'general-health'
+  | 'ask-anything';
+
+export interface InsightMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  references?: ContentReference[];
+  timestamp: string;
+}
+
+export interface InsightSession {
+  id: string;
+  category: InsightCategory;
+  messages: InsightMessage[];
+  createdAt: string;
+}
+
+// ─── Health Articles ──────────────────────────────────────────────────────────
+
+export interface HealthArticle {
+  id: string;
+  title: string;
+  summary: string;
+  keyTakeaways: string[];
+  source: string;
+  sourceUrl: string;
+  publishedDate: string;
+  category: LearningCategory;
+  tags: string[];
+  cachedAt: string;
+}
+
+export interface ArticleCache {
+  articles: HealthArticle[];
+  lastFetchedAt: Partial<Record<LearningCategory, string>>;
+}

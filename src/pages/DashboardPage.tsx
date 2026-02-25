@@ -12,7 +12,7 @@ import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { getNextWorkout } from '../utils/programUtils';
 import { getProgramWeekCursor } from '../utils/localStorage';
-import { calculateStreak, getWeekStart, toDateString } from '../utils/dateUtils';
+import { calculateStreak, getWeekStart } from '../utils/dateUtils';
 import { Play, AlertCircle } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 
@@ -36,7 +36,7 @@ export function DashboardPage() {
   return (
     <AppShell>
       <TopBar
-        title="FitForge"
+        title="Omnexus"
         right={<ThemeToggle />}
       />
       <div className="px-4 pb-6 space-y-4 mt-2">

@@ -1,0 +1,174 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AppShell } from '../components/layout/AppShell';
+import { TopBar } from '../components/layout/TopBar';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { MarkdownText } from '../components/ui/MarkdownText';
+import { useApp } from '../store/AppContext';
+import { getWorkoutInsights } from '../services/claudeService';
+import { buildInsightRequest } from '../services/insightsService';
+import { Sparkles, Loader, Shield, MessageCircle, BarChart2 } from 'lucide-react';
+
+const QUICK_QUESTIONS = [
+  'How can I improve my recovery between sessions?',
+  'Am I training with enough volume for muscle growth?',
+  'What should I focus on to break through a plateau?',
+];
+
+export function InsightsPage() {
+  const { state } = useApp();
+  const navigate = useNavigate();
+  const user = state.user!;
+  const sessions = state.history.sessions;
+
+  const [loading, setLoading] = useState(false);
+  const [insight, setInsight] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const hasHistory = sessions.some((s) => s.completedAt);
+
+  async function handleAnalyze() {
+    setLoading(true);
+    setInsight(null);
+    setError(null);
+
+    try {
+      const request = buildInsightRequest(sessions, user);
+      if (!request) {
+        setError(
+          'No completed workouts found in the last 4 weeks. Log a few sessions and come back!',
+        );
+        return;
+      }
+
+      const { insight: text } = await getWorkoutInsights(request);
+      setInsight(text);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong.';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        setError(
+          'Cannot reach the API. Make sure you are running `vercel dev` instead of `npm run dev`.',
+        );
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <AppShell>
+      <TopBar title="Insights" />
+      <div className="px-4 pb-8 pt-4 space-y-5">
+
+        {/* Hero */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/10 shrink-0">
+            <Sparkles size={24} className="text-brand-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white leading-snug">
+              AI-Powered Insights
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Your data × science × Claude
+            </p>
+          </div>
+        </div>
+
+        {/* Analyze card */}
+        <Card>
+          <div className="flex items-start gap-3 mb-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500/10 shrink-0">
+              <BarChart2 size={18} className="text-brand-500" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-slate-900 dark:text-white">
+                Workout Analysis
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Analyzes your last 4 weeks of training and returns personalized,
+                evidence-based observations and recommendations.
+              </p>
+            </div>
+          </div>
+
+          {!hasHistory ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-2">
+              Log some workouts first — then come back for insights.
+            </p>
+          ) : (
+            <Button
+              fullWidth
+              onClick={handleAnalyze}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader size={16} className="animate-spin" />
+                  Analyzing…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} />
+                  {insight ? 'Re-analyze' : 'Analyze My Training'}
+                </>
+              )}
+            </Button>
+          )}
+        </Card>
+
+        {/* Error */}
+        {error && (
+          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          </Card>
+        )}
+
+        {/* Insight result */}
+        {insight && (
+          <Card>
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-500 mb-3">
+              Your Analysis
+            </p>
+            <MarkdownText text={insight} />
+          </Card>
+        )}
+
+        {/* Quick questions → AskPage */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            Ask a Follow-Up
+          </p>
+          <div className="space-y-2">
+            {QUICK_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                onClick={() => navigate('/ask', { state: { prefill: q } })}
+                className="w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
+              >
+                <MessageCircle size={14} className="text-brand-500 shrink-0" />
+                <span className="text-sm text-slate-700 dark:text-slate-300">{q}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Safety notice */}
+        <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+          <div className="flex items-start gap-3">
+            <Shield size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+              AI insights are <strong>educational information only</strong>, not
+              medical advice. Always consult a qualified healthcare professional
+              for personal health concerns.
+            </p>
+          </div>
+        </Card>
+
+      </div>
+    </AppShell>
+  );
+}

@@ -8,6 +8,11 @@ import { ExerciseLibraryPage } from './pages/ExerciseLibraryPage'
 import { ExerciseDetailPage } from './pages/ExerciseDetailPage'
 import { ActiveWorkoutPage } from './pages/ActiveWorkoutPage'
 import { HistoryPage } from './pages/HistoryPage'
+import { LearnPage } from './pages/LearnPage'
+import { CourseDetailPage } from './pages/CourseDetailPage'
+import { LessonPage } from './pages/LessonPage'
+import { InsightsPage } from './pages/InsightsPage'
+import { AskPage } from './pages/AskPage'
 
 function AuthGuard() {
   const user = getUser()
@@ -33,6 +38,11 @@ export const router = createBrowserRouter([
       { path: '/library/:exerciseId', element: <ExerciseDetailPage /> },
       { path: '/workout/active', element: <ActiveWorkoutPage /> },
       { path: '/history', element: <HistoryPage /> },
+      { path: '/learn', element: <LearnPage /> },
+      { path: '/learn/:courseId', element: <CourseDetailPage /> },
+      { path: '/learn/:courseId/:moduleId', element: <LessonPage /> },
+      { path: '/insights', element: <InsightsPage /> },
+      { path: '/ask', element: <AskPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

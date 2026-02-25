@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Exercise } from '../../types';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
-import { ChevronRight, Dumbbell } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 const equipIcons: Record<string, string> = {
   barbell: '🏋️',
