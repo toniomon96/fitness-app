@@ -1,0 +1,140 @@
+import type {
+  User,
+  WorkoutHistory,
+  WorkoutSession,
+  PersonalRecord,
+} from '../types';
+
+const KEYS = {
+  USER: 'fit_user',
+  HISTORY: 'fit_history',
+  ACTIVE_SESSION: 'fit_active_session',
+  THEME: 'fit_theme',
+  PROGRAM_WEEK_CURSOR: 'fit_program_week_cursor',
+  PROGRAM_DAY_CURSOR: 'fit_program_day_cursor',
+} as const;
+
+function safeRead<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeWrite(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    console.warn(`localStorage write failed for key: ${key}`);
+  }
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+export function getUser(): User | null {
+  return safeRead<User | null>(KEYS.USER, null);
+}
+
+export function setUser(user: User): void {
+  safeWrite(KEYS.USER, user);
+}
+
+export function clearUser(): void {
+  localStorage.removeItem(KEYS.USER);
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+
+const EMPTY_HISTORY: WorkoutHistory = { sessions: [], personalRecords: [] };
+
+export function getHistory(): WorkoutHistory {
+  return safeRead<WorkoutHistory>(KEYS.HISTORY, EMPTY_HISTORY);
+}
+
+export function appendSession(session: WorkoutSession): void {
+  const history = getHistory();
+  history.sessions.push(session);
+  safeWrite(KEYS.HISTORY, history);
+}
+
+export function updatePersonalRecords(prs: PersonalRecord[]): void {
+  const history = getHistory();
+  // Merge: for each PR, replace existing record for that exercise if new one is better
+  for (const pr of prs) {
+    const idx = history.personalRecords.findIndex(
+      (r) => r.exerciseId === pr.exerciseId,
+    );
+    if (idx >= 0) {
+      history.personalRecords[idx] = pr;
+    } else {
+      history.personalRecords.push(pr);
+    }
+  }
+  safeWrite(KEYS.HISTORY, history);
+}
+
+// ─── Active Session ───────────────────────────────────────────────────────────
+
+export function getActiveSession(): WorkoutSession | null {
+  return safeRead<WorkoutSession | null>(KEYS.ACTIVE_SESSION, null);
+}
+
+export function setActiveSession(session: WorkoutSession): void {
+  safeWrite(KEYS.ACTIVE_SESSION, session);
+}
+
+export function clearActiveSession(): void {
+  localStorage.removeItem(KEYS.ACTIVE_SESSION);
+}
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+
+export function getTheme(): 'dark' | 'light' {
+  const stored = safeRead<'dark' | 'light' | null>(KEYS.THEME, null);
+  if (stored) return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+}
+
+export function setTheme(theme: 'dark' | 'light'): void {
+  safeWrite(KEYS.THEME, theme);
+}
+
+// ─── Program Cursors ──────────────────────────────────────────────────────────
+
+export function getProgramWeekCursor(programId: string): number {
+  const cursors = safeRead<Record<string, number>>(
+    KEYS.PROGRAM_WEEK_CURSOR,
+    {},
+  );
+  return cursors[programId] ?? 1;
+}
+
+export function setProgramWeekCursor(programId: string, week: number): void {
+  const cursors = safeRead<Record<string, number>>(
+    KEYS.PROGRAM_WEEK_CURSOR,
+    {},
+  );
+  cursors[programId] = week;
+  safeWrite(KEYS.PROGRAM_WEEK_CURSOR, cursors);
+}
+
+export function getProgramDayCursor(programId: string): number {
+  const cursors = safeRead<Record<string, number>>(KEYS.PROGRAM_DAY_CURSOR, {});
+  return cursors[programId] ?? 0;
+}
+
+export function setProgramDayCursor(programId: string, dayIdx: number): void {
+  const cursors = safeRead<Record<string, number>>(KEYS.PROGRAM_DAY_CURSOR, {});
+  cursors[programId] = dayIdx;
+  safeWrite(KEYS.PROGRAM_DAY_CURSOR, cursors);
+}
+
+export function resetProgramCursors(programId: string): void {
+  setProgramWeekCursor(programId, 1);
+  setProgramDayCursor(programId, 0);
+}
