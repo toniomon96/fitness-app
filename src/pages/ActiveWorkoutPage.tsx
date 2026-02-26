@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useRestTimer } from '../hooks/useRestTimer';
 import { programs } from '../data/programs';
+import { getCustomPrograms } from '../utils/localStorage';
 import { formatDuration } from '../utils/dateUtils';
 import type { WorkoutSession, PersonalRecord } from '../types';
 import { Plus, X, StopCircle } from 'lucide-react';
@@ -52,7 +53,7 @@ export function ActiveWorkoutPage() {
 
   if (!session) return null;
 
-  const program = programs.find((p) => p.id === session.programId);
+  const program = [...programs, ...getCustomPrograms()].find((p) => p.id === session.programId);
   const trainingDay = program?.schedule[session.trainingDayIndex];
 
   function handleComplete() {

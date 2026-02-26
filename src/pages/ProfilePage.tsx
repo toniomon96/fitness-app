@@ -1,0 +1,346 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useApp } from '../store/AppContext';
+import { useAuth } from '../contexts/AuthContext';
+import { setUser } from '../utils/localStorage';
+import type { Goal, ExperienceLevel } from '../types';
+import { AppShell } from '../components/layout/AppShell';
+import { TopBar } from '../components/layout/TopBar';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+
+const GOAL_LABELS: Record<Goal, string> = {
+  hypertrophy: 'Build Muscle',
+  'fat-loss': 'Lose Fat',
+  'general-fitness': 'General Fitness',
+};
+
+const LEVEL_LABELS: Record<ExperienceLevel, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+};
+
+export function ProfilePage() {
+  const { state, dispatch } = useApp();
+  const { user: authUser, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const currentUser = state.user!;
+  const [name, setName] = useState(currentUser.name);
+  const [goal, setGoal] = useState<Goal>(currentUser.goal);
+  const [level, setLevel] = useState<ExperienceLevel>(currentUser.experienceLevel);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    setSaveError('');
+    setSaved(false);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: name.trim(),
+          goal,
+          experience_level: level,
+        })
+        .eq('id', currentUser.id);
+
+      if (error) {
+        setSaveError(error.message);
+        return;
+      }
+
+      const updated = {
+        ...currentUser,
+        name: name.trim(),
+        goal,
+        experienceLevel: level,
+      };
+      setUser(updated);
+      dispatch({ type: 'SET_USER', payload: updated });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSignOut() {
+    await signOut();
+    navigate('/login', { replace: true });
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    setExportError('');
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch('/api/export-data', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!res.ok) {
+        setExportError('Export failed. Please try again.');
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `omnexus-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError('Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch('/api/delete-account', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!res.ok) {
+        setDeleteError('Failed to delete account. Please try again.');
+        return;
+      }
+
+      localStorage.clear();
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch {
+      setDeleteError('Failed to delete account. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const isDirty =
+    name.trim() !== currentUser.name ||
+    goal !== currentUser.goal ||
+    level !== currentUser.experienceLevel;
+
+  return (
+    <AppShell>
+      <TopBar title="Profile" showBack />
+
+      <div className="px-4 pb-6 space-y-4 mt-2">
+        {/* Avatar placeholder */}
+        <div className="flex justify-center pt-4 pb-2">
+          <div className="w-20 h-20 rounded-full bg-brand-500/20 border-2 border-brand-500/40 flex items-center justify-center">
+            <User size={36} className="text-brand-400" />
+          </div>
+        </div>
+
+        {/* Account info */}
+        {authUser?.email && (
+          <Card>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+              Account
+            </p>
+            <p className="text-sm text-slate-300">{authUser.email}</p>
+          </Card>
+        )}
+
+        {/* Edit profile */}
+        <Card>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+            Profile
+          </p>
+
+          <div className="space-y-4">
+            <Input
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Goal
+              </label>
+              <div className="relative">
+                <select
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value as Goal)}
+                  className="w-full appearance-none rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pr-8"
+                >
+                  {(Object.keys(GOAL_LABELS) as Goal[]).map((g) => (
+                    <option key={g} value={g}>
+                      {GOAL_LABELS[g]}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Experience Level
+              </label>
+              <div className="relative">
+                <select
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value as ExperienceLevel)}
+                  className="w-full appearance-none rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pr-8"
+                >
+                  {(Object.keys(LEVEL_LABELS) as ExperienceLevel[]).map((l) => (
+                    <option key={l} value={l}>
+                      {LEVEL_LABELS[l]}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
+            </div>
+
+            {saveError && (
+              <p className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
+                {saveError}
+              </p>
+            )}
+
+            <Button
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+              fullWidth
+              variant={saved ? 'success' : 'primary'}
+            >
+              <Save size={16} />
+              {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Data export */}
+        <Card>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+            Your Data
+          </p>
+          <p className="text-xs text-slate-500 mb-3">
+            Download a copy of all your workout history, personal records, and progress.
+          </p>
+          {exportError && (
+            <p className="text-xs text-red-400 mb-2">{exportError}</p>
+          )}
+          <Button
+            variant="ghost"
+            onClick={handleExport}
+            disabled={exporting}
+            fullWidth
+          >
+            <Download size={16} />
+            {exporting ? 'Preparing export…' : 'Export My Data'}
+          </Button>
+        </Card>
+
+        {/* Sign out */}
+        <Card>
+          <Button
+            variant="ghost"
+            onClick={handleSignOut}
+            fullWidth
+            className="text-red-400 hover:bg-red-900/20"
+          >
+            <LogOut size={16} />
+            Sign Out
+          </Button>
+        </Card>
+
+        {/* Danger zone */}
+        <Card>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={14} className="text-red-400 shrink-0" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-red-400">
+              Danger Zone
+            </p>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">
+            Permanently deletes your account and all associated data. This cannot be undone.
+          </p>
+
+          {deleteError && (
+            <p className="text-xs text-red-400 mb-2">{deleteError}</p>
+          )}
+
+          {!showDeleteConfirm ? (
+            <Button
+              variant="ghost"
+              onClick={() => setShowDeleteConfirm(true)}
+              fullWidth
+              className="text-red-400 hover:bg-red-900/20 border border-red-900/40"
+            >
+              <Trash2 size={16} />
+              Delete Account
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-red-300 font-medium text-center">
+                Are you sure? This will erase everything.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  fullWidth
+                  className="text-slate-400"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  fullWidth
+                  className="text-red-400 hover:bg-red-900/30 border border-red-700"
+                >
+                  <Trash2 size={14} />
+                  {deleting ? 'Deleting…' : 'Yes, Delete'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+    </AppShell>
+  );
+}

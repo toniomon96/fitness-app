@@ -6,7 +6,7 @@ import { DaySchedule } from '../components/programs/DaySchedule';
 import { GoalBadge, LevelBadge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
-import { setUser, resetProgramCursors } from '../utils/localStorage';
+import { setUser, resetProgramCursors, getCustomPrograms } from '../utils/localStorage';
 import { Calendar, Clock, CheckCircle2 } from 'lucide-react';
 
 export function ProgramDetailPage() {
@@ -14,7 +14,8 @@ export function ProgramDetailPage() {
   const { state, dispatch } = useApp();
   const navigate = useNavigate();
 
-  const program = programs.find((p) => p.id === programId);
+  const allPrograms = [...programs, ...getCustomPrograms()];
+  const program = allPrograms.find((p) => p.id === programId);
   if (!program) {
     return (
       <AppShell>

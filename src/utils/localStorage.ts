@@ -6,6 +6,7 @@ import type {
   LearningProgress,
   InsightSession,
   ArticleCache,
+  Program,
 } from '../types';
 
 const KEYS = {
@@ -20,6 +21,7 @@ const KEYS = {
   LEARNING_PROGRESS: 'omnexus_learning_progress',
   INSIGHT_SESSIONS: 'omnexus_insight_sessions',
   ARTICLE_CACHE: 'omnexus_article_cache',
+  CUSTOM_PROGRAMS: 'omnexus_custom_programs',
 } as const;
 
 function safeRead<T>(key: string, fallback: T): T {
@@ -195,4 +197,30 @@ export function getArticleCache(): ArticleCache {
 
 export function setArticleCache(cache: ArticleCache): void {
   safeWrite(KEYS.ARTICLE_CACHE, cache);
+}
+
+// ─── Custom Programs ──────────────────────────────────────────────────────────
+
+export function getCustomPrograms(): Program[] {
+  return safeRead<Program[]>(KEYS.CUSTOM_PROGRAMS, []);
+}
+
+export function setCustomPrograms(programs: Program[]): void {
+  safeWrite(KEYS.CUSTOM_PROGRAMS, programs);
+}
+
+export function saveCustomProgram(program: Program): void {
+  const existing = getCustomPrograms();
+  const idx = existing.findIndex((p) => p.id === program.id);
+  if (idx >= 0) {
+    existing[idx] = program;
+  } else {
+    existing.push(program);
+  }
+  safeWrite(KEYS.CUSTOM_PROGRAMS, existing);
+}
+
+export function deleteCustomProgram(id: string): void {
+  const existing = getCustomPrograms().filter((p) => p.id !== id);
+  safeWrite(KEYS.CUSTOM_PROGRAMS, existing);
 }

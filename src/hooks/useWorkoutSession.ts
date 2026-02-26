@@ -10,6 +10,7 @@ import {
 } from '../utils/localStorage';
 import { calculateTotalVolume, detectPersonalRecords } from '../utils/volumeUtils';
 import { advanceProgramCursor } from '../utils/programUtils';
+import { upsertSession, upsertPersonalRecords } from '../lib/db';
 
 export function useWorkoutSession() {
   const { state, dispatch } = useApp();
@@ -156,9 +157,20 @@ export function useWorkoutSession() {
       dispatch({ type: 'APPEND_SESSION', payload: completed });
       dispatch({ type: 'CLEAR_ACTIVE_SESSION' });
 
+      // Sync to Supabase (fire-and-forget — local state is already updated)
+      if (state.user) {
+        const userId = state.user.id;
+        Promise.all([
+          upsertSession(completed, userId),
+          upsertPersonalRecords(prs, userId),
+        ]).catch((err) =>
+          console.error('[useWorkoutSession] Supabase sync failed:', err),
+        );
+      }
+
       return { session: completed, prs };
     },
-    [state.activeSession, state.history, dispatch],
+    [state.activeSession, state.history, state.user, dispatch],
   );
 
   const discardWorkout = useCallback(() => {

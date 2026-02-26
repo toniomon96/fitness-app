@@ -1,0 +1,93 @@
+import { useEffect, useRef, useState } from 'react';
+import { useApp } from '../store/AppContext';
+import { supabase } from '../lib/supabase';
+import { getFriendFeed } from '../lib/db';
+import type { FeedSession } from '../types';
+import { AppShell } from '../components/layout/AppShell';
+import { TopBar } from '../components/layout/TopBar';
+import { CommunityTabs } from '../components/community/CommunityTabs';
+import { ActivityItem } from '../components/community/ActivityItem';
+import { Users } from 'lucide-react';
+
+export function ActivityFeedPage() {
+  const { state } = useApp();
+  const userId = state.user?.id ?? '';
+
+  const [feed, setFeed] = useState<FeedSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const data = await getFriendFeed(userId);
+        if (!cancelled) setFeed(data);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    // Realtime: prepend new sessions from any user who is a friend
+    channelRef.current = supabase
+      .channel('feed_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'workout_sessions',
+        },
+        (_payload) => {
+          // Reload the feed so we get the friend's name too
+          getFriendFeed(userId).then((data) => {
+            if (!cancelled) setFeed(data);
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      channelRef.current?.unsubscribe();
+    };
+  }, [userId]);
+
+  return (
+    <AppShell>
+      <TopBar title="Community" />
+      <CommunityTabs />
+
+      <div className="px-4 pb-6 mt-2">
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-700 border-t-brand-500" />
+          </div>
+        )}
+
+        {!loading && feed.length === 0 && (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center">
+              <Users size={26} className="text-slate-400" />
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs">
+              No activity yet. Add friends to see their workouts here in real time.
+            </p>
+          </div>
+        )}
+
+        {!loading && feed.length > 0 && (
+          <div className="mt-2">
+            {feed.map((item) => (
+              <ActivityItem key={item.sessionId} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}

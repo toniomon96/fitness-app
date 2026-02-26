@@ -2,35 +2,105 @@
 
 ## Overview
 
-Omnexus is a **mobile-first SPA** with no traditional backend. All user data lives in `localStorage`. AI features are proxied through Vercel serverless functions to keep the API key server-side.
+Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Realtime) and deployed on **Vercel** (static frontend + serverless API functions). The browser talks to Supabase directly for data and to Vercel functions for AI/PubMed features that require server-side API keys.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        Browser                          │
-│                                                         │
-│   React 19 SPA  ←→  localStorage (all user data)       │
-│        │                                                │
-│        │  fetch()                                       │
-└────────┼────────────────────────────────────────────────┘
-         │ HTTPS
-┌────────┼────────────────────────────────────────────────┐
-│        │         Vercel Edge                            │
-│        │                                                │
-│   ┌────▼──────┐   ┌─────────────┐   ┌───────────────┐  │
-│   │ /api/ask  │   │/api/insights│   │/api/articles  │  │
-│   └────┬──────┘   └──────┬──────┘   └───────┬───────┘  │
-│        │                 │                   │          │
-└────────┼─────────────────┼───────────────────┼──────────┘
-         │                 │                   │
-    ┌────▼─────────────────▼┐          ┌───────▼────────┐
-    │   Anthropic Claude    │          │  PubMed NCBI   │
-    │  claude-sonnet-4-6    │          │  E-utilities   │
-    └───────────────────────┘          └────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                              Browser                                 │
+│                                                                      │
+│  React 19 SPA  ←──────────────────────────────────────────────────  │
+│       │                                                              │
+│       │  @supabase/supabase-js (anon key)                           │
+│       ├──────────────────────────────────────────────────────────►  │
+│       │                                                   Supabase   │
+│       │  fetch() /api/* with Bearer JWT                             │
+│       │                                                              │
+└───────┼──────────────────────────────────────────────────────────────┘
+        │ HTTPS
+┌───────┼──────────────────────────────────────────────────────────────┐
+│       │                    Vercel Edge                               │
+│       │                                                              │
+│  ┌────▼──────┐  ┌──────────────┐  ┌───────────┐  ┌──────────────┐  │
+│  │ /api/ask  │  │/api/insights │  │/api/articles│  │/api/setup-  │  │
+│  │           │  │              │  │             │  │ profile      │  │
+│  └────┬──────┘  └──────┬───────┘  └──────┬─────┘  └──────┬───────┘  │
+│       │                │                 │                │          │
+│  ┌────▼──────────────────▼┐         ┌────▼────┐    ┌──────▼───────┐  │
+│  │   Anthropic Claude     │         │ PubMed  │    │   Supabase   │  │
+│  │   claude-sonnet-4-6    │         │  NCBI   │    │  Admin SDK   │  │
+│  └───────────────────────┘         └─────────┘    └──────────────┘  │
+│                                                                      │
+│  ┌────────────────────┐   ┌──────────────────────┐                  │
+│  │ /api/export-data   │   │ /api/delete-account  │                  │
+│  │ (GET, Bearer JWT)  │   │ (DELETE, Bearer JWT) │                  │
+│  └────────┬───────────┘   └──────────┬───────────┘                  │
+│           └──────────────────────────┘                               │
+│                          Supabase Admin SDK                          │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼──────────────────────────────────┐
+│                            Supabase                                  │
+│                                                                      │
+│   Auth (email+password)     PostgreSQL (RLS enabled)                 │
+│   ├── supabase.auth.*       ├── profiles                            │
+│   └── onAuthStateChange     ├── workout_sessions                    │
+│                             ├── personal_records                    │
+│   Realtime                  ├── learning_progress                   │
+│   ├── workout_sessions      ├── custom_programs                     │
+│   └── challenge_participants├── friendships                         │
+│                             ├── challenges                           │
+│                             └── challenge_participants              │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Request Flow
+## Auth Flow
+
+```
+New user:
+  /onboarding  →  supabase.auth.signUp()  →  POST /api/setup-profile (admin insert)
+               →  if email confirmation ON: show "check email" message
+               →  if email confirmation OFF: dispatch SET_USER → navigate to /
+
+Returning user:
+  /login  →  supabase.auth.signInWithPassword()  →  fetch profiles  →  dispatch SET_USER  →  /
+
+Cross-device login:
+  session restored by onAuthStateChange  →  AuthGuard.hydrate()
+  → fetch profile from Supabase → setUser(localStorage) → dispatch SET_USER
+  → fetch history + learning + customPrograms → dispatch SET_HISTORY / SET_LEARNING_PROGRESS
+  → setCustomPrograms(localStorage)
+
+Sign out:
+  signOut()  →  onAuthStateChange(null)  →  AuthGuard dispatches CLEAR_USER  →  /login
+```
+
+---
+
+## Data Hydration Pattern
+
+```
+App init (AppProvider):
+  localStorage → initialState (optimistic, shows data immediately if cached)
+
+onAuthStateChange → session present:
+  AuthGuard.hydrate() fires once per session (hydratedRef prevents re-runs on navigation)
+  ├── runMigrationIfNeeded()   one-time: old localStorage data → Supabase
+  ├── db.fetchHistory()        → dispatch SET_HISTORY
+  ├── db.fetchLearningProgress() → dispatch SET_LEARNING_PROGRESS
+  └── db.fetchCustomPrograms() → setCustomPrograms(localStorage)
+
+On every workout complete:
+  completeWorkout() → localStorage (instant) + upsertSession() fire-and-forget
+
+On every learning action:
+  AppContext reducer → localStorage (instant) + upsertLearningProgress() (useEffect, fire-and-forget)
+```
+
+---
+
+## Request Flows
 
 ### AI Q&A (`/ask` page)
 
@@ -68,14 +138,12 @@ claudeService.ts ──→ POST /api/insights ──→ Anthropic API
                                              claude-sonnet-4-6
                                                    │
                                             ←── insight (markdown)
-       │
-MarkdownText.tsx renders insight
 ```
 
-### Research Feed (`/insights` page)
+### Research Feed
 
 ```
-ArticleFeed mounts (initialCategory from user.goal)
+ArticleFeed mounts
        │
 pubmedService.ts
   fetchArticlesByCategory()
@@ -89,58 +157,112 @@ pubmedService.ts
                          └── PubMed efetch   (get abstracts, XML)
                               │
                          ←── HealthArticle[]
+```
+
+### Community: Activity Feed (Realtime)
+
+```
+ActivityFeedPage mounts
        │
-setArticleCache() → localStorage [omnexus_article_cache]
+getFriendFeed(userId) → initial load
        │
-ArticleCard.tsx renders each article
+supabase.channel('feed_realtime')
+  .on('postgres_changes', INSERT, 'workout_sessions')
+  → getFriendFeed() reload on new insert
+       │
+ActivityItem.tsx renders each session
+```
+
+### GDPR: Data Export
+
+```
+ProfilePage → "Export My Data"
+       │
+supabase.auth.getSession() → access_token
+       │
+GET /api/export-data  Authorization: Bearer <token>
+       │
+api/export-data.ts
+  supabaseAdmin.auth.getUser(token)  → verify JWT
+  Promise.all([profiles, sessions, PRs, learning, programs])
+       │
+  ←── JSON attachment: omnexus-data-YYYY-MM-DD.json
+```
+
+### GDPR: Account Deletion
+
+```
+ProfilePage → "Delete Account" → confirm
+       │
+DELETE /api/delete-account  Authorization: Bearer <token>
+       │
+api/delete-account.ts
+  verify JWT
+  delete: challenge_participants, friendships, personal_records,
+          workout_sessions, learning_progress, custom_programs,
+          challenges (created_by), profiles
+  supabaseAdmin.auth.admin.deleteUser(userId)
+       │
+  ←── 200 ok
+       │
+client: localStorage.clear() → signOut() → /login
 ```
 
 ---
 
 ## State Management
 
-Global state is managed with **Context API + `useReducer`** in [`src/store/AppContext.tsx`](../src/store/AppContext.tsx). All state changes go through typed actions.
+Global state is managed with **Context API + `useReducer`** in [`src/store/AppContext.tsx`](../src/store/AppContext.tsx).
 
 ```
 AppContext (AppProvider wraps entire app)
 │
-├── state.user              User profile + goal + experience level
+├── state.user              User profile (null until authenticated)
 ├── state.history           WorkoutSession[] + PersonalRecord[]
 ├── state.learningProgress  completedLessons/modules/courses, quizScores
-└── state.activeSession     In-progress workout (null when idle)
+├── state.activeSession     In-progress workout (null when idle)
+└── state.theme             "dark" | "light"
 
 Dispatch actions:
-  SET_USER | UPDATE_USER
-  START_SESSION | UPDATE_SESSION | COMPLETE_SESSION | CLEAR_SESSION
+  SET_USER | CLEAR_USER
+  SET_ACTIVE_SESSION | UPDATE_ACTIVE_SESSION | CLEAR_ACTIVE_SESSION
+  APPEND_SESSION | SET_HISTORY
+  TOGGLE_THEME | SET_THEME
+  SET_LEARNING_PROGRESS
   COMPLETE_LESSON | COMPLETE_MODULE | COMPLETE_COURSE | RECORD_QUIZ_ATTEMPT
 ```
-
-State is **hydrated from localStorage on mount** and **written back on every relevant action**.
 
 ---
 
 ## Routing
 
-All routes are protected by `AuthGuard` (redirects to `/onboarding` if no user). The onboarding route is protected by `OnboardingGuard` (redirects to `/` if user already exists).
-
 ```
-/onboarding              OnboardingPage      (public)
-/                        DashboardPage       (auth)
-/programs                ProgramsPage        (auth)
-/programs/:programId     ProgramDetailPage   (auth)
-/library                 ExerciseLibraryPage (auth)
-/library/:exerciseId     ExerciseDetailPage  (auth)
-/workout/active          ActiveWorkoutPage   (auth)
-/history                 HistoryPage         (auth)
-/learn                   LearnPage           (auth)
-/learn/:courseId         CourseDetailPage    (auth)
-/learn/:courseId/:moduleId  LessonPage       (auth)
-/insights                InsightsPage        (auth)
-/ask                     AskPage             (auth)
-*                        → /                 (redirect)
+/ (RootLayout — renders CookieConsent globally)
+├── /onboarding          OnboardingGuard → OnboardingPage     (public; redirect → / if session)
+├── /login               LoginGuard → LoginPage               (public; redirect → / if session)
+├── /privacy             PrivacyPolicyPage                    (public)
+└── AuthGuard (requires session + state.user)
+    ├── /                DashboardPage
+    ├── /profile         ProfilePage
+    ├── /programs        ProgramsPage
+    ├── /programs/builder ProgramBuilderPage
+    ├── /programs/:id    ProgramDetailPage
+    ├── /library         ExerciseLibraryPage
+    ├── /library/:id     ExerciseDetailPage
+    ├── /workout/active  ActiveWorkoutPage
+    ├── /history         HistoryPage
+    ├── /learn           LearnPage
+    ├── /learn/:courseId CourseDetailPage
+    ├── /learn/:courseId/:moduleId  LessonPage
+    ├── /insights        InsightsPage
+    ├── /ask             AskPage
+    ├── /feed            ActivityFeedPage   (Community)
+    ├── /friends         FriendsPage        (Community)
+    ├── /leaderboard     LeaderboardPage    (Community)
+    └── /challenges      ChallengesPage     (Community)
 ```
 
-Bottom navigation: **Home · Learn · Insights · Library · History**
+Bottom navigation: **Home · Learn · Insights · Library · History · Community**
 
 ---
 
@@ -148,27 +270,33 @@ Bottom navigation: **Home · Learn · Insights · Library · History**
 
 ```
 App
-└── AppProvider (global state)
-    └── RouterProvider
-        ├── OnboardingGuard → OnboardingPage
-        └── AuthGuard
-            └── AppShell
-                ├── TopBar
-                ├── <page content>          (outlet)
-                └── BottomNav
+└── ErrorBoundary
+    └── AuthProvider (Supabase onAuthStateChange)
+        └── AppProvider (global state + useReducer)
+            └── RouterProvider
+                └── RootLayout (renders <CookieConsent /> globally)
+                    ├── OnboardingGuard → OnboardingPage
+                    ├── LoginGuard → LoginPage
+                    ├── PrivacyPolicyPage
+                    └── AuthGuard (session check + Supabase hydration)
+                        └── AppShell
+                            ├── TopBar
+                            ├── <page content>   (Outlet)
+                            └── BottomNav (6 tabs, evenly distributed)
 ```
 
 Key shared UI primitives (all in `src/components/ui/`):
 
 | Component | Purpose |
 |---|---|
-| `Button` | Primary / secondary / ghost variants |
+| `Button` | Primary / secondary / ghost / success variants |
 | `Card` | Surface container with optional padding |
 | `Badge` | Pill labels |
-| `Input` | Controlled text input |
+| `Input` | Controlled text input with label + error |
 | `Modal` | Portal-based overlay |
 | `EmptyState` | Zero-state placeholder |
 | `MarkdownText` | Renders AI markdown (bold, bullets, numbered lists) |
+| `CookieConsent` | Fixed bottom banner, persists accept/decline to `localStorage` |
 
 ---
 
@@ -177,92 +305,198 @@ Key shared UI primitives (all in `src/components/ui/`):
 ### Core Entities
 
 ```
-User
-├── id, name, theme
+User (localStorage + Supabase profiles)
+├── id: uuid
+├── name, theme
 ├── goal: "hypertrophy" | "fat-loss" | "general-fitness"
 ├── experienceLevel: "beginner" | "intermediate" | "advanced"
-└── activeProgramId
+└── activeProgramId: string | undefined
 
-WorkoutSession
-├── id, programId, trainingDayIndex
+WorkoutSession (Supabase workout_sessions)
+├── id: uuid, programId, trainingDayIndex
 ├── startedAt, completedAt, durationSeconds
 ├── exercises: LoggedExercise[]
-└── totalVolumeKg
+└── totalVolumeKg: number
 
 LoggedExercise
 ├── exerciseId
 └── sets: LoggedSet[]
     ├── setNumber, weight, reps, completed
     ├── isPersonalRecord
+    ├── rpe?: number        (1–10, optional)
     └── timestamp
+
+PersonalRecord (Supabase personal_records)
+├── exerciseId, weight, reps
+├── achievedAt, sessionId
+└── unique per (user_id, exercise_id)
 ```
 
 ### Learning System
 
 ```
-Course
-├── id, title, description, coverEmoji
-├── category: LearningCategory
-├── difficulty: ExperienceLevel
-├── relatedGoals: Goal[]
-└── modules: CourseModule[]
-    └── lessons: Lesson[]
-        ├── content (Markdown prose)
-        ├── keyPoints: string[]
-        └── references: ContentReference[]
-    └── quiz?: Quiz
-        └── questions: QuizQuestion[]
-
-LearningProgress (localStorage)
+LearningProgress (localStorage + Supabase learning_progress)
 ├── completedLessons: string[]
 ├── completedModules: string[]
 ├── completedCourses: string[]
-└── quizScores: Record<moduleId, QuizAttempt>
+├── quizScores: Record<moduleId, QuizAttempt>
+└── lastActivityAt: ISO string
 ```
 
-### AI & Articles
+### Community
 
 ```
-InsightSession (localStorage, last 50)
-├── id, category, createdAt
-└── messages: InsightMessage[]
-    ├── role: "user" | "assistant"
-    └── content: string
+Friendship (Supabase friendships)
+├── id, requester_id, addressee_id
+├── status: "pending" | "accepted" | "blocked"
+└── created_at
 
-HealthArticle (localStorage cache, 6 h TTL)
-├── id (PubMed PMID)
-├── title, summary, source, sourceUrl
-├── publishedDate, category
-└── cachedAt
+Challenge (Supabase challenges)
+├── id, created_by, name, description
+├── type: "volume" | "streak" | "sessions"
+├── targetValue, startDate, endDate
+└── is_public
 
-ArticleCache
-├── articles: HealthArticle[]
-└── lastFetchedAt: Record<LearningCategory, ISO string>
+ChallengeParticipant (Supabase challenge_participants)
+├── challenge_id, user_id
+├── progress: number
+└── joined_at
 ```
 
 ---
 
-## localStorage Layout
+## Supabase Schema
 
+Run these in the Supabase SQL editor in order.
+
+### Phase 2 — Profiles
+
+```sql
+create table profiles (
+  id uuid references auth.users primary key,
+  name text not null,
+  goal text not null,
+  experience_level text not null,
+  active_program_id text,
+  avatar_url text,
+  is_public bool default true,
+  created_at timestamptz default now()
+);
+alter table profiles enable row level security;
+create policy "Users manage own profile" on profiles
+  using (auth.uid() = id) with check (auth.uid() = id);
+create policy "Public profiles visible to authenticated users" on profiles
+  for select using (is_public = true and auth.role() = 'authenticated');
 ```
-fit_user                      → User
-fit_history                   → WorkoutHistory { sessions[], personalRecords[] }
-fit_active_session            → WorkoutSession | null
-fit_theme                     → "dark" | "light"
-fit_program_week_cursor       → Record<programId, number>
-fit_program_day_cursor        → Record<programId, number>
-omnexus_learning_progress     → LearningProgress
-omnexus_insight_sessions      → InsightSession[] (max 50)
-omnexus_article_cache         → ArticleCache
+
+### Phase 3 — Cloud Sync
+
+```sql
+create table workout_sessions (
+  id uuid primary key,
+  user_id uuid references profiles not null,
+  program_id text not null,
+  training_day_index int not null,
+  started_at timestamptz not null,
+  completed_at timestamptz,
+  duration_seconds int,
+  exercises jsonb not null default '[]',
+  total_volume_kg numeric,
+  notes text
+);
+alter table workout_sessions enable row level security;
+create policy "Users manage own sessions" on workout_sessions
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table personal_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles not null,
+  exercise_id text not null,
+  weight numeric not null,
+  reps int not null,
+  achieved_at timestamptz not null,
+  session_id uuid,
+  unique (user_id, exercise_id)
+);
+alter table personal_records enable row level security;
+create policy "Users manage own PRs" on personal_records
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table custom_programs (
+  id uuid primary key,
+  user_id uuid references profiles not null,
+  data jsonb not null,
+  created_at timestamptz default now()
+);
+alter table custom_programs enable row level security;
+create policy "Users manage own programs" on custom_programs
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table learning_progress (
+  user_id uuid references profiles primary key,
+  completed_lessons text[] default '{}',
+  completed_modules text[] default '{}',
+  completed_courses text[] default '{}',
+  quiz_scores jsonb default '{}',
+  last_activity_at timestamptz
+);
+alter table learning_progress enable row level security;
+create policy "Users manage own progress" on learning_progress
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+### Phase 5 — Community
+
+```sql
+create table friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid references profiles not null,
+  addressee_id uuid references profiles not null,
+  status text check (status in ('pending', 'accepted', 'blocked')) default 'pending',
+  created_at timestamptz default now(),
+  unique (requester_id, addressee_id)
+);
+alter table friendships enable row level security;
+create policy "Users see own friendships" on friendships
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+create policy "Users manage requests they sent" on friendships
+  with check (auth.uid() = requester_id);
+
+create table challenges (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references profiles not null,
+  name text not null,
+  description text,
+  type text check (type in ('volume', 'streak', 'sessions')) not null,
+  target_value numeric,
+  start_date date not null,
+  end_date date not null,
+  is_public bool default true,
+  created_at timestamptz default now()
+);
+alter table challenges enable row level security;
+create policy "Public challenges readable" on challenges for select using (is_public = true);
+create policy "Creators manage own challenges" on challenges
+  using (auth.uid() = created_by) with check (auth.uid() = created_by);
+
+create table challenge_participants (
+  challenge_id uuid references challenges not null,
+  user_id uuid references profiles not null,
+  progress numeric default 0,
+  joined_at timestamptz default now(),
+  primary key (challenge_id, user_id)
+);
+alter table challenge_participants enable row level security;
+create policy "Participants visible" on challenge_participants for select using (true);
+create policy "Users manage own participation" on challenge_participants
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
 ---
 
 ## Personalization Logic
 
-### Course Recommendations (Dashboard)
-
-Courses are scored and ranked for each user:
+### Course Recommendations
 
 ```
 score = 0
@@ -274,15 +508,30 @@ if course.difficulty === user.experienceLevel      → +1
 
 ### Article Feed Default Category
 
-The article feed opens on the category most relevant to the user's goal:
-
 ```
-hypertrophy    → strength-training
-fat-loss       → nutrition
+hypertrophy     → strength-training
+fat-loss        → nutrition
 general-fitness → strength-training
 ```
 
-The user can switch tabs freely at any time.
+---
+
+## Phase Roadmap
+
+| Phase | Feature | Status |
+|---|---|---|
+| 1 | Rebrand + Navigation (Omnexus branding) | ✅ |
+| 2 | Learning System (courses, quizzes, progress) | ✅ |
+| 3 | Vercel Setup + Serverless scaffolding | ✅ |
+| 4 | Ask Omnexus (Claude Q&A) | ✅ |
+| 5 | AI Insights (workout analysis) | ✅ |
+| 6 | Health Articles (PubMed feed) | ✅ |
+| 7 | Personalization (recommendations) | ✅ |
+| 8 | Training Depth (RPE, progression chart, program builder, CI) | ✅ |
+| Phase 2 (prod) | Supabase Auth (email+password, profile management) | ✅ |
+| Phase 3 (prod) | Cloud Data Sync (Supabase source of truth, migration) | ✅ |
+| Phase 5 (prod) | Community (friends, leaderboard, challenges, feed) | ✅ |
+| Phase 6 (prod) | GDPR (cookie consent, privacy policy, export, deletion) | ✅ |
 
 ---
 
@@ -292,29 +541,13 @@ The user can switch tabs freely at any time.
 // vercel.json
 {
   "routes": [
-    { "src": "^/api/(.*)", "dest": "/api/$1" },       // serverless functions
-    { "src": "^/@(.*)",    "dest": "/@$1" },           // Vite HMR internals
-    { "src": "^/src/(.*)", "dest": "/src/$1" },        // source modules (dev)
-    { "src": "^/node_modules/(.*)", "dest": "/node_modules/$1" }, // deps (dev)
-    { "src": "/(.*)",      "dest": "/index.html" }    // SPA fallback
+    { "src": "^/api/(.*)", "dest": "/api/$1" },
+    { "src": "^/@(.*)",    "dest": "/@$1" },
+    { "src": "^/src/(.*)", "dest": "/src/$1" },
+    { "src": "^/node_modules/(.*)", "dest": "/node_modules/$1" },
+    { "src": "/(.*)",      "dest": "/index.html" }
   ]
 }
 ```
 
-The first four routes prevent Vite's internal module requests from being swallowed by the SPA fallback during `vercel dev`. In production, static assets are served directly by Vercel's CDN before routes are evaluated.
-
----
-
-## Feature Roadmap
-
-All 7 phases shipped:
-
-| Phase | Feature | Status |
-|---|---|---|
-| 1 | Rebrand + Navigation | ✅ |
-| 2 | Learning System (courses, quizzes, progress) | ✅ |
-| 3 | Vercel Setup + Serverless scaffolding | ✅ |
-| 4 | Ask Omnexus (Claude Q&A) | ✅ |
-| 5 | AI Insights (workout analysis) | ✅ |
-| 6 | Health Articles (PubMed feed) | ✅ |
-| 7 | Personalization (recommendations) | ✅ |
+The first four routes prevent Vite's internal module requests from being swallowed by the SPA fallback during `vercel dev`. In production, static assets are served directly by Vercel's CDN.

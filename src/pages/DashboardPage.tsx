@@ -11,19 +11,22 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { getNextWorkout } from '../utils/programUtils';
-import { getProgramWeekCursor } from '../utils/localStorage';
+import { getProgramWeekCursor, getCustomPrograms } from '../utils/localStorage';
 import { calculateStreak, getWeekStart } from '../utils/dateUtils';
-import { Play, AlertCircle } from 'lucide-react';
+import { Play, AlertCircle, UserCircle } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { CourseRecommendations } from '../components/learn/CourseRecommendations';
 
 export function DashboardPage() {
   const { state } = useApp();
   const navigate = useNavigate();
-  const { session: activeSession } = useWorkoutSession();
-  const user = state.user!;
 
-  const program = programs.find((p) => p.id === user.activeProgramId);
+  const { session: activeSession } = useWorkoutSession();
+  const user = state.user;
+  if (!user) return null;
+
+  const allPrograms = [...programs, ...getCustomPrograms()];
+  const program = allPrograms.find((p) => p.id === user.activeProgramId);
   const nextWorkout = program ? getNextWorkout(program) : null;
   const week = program ? getProgramWeekCursor(program.id) : 1;
 
@@ -38,7 +41,18 @@ export function DashboardPage() {
     <AppShell>
       <TopBar
         title="Omnexus"
-        right={<ThemeToggle />}
+        right={
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Profile"
+            >
+              <UserCircle size={22} />
+            </button>
+          </div>
+        }
       />
       <div className="px-4 pb-6 space-y-4 mt-2">
         <WelcomeBanner user={user} />

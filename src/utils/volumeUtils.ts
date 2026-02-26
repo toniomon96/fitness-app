@@ -19,7 +19,7 @@ export function calculateTotalVolume(session: WorkoutSession): number {
 }
 
 /** Epley 1RM estimate */
-function estimate1RM(weight: number, reps: number): number {
+export function estimate1RM(weight: number, reps: number): number {
   if (reps === 1) return weight;
   return weight * (1 + reps / 30);
 }
@@ -66,6 +66,48 @@ export function detectPersonalRecords(
   }
 
   return newPRs;
+}
+
+export interface ExerciseDataPoint {
+  date: string;
+  maxWeightKg: number;
+  estimated1RM: number;
+  totalSets: number;
+}
+
+export function getExerciseProgressionData(
+  exerciseId: string,
+  history: WorkoutHistory,
+  maxPoints = 12,
+): ExerciseDataPoint[] {
+  const relevantSessions = history.sessions
+    .filter((s) =>
+      s.completedAt && s.exercises.some((e) => e.exerciseId === exerciseId),
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.completedAt!).getTime() - new Date(b.completedAt!).getTime(),
+    )
+    .slice(-maxPoints);
+
+  return relevantSessions.map((s) => {
+    const loggedEx = s.exercises.find((e) => e.exerciseId === exerciseId)!;
+    const completedSets = loggedEx.sets.filter((set) => set.completed && set.weight > 0);
+    const maxWeight = completedSets.reduce(
+      (max, set) => Math.max(max, set.weight),
+      0,
+    );
+    const best1RM = completedSets.reduce(
+      (max, set) => Math.max(max, estimate1RM(set.weight, set.reps)),
+      0,
+    );
+    return {
+      date: s.completedAt!,
+      maxWeightKg: maxWeight,
+      estimated1RM: Math.round(best1RM * 10) / 10,
+      totalSets: completedSets.length,
+    };
+  });
 }
 
 export function getWeeklyVolumeByMuscle(

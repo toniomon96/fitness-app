@@ -96,6 +96,8 @@ export interface Program {
   estimatedDurationWeeks: number;
   schedule: TrainingDay[];
   tags: string[];
+  isCustom?: boolean;
+  createdAt?: string;
 }
 
 // ─── Active Workout Session ───────────────────────────────────────────────────
@@ -106,6 +108,7 @@ export interface LoggedSet {
   reps: number;
   completed: boolean;
   isPersonalRecord?: boolean;
+  rpe?: number;
   timestamp: string;
 }
 
@@ -263,4 +266,52 @@ export interface HealthArticle {
 export interface ArticleCache {
   articles: HealthArticle[];
   lastFetchedAt: Partial<Record<LearningCategory, string>>;
+}
+
+// ─── Community ────────────────────────────────────────────────────────────────
+
+export interface FriendProfile {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+export interface FriendshipWithProfile {
+  id: string;
+  status: 'pending' | 'accepted' | 'blocked';
+  direction: 'sent' | 'received';
+  friend: FriendProfile;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  weeklyVolumeKg: number;
+  isCurrentUser: boolean;
+}
+
+export interface Challenge {
+  id: string;
+  createdBy: string;
+  name: string;
+  description: string | null;
+  type: 'volume' | 'streak' | 'sessions';
+  targetValue: number | null;
+  startDate: string;
+  endDate: string;
+  isPublic: boolean;
+  participantCount: number;
+  userProgress: number | null;
+  isJoined: boolean;
+}
+
+export interface FeedSession {
+  sessionId: string;
+  userId: string;
+  userName: string;
+  programId: string;
+  startedAt: string;
+  completedAt?: string;
+  totalVolumeKg: number;
+  durationSeconds?: number;
 }

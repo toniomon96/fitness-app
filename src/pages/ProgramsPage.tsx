@@ -1,10 +1,15 @@
-import { useState } from 'react';
-import type { Goal } from '../types';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { Goal, Program } from '../types';
 import { useApp } from '../store/AppContext';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { ProgramCard } from '../components/programs/ProgramCard';
-import { programs } from '../data/programs';
+import { Card } from '../components/ui/Card';
+import { programs as builtInPrograms } from '../data/programs';
+import { getCustomPrograms, deleteCustomProgram } from '../utils/localStorage';
+import { deleteCustomProgramDb } from '../lib/db';
+import { Plus, Trash2 } from 'lucide-react';
 
 const GOAL_TABS: { value: Goal | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -15,14 +20,40 @@ const GOAL_TABS: { value: Goal | 'all'; label: string }[] = [
 
 export function ProgramsPage() {
   const { state } = useApp();
+  const navigate = useNavigate();
   const [activeGoal, setActiveGoal] = useState<Goal | 'all'>('all');
+  const [customPrograms, setCustomPrograms] = useState<Program[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCustomPrograms(getCustomPrograms());
+  }, []);
 
   const filtered =
     activeGoal === 'all'
-      ? programs
-      : programs.filter((p) => p.goal === activeGoal);
+      ? builtInPrograms
+      : builtInPrograms.filter((p) => p.goal === activeGoal);
+
+  const filteredCustom =
+    activeGoal === 'all'
+      ? customPrograms
+      : customPrograms.filter((p) => p.goal === activeGoal);
 
   const activeProgramId = state.user?.activeProgramId;
+
+  function handleDelete(id: string) {
+    if (deleteConfirm !== id) {
+      setDeleteConfirm(id);
+      return;
+    }
+    deleteCustomProgram(id);
+    setCustomPrograms(getCustomPrograms());
+    setDeleteConfirm(null);
+    // Sync to Supabase (fire-and-forget)
+    deleteCustomProgramDb(id).catch((err) =>
+      console.error('[ProgramsPage] Supabase delete failed:', err),
+    );
+  }
 
   return (
     <AppShell>
@@ -46,6 +77,78 @@ export function ProgramsPage() {
           ))}
         </div>
 
+        {/* My Programs */}
+        {customPrograms.length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                My Programs
+              </h2>
+              <button
+                onClick={() => navigate('/programs/builder')}
+                className="flex items-center gap-1 text-sm text-brand-500 font-medium"
+              >
+                <Plus size={14} />
+                New
+              </button>
+            </div>
+            <div className="space-y-3">
+              {filteredCustom.map((p) => (
+                <div key={p.id} className="relative">
+                  <ProgramCard program={p} isActive={p.id === activeProgramId} />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
+                    className={[
+                      'absolute top-3 right-10 flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors',
+                      deleteConfirm === p.id
+                        ? 'bg-red-500 text-white'
+                        : 'text-slate-400 hover:text-red-500',
+                    ].join(' ')}
+                    title={deleteConfirm === p.id ? 'Tap again to confirm delete' : 'Delete program'}
+                  >
+                    <Trash2 size={12} />
+                    {deleteConfirm === p.id && <span>Delete?</span>}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Create button (when no custom programs) */}
+        {customPrograms.length === 0 && (
+          <Card
+            hover
+            onClick={() => navigate('/programs/builder')}
+            className="mb-5 border-2 border-dashed border-brand-200 dark:border-brand-800/40 bg-brand-50/30 dark:bg-brand-900/10"
+          >
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 dark:bg-brand-900/30">
+                <Plus size={18} className="text-brand-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-slate-800 dark:text-white">Build a Custom Program</p>
+                <p className="text-xs text-slate-400 mt-0.5">Create a program tailored to your needs</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Built-in programs */}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Built-in Programs
+          </h2>
+          {customPrograms.length > 0 && (
+            <button
+              onClick={() => navigate('/programs/builder')}
+              className="flex items-center gap-1 text-sm text-brand-500 font-medium"
+            >
+              <Plus size={14} />
+              New
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
           {filtered.map((p) => (
             <ProgramCard

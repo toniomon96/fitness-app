@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
+  "devCommand": "npx vite --port $PORT",
   "outputDirectory": "dist",
   "routes": [
     { "src": "^/api/(.*)", "dest": "/api/$1" },

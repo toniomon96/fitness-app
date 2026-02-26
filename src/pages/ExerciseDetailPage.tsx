@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { MarkdownText } from '../components/ui/MarkdownText';
 import { getExerciseById } from '../data/exercises';
-import { CheckCircle2 } from 'lucide-react';
+import { useApp } from '../store/AppContext';
+import { getExerciseProgressionData } from '../utils/volumeUtils';
+import { ExerciseProgressChart } from '../components/exercise-library/ExerciseProgressChart';
+import { askOmnexus } from '../services/claudeService';
+import { CheckCircle2, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
 
 const equipEmoji: Record<string, string> = {
   barbell: '🏋️',
@@ -20,6 +27,11 @@ const equipEmoji: Record<string, string> = {
 export function ExerciseDetailPage() {
   const { exerciseId } = useParams<{ exerciseId: string }>();
   const exercise = getExerciseById(exerciseId ?? '');
+  const { state } = useApp();
+
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   if (!exercise) {
     return (
@@ -30,6 +42,39 @@ export function ExerciseDetailPage() {
         </div>
       </AppShell>
     );
+  }
+
+  const progressionData = getExerciseProgressionData(exercise.id, state.history);
+
+  async function handleAiSuggestion() {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const recentSummary =
+        progressionData.length === 0
+          ? 'No sessions logged yet.'
+          : progressionData
+              .slice(-5)
+              .map(
+                (pt) =>
+                  `${new Date(pt.date).toLocaleDateString()}: max ${pt.maxWeightKg}kg, est. 1RM ${pt.estimated1RM.toFixed(1)}kg (${pt.totalSets} sets)`,
+              )
+              .join('\n');
+
+      const question = `Based on my recent ${exercise.name} history:\n${recentSummary}\n\nWhat weight should I target in my next session for optimal progressive overload? Be specific.`;
+
+      const res = await askOmnexus({
+        question,
+        userContext: state.user
+          ? { goal: state.user.goal, experienceLevel: state.user.experienceLevel }
+          : undefined,
+      });
+      setAiSuggestion(res.answer);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Request failed. Try again.');
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   return (
@@ -79,6 +124,56 @@ export function ExerciseDetailPage() {
               </div>
             ))}
           </div>
+        </Card>
+
+        {/* Your Progress */}
+        <Card>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
+            <TrendingUp size={15} className="text-brand-500" />
+            Your Progress
+          </h2>
+          <ExerciseProgressChart data={progressionData} />
+        </Card>
+
+        {/* AI Progression Suggestion */}
+        <Card>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
+            <Sparkles size={15} className="text-brand-500" />
+            AI Progression Suggestion
+          </h2>
+          {!aiSuggestion && (
+            <Button
+              onClick={handleAiSuggestion}
+              disabled={aiLoading}
+              variant="secondary"
+              fullWidth
+            >
+              {aiLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  Thinking…
+                </span>
+              ) : (
+                'Get Next Session Target'
+              )}
+            </Button>
+          )}
+          {aiError && (
+            <p className="text-xs text-red-500 mt-2">{aiError}</p>
+          )}
+          {aiSuggestion && (
+            <div className="space-y-3">
+              <MarkdownText content={aiSuggestion} />
+              <Button
+                onClick={() => { setAiSuggestion(null); setAiError(null); }}
+                variant="ghost"
+                size="sm"
+                fullWidth
+              >
+                Ask again
+              </Button>
+            </div>
+          )}
         </Card>
 
         {/* Instructions */}

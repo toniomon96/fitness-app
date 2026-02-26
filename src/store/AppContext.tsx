@@ -3,8 +3,10 @@ import {
   useContext,
   useReducer,
   useEffect,
+  useRef,
   type ReactNode,
 } from 'react';
+import { upsertLearningProgress } from '../lib/db';
 import type { User, WorkoutSession, WorkoutHistory, LearningProgress, QuizAttempt } from '../types';
 import {
   getUser,
@@ -160,6 +162,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       root.classList.remove('dark');
     }
   }, [state.theme]);
+
+  // Sync learning progress to Supabase on every change (skip initial render)
+  const learningInitRef = useRef(false);
+  useEffect(() => {
+    if (!learningInitRef.current) {
+      learningInitRef.current = true;
+      return;
+    }
+    if (state.user && state.learningProgress.lastActivityAt) {
+      upsertLearningProgress(state.learningProgress, state.user.id).catch(
+        (err) => console.error('[AppContext] Learning progress sync failed:', err),
+      );
+    }
+  }, [state.learningProgress]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

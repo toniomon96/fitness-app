@@ -2,9 +2,10 @@ import { useState } from 'react';
 import type { WorkoutSession } from '../../types';
 import { programs } from '../../data/programs';
 import { getExerciseById } from '../../data/exercises';
+import { getCustomPrograms } from '../../utils/localStorage';
 import { formatDate, formatDuration } from '../../utils/dateUtils';
 import { Card } from '../ui/Card';
-import { ChevronDown, ChevronUp, Timer, Zap, Trophy } from 'lucide-react';
+import { ChevronDown, ChevronUp, Timer, Zap, Trophy, Gauge } from 'lucide-react';
 
 interface LogCardProps {
   session: WorkoutSession;
@@ -12,11 +13,20 @@ interface LogCardProps {
 
 export function LogCard({ session }: LogCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const program = programs.find((p) => p.id === session.programId);
+  const program = [...programs, ...getCustomPrograms()].find((p) => p.id === session.programId);
   const day = program?.schedule[session.trainingDayIndex];
   const hasPRs = session.exercises.some((e) =>
     e.sets.some((s) => s.isPersonalRecord),
   );
+
+  const rpeValues = session.exercises
+    .flatMap((e) => e.sets)
+    .filter((s) => s.completed && s.rpe != null)
+    .map((s) => s.rpe as number);
+  const avgRpe =
+    rpeValues.length > 0
+      ? Math.round((rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length) * 10) / 10
+      : null;
 
   return (
     <Card padding="none" className="overflow-hidden">
@@ -45,6 +55,12 @@ export function LogCard({ session }: LogCardProps) {
               <Zap size={12} />
               {session.totalVolumeKg.toFixed(0)}kg
             </div>
+            {avgRpe !== null && (
+              <div className="flex items-center gap-1 text-xs text-slate-400">
+                <Gauge size={12} />
+                {avgRpe} RPE
+              </div>
+            )}
             {expanded ? (
               <ChevronUp size={16} className="text-slate-400" />
             ) : (
@@ -77,6 +93,7 @@ export function LogCard({ session }: LogCardProps) {
                       ].join(' ')}
                     >
                       {s.weight}kg×{s.reps}
+                      {s.rpe != null && ` @${s.rpe}`}
                       {s.isPersonalRecord && ' 🏆'}
                     </span>
                   ))}

@@ -76,6 +76,24 @@ export function SetRow({
         <span className="text-xs text-slate-400 shrink-0">reps</span>
       </div>
 
+      {/* RPE input */}
+      <div className="flex w-14 shrink-0 items-center gap-1">
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={10}
+          value={set.rpe || ''}
+          onChange={(e) => {
+            const v = parseInt(e.target.value);
+            onUpdate({ rpe: v >= 1 && v <= 10 ? v : undefined });
+          }}
+          placeholder="RPE"
+          className="w-full rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 text-center text-xs font-medium tabular-nums focus:outline-none focus:ring-2 focus:ring-brand-400 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+          aria-label={`Set ${set.setNumber} RPE (1-10)`}
+        />
+      </div>
+
       {/* Complete button */}
       <button
         onClick={handleComplete}
