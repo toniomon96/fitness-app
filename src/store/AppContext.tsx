@@ -182,7 +182,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (err) => console.error('[AppContext] Learning progress sync failed:', err),
       );
     }
-  }, [state.learningProgress]);
+  }, [state.learningProgress, state.user]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

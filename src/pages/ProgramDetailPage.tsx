@@ -30,10 +30,10 @@ export function ProgramDetailPage() {
   const isActive = state.user?.activeProgramId === program.id;
 
   function handleActivate() {
-    if (!state.user) return;
-    const updated = { ...state.user, activeProgramId: program!.id };
+    if (!state.user || !program) return;
+    const updated = { ...state.user, activeProgramId: program.id };
     setUser(updated);
-    resetProgramCursors(program!.id);
+    resetProgramCursors(program.id);
     dispatch({ type: 'SET_USER', payload: updated });
     navigate('/');
   }

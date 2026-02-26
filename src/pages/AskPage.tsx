@@ -34,8 +34,6 @@ export function AskPage() {
   const { state } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
-  const user = state.user!;
-
   // Support pre-filling from the Insights page quick-question buttons
   const prefill = (location.state as { prefill?: string } | null)?.prefill ?? '';
   const [question, setQuestion] = useState(prefill);
@@ -69,7 +67,9 @@ export function AskPage() {
     try {
       const { answer } = await askOmnexus({
         question: q,
-        userContext: { goal: user.goal, experienceLevel: user.experienceLevel },
+        userContext: state.user
+          ? { goal: state.user.goal, experienceLevel: state.user.experienceLevel }
+          : undefined,
       });
 
       setCurrentAnswer(answer);
