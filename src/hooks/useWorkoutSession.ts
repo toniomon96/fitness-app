@@ -11,6 +11,7 @@ import {
 import { calculateTotalVolume, detectPersonalRecords } from '../utils/volumeUtils';
 import { advanceProgramCursor } from '../utils/programUtils';
 import { upsertSession, upsertPersonalRecords } from '../lib/db';
+import { supabase } from '../lib/supabase';
 
 export function useWorkoutSession() {
   const { state, dispatch } = useApp();
@@ -157,8 +158,8 @@ export function useWorkoutSession() {
       dispatch({ type: 'APPEND_SESSION', payload: completed });
       dispatch({ type: 'CLEAR_ACTIVE_SESSION' });
 
-      // Sync to Supabase (fire-and-forget — local state is already updated)
-      if (state.user) {
+      // Sync to Supabase and notify friends (fire-and-forget)
+      if (state.user && !state.user.isGuest) {
         const userId = state.user.id;
         Promise.all([
           upsertSession(completed, userId),
@@ -166,6 +167,15 @@ export function useWorkoutSession() {
         ]).catch((err) =>
           console.error('[useWorkoutSession] Supabase sync failed:', err),
         );
+
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            fetch('/api/notify-friends', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            }).catch(() => {});
+          }
+        });
       }
 
       return { session: completed, prs };

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,6 +11,12 @@ import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import {
+  getPushPermission,
+  isSubscribed,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../lib/pushSubscription';
 
 const GOAL_LABELS: Record<Goal, string> = {
   hypertrophy: 'Build Muscle',
@@ -44,7 +50,26 @@ export function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushDenied, setPushDenied] = useState(false);
+
   const isGuest = !!currentUser.isGuest;
+
+  useEffect(() => {
+    if (isGuest) return;
+    async function checkPush() {
+      const permission = await getPushPermission();
+      if (permission === 'unsupported') return;
+      setPushSupported(true);
+      setPushDenied(permission === 'denied');
+      if (permission === 'granted') {
+        setPushEnabled(await isSubscribed());
+      }
+    }
+    checkPush();
+  }, [isGuest]);
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -89,6 +114,27 @@ export function ProfilePage() {
     }
     await signOut();
     navigate('/login', { replace: true });
+  }
+
+  async function handleTogglePush() {
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush(currentUser.id);
+        setPushEnabled(false);
+      } else {
+        const ok = await subscribeToPush(currentUser.id);
+        if (ok) {
+          setPushEnabled(true);
+          setPushDenied(false);
+        } else {
+          const perm = await getPushPermission();
+          if (perm === 'denied') setPushDenied(true);
+        }
+      }
+    } finally {
+      setPushLoading(false);
+    }
   }
 
   async function handleExport() {
@@ -295,6 +341,39 @@ export function ProfilePage() {
             >
               <Download size={16} />
               {exporting ? 'Preparing export…' : 'Export My Data'}
+            </Button>
+          </Card>
+        )}
+
+        {/* Notifications — authenticated users only, if browser supports push */}
+        {!isGuest && pushSupported && (
+          <Card>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+              Notifications
+            </p>
+            <p className="text-xs text-slate-500 mb-3">
+              {pushEnabled
+                ? 'You\'ll receive daily workout reminders and friend activity alerts.'
+                : 'Get daily workout reminders and alerts when friends complete workouts.'}
+            </p>
+            {pushDenied && (
+              <p className="text-xs text-amber-400 mb-2">
+                Notifications blocked by your browser. Enable them in your browser settings to continue.
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleTogglePush}
+              disabled={pushLoading || pushDenied}
+              fullWidth
+              className={pushEnabled ? 'text-brand-400' : ''}
+            >
+              {pushEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+              {pushLoading
+                ? 'Updating…'
+                : pushEnabled
+                  ? 'Notifications On'
+                  : 'Enable Notifications'}
             </Button>
           </Card>
         )}
