@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff } from 'lucide-react';
+import { useNavigate, Navigate } from 'react-router-dom';
+import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,10 +35,11 @@ export function ProfilePage() {
   const { user: authUser, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const currentUser = state.user!;
-  const [name, setName] = useState(currentUser.name);
-  const [goal, setGoal] = useState<Goal>(currentUser.goal);
-  const [level, setLevel] = useState<ExperienceLevel>(currentUser.experienceLevel);
+  const currentUser = state.user;
+
+  const [name, setName] = useState(currentUser?.name ?? '');
+  const [goal, setGoal] = useState<Goal>(currentUser?.goal ?? 'general-fitness');
+  const [level, setLevel] = useState<ExperienceLevel>(currentUser?.experienceLevel ?? 'beginner');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -55,7 +56,13 @@ export function ProfilePage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [pushDenied, setPushDenied] = useState(false);
 
-  const isGuest = !!currentUser.isGuest;
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  const isGuest = !!currentUser?.isGuest;
 
   useEffect(() => {
     if (isGuest) return;
@@ -71,8 +78,12 @@ export function ProfilePage() {
     checkPush();
   }, [isGuest]);
 
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
   async function handleSave() {
-    if (!name.trim()) return;
+    if (!currentUser || !name.trim()) return;
     setSaving(true);
     setSaveError('');
     setSaved(false);
@@ -83,7 +94,7 @@ export function ProfilePage() {
         name: name.trim(),
         goal,
         experienceLevel: level,
-      };
+      } satisfies typeof currentUser;
 
       if (!isGuest) {
         const { error } = await supabase
@@ -112,11 +123,41 @@ export function ProfilePage() {
       navigate('/login', { replace: true });
       return;
     }
+    localStorage.clear();
+    dispatch({ type: 'CLEAR_USER' });
     await signOut();
     navigate('/login', { replace: true });
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        setPasswordError(error.message);
+      } else {
+        setPasswordSuccess(true);
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
   async function handleTogglePush() {
+    if (!currentUser) return;
     setPushLoading(true);
     try {
       if (pushEnabled) {
@@ -318,6 +359,51 @@ export function ProfilePage() {
             >
               Create Free Account
             </Button>
+          </Card>
+        )}
+
+        {/* Change password — authenticated users only */}
+        {!isGuest && (
+          <Card>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+              Change Password
+            </p>
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              <Input
+                label="New Password"
+                type="password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <Input
+                label="Confirm Password"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              {passwordError && (
+                <p className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
+                  {passwordError}
+                </p>
+              )}
+              {passwordSuccess && (
+                <p className="text-sm text-green-400 bg-green-900/20 border border-green-800 rounded-lg px-3 py-2">
+                  Password updated successfully.
+                </p>
+              )}
+              <Button
+                type="submit"
+                fullWidth
+                disabled={changingPassword || !newPassword || !confirmPassword}
+              >
+                <Lock size={16} />
+                {changingPassword ? 'Updating…' : 'Update Password'}
+              </Button>
+            </form>
           </Card>
         )}
 

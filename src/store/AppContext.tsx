@@ -16,6 +16,8 @@ import {
   setTheme as persistTheme,
   getLearningProgress,
   setLearningProgress,
+  clearUser,
+  clearActiveSession,
 } from '../utils/localStorage';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -52,8 +54,11 @@ function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_USER':
       return { ...state, user: action.payload };
-    case 'CLEAR_USER':
-      return { ...state, user: null };
+    case 'CLEAR_USER': {
+      clearUser();
+      clearActiveSession();
+      return { ...state, user: null, activeSession: null, history: { sessions: [], personalRecords: [] } };
+    }
     case 'SET_ACTIVE_SESSION':
     case 'UPDATE_ACTIVE_SESSION':
       return { ...state, activeSession: action.payload };
@@ -142,16 +147,18 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const initialState: AppState = {
+function getInitialState(): AppState {
+  return {
     user: getUser(),
     history: getHistory(),
     activeSession: getActiveSession(),
     theme: getTheme(),
     learningProgress: getLearningProgress(),
   };
+}
 
-  const [state, dispatch] = useReducer(reducer, initialState);
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
 
   // Apply dark/light class to <html>
   useEffect(() => {

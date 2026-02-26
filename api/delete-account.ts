@@ -1,12 +1,32 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// ─── Env validation ───────────────────────────────────────────────────────────
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
+}
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// ─── CORS helper ─────────────────────────────────────────────────────────────
+
+function setCorsHeaders(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -40,6 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       supabaseAdmin.from('workout_sessions').delete().eq('user_id', userId),
       supabaseAdmin.from('learning_progress').delete().eq('user_id', userId),
       supabaseAdmin.from('custom_programs').delete().eq('user_id', userId),
+      supabaseAdmin.from('nutrition_logs').delete().eq('user_id', userId),
     ]);
 
     // Challenges created by the user — remove their ownership (or delete if desired)
