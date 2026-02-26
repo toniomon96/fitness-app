@@ -47,6 +47,7 @@ export function ExerciseDetailPage() {
   const progressionData = getExerciseProgressionData(exercise.id, state.history);
 
   async function handleAiSuggestion() {
+    if (!exercise) return;
     setAiLoading(true);
     setAiError(null);
     try {
@@ -163,7 +164,7 @@ export function ExerciseDetailPage() {
           )}
           {aiSuggestion && (
             <div className="space-y-3">
-              <MarkdownText content={aiSuggestion} />
+              <MarkdownText text={aiSuggestion} />
               <Button
                 onClick={() => { setAiSuggestion(null); setAiError(null); }}
                 variant="ghost"
