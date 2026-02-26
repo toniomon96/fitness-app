@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/AppContext';
-import { setUser } from '../utils/localStorage';
+import { setUser, getTheme } from '../utils/localStorage';
 import type { User } from '../types';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -17,6 +17,12 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -57,7 +63,7 @@ export function LoginPage() {
         experienceLevel: profile.experience_level,
         activeProgramId: profile.active_program_id ?? undefined,
         onboardedAt: profile.created_at,
-        theme: 'dark',
+        theme: getTheme(),
       };
 
       setUser(user);
@@ -65,6 +71,22 @@ export function LoginPage() {
       navigate('/', { replace: true });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setForgotError('');
+    setForgotLoading(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail);
+      if (resetError) {
+        setForgotError(resetError.message);
+      } else {
+        setForgotSuccess(true);
+      }
+    } finally {
+      setForgotLoading(false);
     }
   }
 
@@ -108,6 +130,48 @@ export function LoginPage() {
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
+
+        <div className="text-right">
+          <button
+            type="button"
+            onClick={() => { setShowForgot((v) => !v); setForgotError(''); setForgotSuccess(false); }}
+            className="text-sm text-brand-400 hover:text-brand-300"
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        {showForgot && (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-3">
+            {forgotSuccess ? (
+              <p className="text-sm text-green-400">
+                Check your email for a password reset link.
+              </p>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-3">
+                <Input
+                  label="Your email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+                {forgotError && (
+                  <p className="text-sm text-red-400">{forgotError}</p>
+                )}
+                <Button
+                  type="submit"
+                  fullWidth
+                  disabled={forgotLoading || !forgotEmail}
+                >
+                  {forgotLoading ? 'Sending…' : 'Send Reset Link'}
+                </Button>
+              </form>
+            )}
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-red-400 rounded-lg bg-red-900/20 border border-red-800 px-3 py-2">

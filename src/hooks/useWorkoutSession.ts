@@ -52,9 +52,7 @@ export function useWorkoutSession() {
       data: Partial<LoggedSet>,
     ) => {
       if (!state.activeSession) return;
-      const session: WorkoutSession = JSON.parse(
-        JSON.stringify(state.activeSession),
-      ) as WorkoutSession;
+      const session: WorkoutSession = structuredClone(state.activeSession);
       const exercise = session.exercises[exerciseIdx];
       if (!exercise) return;
       const set = exercise.sets[setIdx];
@@ -73,9 +71,7 @@ export function useWorkoutSession() {
   const addSet = useCallback(
     (exerciseIdx: number) => {
       if (!state.activeSession) return;
-      const session: WorkoutSession = JSON.parse(
-        JSON.stringify(state.activeSession),
-      ) as WorkoutSession;
+      const session: WorkoutSession = structuredClone(state.activeSession);
       const exercise = session.exercises[exerciseIdx];
       if (!exercise) return;
       exercise.sets.push({
@@ -94,9 +90,7 @@ export function useWorkoutSession() {
   const removeSet = useCallback(
     (exerciseIdx: number, setIdx: number) => {
       if (!state.activeSession) return;
-      const session: WorkoutSession = JSON.parse(
-        JSON.stringify(state.activeSession),
-      ) as WorkoutSession;
+      const session: WorkoutSession = structuredClone(state.activeSession);
       const exercise = session.exercises[exerciseIdx];
       if (!exercise || exercise.sets.length <= 1) return;
       exercise.sets.splice(setIdx, 1);
@@ -110,9 +104,7 @@ export function useWorkoutSession() {
   const addExercise = useCallback(
     (exerciseId: string) => {
       if (!state.activeSession) return;
-      const session: WorkoutSession = JSON.parse(
-        JSON.stringify(state.activeSession),
-      ) as WorkoutSession;
+      const session: WorkoutSession = structuredClone(state.activeSession);
       const newExercise: LoggedExercise = {
         exerciseId,
         sets: [{ setNumber: 1, weight: 0, reps: 0, completed: false, timestamp: '' }],

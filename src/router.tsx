@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useApp } from './store/AppContext'
 import { supabase } from './lib/supabase'
-import { setUser, setCustomPrograms, getGuestProfile } from './utils/localStorage'
+import { setUser, setCustomPrograms, getGuestProfile, getTheme } from './utils/localStorage'
 import * as db from './lib/db'
 import { runMigrationIfNeeded } from './lib/dataMigration'
 import type { User } from './types'
@@ -101,7 +101,7 @@ function GuestOrAuthGuard() {
             experienceLevel: profile.experience_level,
             activeProgramId: profile.active_program_id ?? undefined,
             onboardedAt: profile.created_at,
-            theme: 'dark',
+            theme: getTheme(),
           } satisfies User
 
           setUser(user)
@@ -132,7 +132,7 @@ function GuestOrAuthGuard() {
     }
 
     hydrate()
-  }, [session, authLoading])
+  }, [session, authLoading, dispatch, navigate])
 
   if (authLoading || syncing) return <LoadingScreen />
 

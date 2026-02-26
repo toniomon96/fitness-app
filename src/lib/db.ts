@@ -168,10 +168,11 @@ export async function searchProfiles(
   excludeId: string,
 ): Promise<FriendProfile[]> {
   if (!query.trim()) return [];
+  const escaped = query.trim().replace(/[%_\\]/g, '\\$&');
   const { data } = await supabase
     .from('profiles')
     .select('id, name, avatar_url')
-    .ilike('name', `%${query.trim()}%`)
+    .ilike('name', `%${escaped}%`)
     .neq('id', excludeId)
     .eq('is_public', true)
     .limit(10);
@@ -353,7 +354,7 @@ export async function createChallenge(
   },
   userId: string,
 ): Promise<string> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('challenges')
     .insert({
       created_by: userId,
@@ -367,8 +368,10 @@ export async function createChallenge(
     })
     .select('id')
     .single();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data as any).id as string;
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Failed to create challenge');
+  }
+  return data.id as string;
 }
 
 // ─── Nutrition ────────────────────────────────────────────────────────────────
