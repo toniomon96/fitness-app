@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type { HealthArticle, LearningCategory } from '../src/types';
+import type { HealthArticle, LearningCategory } from '../src/types/index.js';
 
 // ─── PubMed search queries per category ──────────────────────────────────────
 

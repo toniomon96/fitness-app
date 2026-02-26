@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { sendPushToUsers } from './_sendPush';
+import { sendPushToUsers } from './_sendPush.js';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
