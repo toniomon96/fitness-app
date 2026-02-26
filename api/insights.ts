@@ -2,17 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 
-// ─── Supabase admin client ────────────────────────────────────────────────────
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
 // ─── CORS helper ─────────────────────────────────────────────────────────────
 
 function setCorsHeaders(res: VercelResponse) {
@@ -23,11 +12,9 @@ function setCorsHeaders(res: VercelResponse) {
 
 // ─── System prompt ─────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are Omnexus AI, analyzing a user's workout training data to \
-provide personalized, evidence-based insights.
+const SYSTEM_PROMPT = `You are Omnexus AI, analyzing a user's workout training data to provide personalized, evidence-based insights.
 
-You will receive the user's fitness goal, experience level, and a plain-text summary of \
-their recent workout sessions.
+You will receive the user's fitness goal, experience level, and a plain-text summary of their recent workout sessions.
 
 RESPONSE FORMAT — use these exact section headers:
 
@@ -46,8 +33,7 @@ RESPONSE FORMAT — use these exact section headers:
 
 GUIDELINES
 - Base observations ONLY on the data provided. Do not invent or assume details.
-- Reference evidence-based principles naturally (progressive overload, recovery frequency, \
-protein timing, etc.) where relevant.
+- Reference evidence-based principles naturally (progressive overload, recovery frequency, protein timing, etc.) where relevant.
 - Keep recommendations realistic, gradual, and appropriate for the stated experience level.
 - Be encouraging and constructive throughout.
 
@@ -75,18 +61,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify Bearer token
+  // Verify Bearer token when present — reject invalid tokens, allow missing (guest access)
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  const token = authHeader.slice(7);
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Invalid token' });
+  if (authHeader?.startsWith('Bearer ')) {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (supabaseUrl && supabaseServiceKey) {
+      const token = authHeader.slice(7);
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {

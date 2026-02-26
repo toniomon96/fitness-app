@@ -2,17 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 
-// ─── Supabase admin client ────────────────────────────────────────────────────
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
 // ─── CORS helper ─────────────────────────────────────────────────────────────
 
 function setCorsHeaders(res: VercelResponse) {
@@ -59,18 +48,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify Bearer token
+  // Verify Bearer token when present — reject invalid tokens, allow missing (guest access)
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  const token = authHeader.slice(7);
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Invalid token' });
+  if (authHeader?.startsWith('Bearer ')) {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (supabaseUrl && supabaseServiceKey) {
+      const token = authHeader.slice(7);
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
