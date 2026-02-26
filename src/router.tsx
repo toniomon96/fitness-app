@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useApp } from './store/AppContext'
 import { supabase } from './lib/supabase'
-import { setUser, setCustomPrograms } from './utils/localStorage'
+import { setUser, setCustomPrograms, getGuestProfile } from './utils/localStorage'
 import * as db from './lib/db'
 import { runMigrationIfNeeded } from './lib/dataMigration'
 import type { User } from './types'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { LoginPage } from './pages/LoginPage'
+import { GuestSetupPage } from './pages/GuestSetupPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProgramsPage } from './pages/ProgramsPage'
 import { ProgramDetailPage } from './pages/ProgramDetailPage'
@@ -29,6 +30,7 @@ import { LeaderboardPage } from './pages/LeaderboardPage'
 import { ChallengesPage } from './pages/ChallengesPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { CookieConsent } from './components/ui/CookieConsent'
+import { GuestBanner } from './components/ui/GuestBanner'
 
 function RootLayout() {
   return (
@@ -47,21 +49,30 @@ function LoadingScreen() {
   )
 }
 
-function AuthGuard() {
+/**
+ * Allows both authenticated Supabase users AND local guest users.
+ * Supabase users get full cloud hydration; guests load from localStorage only.
+ * Community routes use AuthOnlyGuard instead.
+ */
+function GuestOrAuthGuard() {
   const { session, loading: authLoading } = useAuth()
   const { state, dispatch } = useApp()
   const navigate = useNavigate()
   const [syncing, setSyncing] = useState(false)
-  // Tracks whether we've hydrated Supabase data for the current session
   const hydratedRef = useRef(false)
 
   useEffect(() => {
-    if (!session && !authLoading && state.user) {
+    // Signed-out authenticated user — clear state
+    if (!session && !authLoading && state.user && !state.user.isGuest) {
       dispatch({ type: 'CLEAR_USER' })
       hydratedRef.current = false
       return
     }
 
+    // Guest already loaded — nothing to do
+    if (!session && !authLoading && state.user?.isGuest) return
+
+    // Supabase session hydration
     if (!session || authLoading || hydratedRef.current) return
 
     async function hydrate() {
@@ -70,8 +81,7 @@ function AuthGuard() {
       try {
         let user = state.user
 
-        // Cross-device: no local profile — fetch from Supabase
-        if (!user) {
+        if (!user || user.isGuest) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
@@ -97,10 +107,8 @@ function AuthGuard() {
           dispatch({ type: 'SET_USER', payload: user })
         }
 
-        // One-time migration of old localStorage data → Supabase
         await runMigrationIfNeeded(user.id)
 
-        // Fetch all cloud data and hydrate AppContext + localStorage
         const [history, learningProgress, customPrograms] = await Promise.all([
           db.fetchHistory(user.id),
           db.fetchLearningProgress(user.id),
@@ -111,13 +119,11 @@ function AuthGuard() {
         if (learningProgress) {
           dispatch({ type: 'SET_LEARNING_PROGRESS', payload: learningProgress })
         }
-        // Write custom programs back to localStorage so existing code finds them
         setCustomPrograms(customPrograms)
 
         hydratedRef.current = true
       } catch (err) {
-        console.error('[AuthGuard] Hydration failed:', err)
-        // Still mark as hydrated so the user isn't stuck on the loading screen
+        console.error('[GuestOrAuthGuard] Hydration failed:', err)
         hydratedRef.current = true
       } finally {
         setSyncing(false)
@@ -128,8 +134,63 @@ function AuthGuard() {
   }, [session, authLoading])
 
   if (authLoading || syncing) return <LoadingScreen />
-  if (!session) return <Navigate to="/login" replace />
-  // Session is set but user hasn't been hydrated into state yet — wait.
+
+  // No Supabase session — check for guest profile
+  if (!session) {
+    const guest = getGuestProfile()
+    if (guest) {
+      if (!state.user) {
+        dispatch({ type: 'SET_USER', payload: guest })
+      }
+      return (
+        <>
+          <GuestBanner />
+          <div className="pt-9">
+            <Outlet />
+          </div>
+        </>
+      )
+    }
+    return <Navigate to="/login" replace />
+  }
+
+  if (!state.user) return <LoadingScreen />
+  return <Outlet />
+}
+
+/**
+ * Hard auth required — community features need a real Supabase account.
+ * Guests see an upgrade prompt instead of a broken page.
+ */
+function AuthOnlyGuard() {
+  const { session, loading } = useAuth()
+  const { state } = useApp()
+
+  if (loading) return <LoadingScreen />
+
+  if (!session) {
+    return (
+      <div className="flex flex-col min-h-dvh bg-slate-50 dark:bg-slate-950 items-center justify-center px-6 text-center gap-4">
+        <span className="text-4xl">👥</span>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+          Community requires an account
+        </h2>
+        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs">
+          Create a free account to connect with friends, compete on the leaderboard, and join challenges.
+        </p>
+        <a
+          href="/onboarding"
+          className="mt-2 inline-block rounded-xl bg-brand-500 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-600 transition-colors"
+        >
+          Create Free Account
+        </a>
+        <a href="/login" className="text-sm text-brand-400 hover:text-brand-300">
+          Already have an account? Sign in
+        </a>
+      </div>
+    )
+  }
+
   if (!state.user) return <LoadingScreen />
   return <Outlet />
 }
@@ -148,15 +209,25 @@ function LoginGuard() {
   return <LoginPage />
 }
 
+function GuestGuard() {
+  const { session, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (session) return <Navigate to="/" replace />
+  if (getGuestProfile()) return <Navigate to="/" replace />
+  return <GuestSetupPage />
+}
+
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
       { path: '/onboarding', element: <OnboardingGuard /> },
       { path: '/login', element: <LoginGuard /> },
+      { path: '/guest', element: <GuestGuard /> },
       { path: '/privacy', element: <PrivacyPolicyPage /> },
       {
-        element: <AuthGuard />,
+        // Accessible to guests and authenticated users
+        element: <GuestOrAuthGuard />,
         children: [
           { path: '/', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
@@ -172,11 +243,17 @@ export const router = createBrowserRouter([
           { path: '/learn/:courseId/:moduleId', element: <LessonPage /> },
           { path: '/insights', element: <InsightsPage /> },
           { path: '/ask', element: <AskPage /> },
+          { path: '*', element: <Navigate to="/" replace /> },
+        ],
+      },
+      {
+        // Community — full Supabase account required
+        element: <AuthOnlyGuard />,
+        children: [
           { path: '/feed', element: <ActivityFeedPage /> },
           { path: '/friends', element: <FriendsPage /> },
           { path: '/leaderboard', element: <LeaderboardPage /> },
           { path: '/challenges', element: <ChallengesPage /> },
-          { path: '*', element: <Navigate to="/" replace /> },
         ],
       },
     ],

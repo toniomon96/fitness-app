@@ -41,8 +41,13 @@ export function SetRow({
       </span>
 
       {/* Previous best */}
-      <span className="w-16 shrink-0 text-center text-xs text-slate-400 tabular-nums hidden sm:block">
-        {prevSet ? `${prevSet.weight}kg×${prevSet.reps}` : '—'}
+      <span className="w-14 shrink-0 text-center text-[10px] leading-tight text-slate-400 tabular-nums">
+        {prevSet ? (
+          <>
+            <span className="block text-slate-300 dark:text-slate-600 text-[9px] uppercase tracking-wide">last</span>
+            {prevSet.weight}kg×{prevSet.reps}
+          </>
+        ) : '—'}
       </span>
 
       {/* Weight input */}

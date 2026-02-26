@@ -4,7 +4,7 @@ import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle } from
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import { setUser } from '../utils/localStorage';
+import { setUser, clearGuestProfile } from '../utils/localStorage';
 import type { Goal, ExperienceLevel } from '../types';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
@@ -44,6 +44,8 @@ export function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const isGuest = !!currentUser.isGuest;
+
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
@@ -51,26 +53,24 @@ export function ProfilePage() {
     setSaved(false);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          name: name.trim(),
-          goal,
-          experience_level: level,
-        })
-        .eq('id', currentUser.id);
-
-      if (error) {
-        setSaveError(error.message);
-        return;
-      }
-
       const updated = {
         ...currentUser,
         name: name.trim(),
         goal,
         experienceLevel: level,
       };
+
+      if (!isGuest) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ name: name.trim(), goal, experience_level: level })
+          .eq('id', currentUser.id);
+        if (error) {
+          setSaveError(error.message);
+          return;
+        }
+      }
+
       setUser(updated);
       dispatch({ type: 'SET_USER', payload: updated });
       setSaved(true);
@@ -81,6 +81,12 @@ export function ProfilePage() {
   }
 
   async function handleSignOut() {
+    if (isGuest) {
+      clearGuestProfile();
+      dispatch({ type: 'CLEAR_USER' });
+      navigate('/login', { replace: true });
+      return;
+    }
     await signOut();
     navigate('/login', { replace: true });
   }
@@ -251,29 +257,49 @@ export function ProfilePage() {
           </div>
         </Card>
 
-        {/* Data export */}
-        <Card>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
-            Your Data
-          </p>
-          <p className="text-xs text-slate-500 mb-3">
-            Download a copy of all your workout history, personal records, and progress.
-          </p>
-          {exportError && (
-            <p className="text-xs text-red-400 mb-2">{exportError}</p>
-          )}
-          <Button
-            variant="ghost"
-            onClick={handleExport}
-            disabled={exporting}
-            fullWidth
-          >
-            <Download size={16} />
-            {exporting ? 'Preparing export…' : 'Export My Data'}
-          </Button>
-        </Card>
+        {/* Guest upgrade CTA */}
+        {isGuest && (
+          <Card className="border-brand-500/40 bg-brand-500/5">
+            <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider mb-1">
+              Guest Mode
+            </p>
+            <p className="text-xs text-slate-400 mb-3">
+              Your data is saved on this device only. Create a free account to sync across devices, export your data, and join the community.
+            </p>
+            <Button
+              onClick={() => navigate('/onboarding')}
+              fullWidth
+            >
+              Create Free Account
+            </Button>
+          </Card>
+        )}
 
-        {/* Sign out */}
+        {/* Data export — authenticated users only */}
+        {!isGuest && (
+          <Card>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+              Your Data
+            </p>
+            <p className="text-xs text-slate-500 mb-3">
+              Download a copy of all your workout history, personal records, and progress.
+            </p>
+            {exportError && (
+              <p className="text-xs text-red-400 mb-2">{exportError}</p>
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleExport}
+              disabled={exporting}
+              fullWidth
+            >
+              <Download size={16} />
+              {exporting ? 'Preparing export…' : 'Export My Data'}
+            </Button>
+          </Card>
+        )}
+
+        {/* Sign out / Leave guest mode */}
         <Card>
           <Button
             variant="ghost"
@@ -282,64 +308,66 @@ export function ProfilePage() {
             className="text-red-400 hover:bg-red-900/20"
           >
             <LogOut size={16} />
-            Sign Out
+            {isGuest ? 'Exit Guest Mode' : 'Sign Out'}
           </Button>
         </Card>
 
-        {/* Danger zone */}
-        <Card>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={14} className="text-red-400 shrink-0" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-red-400">
-              Danger Zone
-            </p>
-          </div>
-          <p className="text-xs text-slate-500 mb-3">
-            Permanently deletes your account and all associated data. This cannot be undone.
-          </p>
-
-          {deleteError && (
-            <p className="text-xs text-red-400 mb-2">{deleteError}</p>
-          )}
-
-          {!showDeleteConfirm ? (
-            <Button
-              variant="ghost"
-              onClick={() => setShowDeleteConfirm(true)}
-              fullWidth
-              className="text-red-400 hover:bg-red-900/20 border border-red-900/40"
-            >
-              <Trash2 size={16} />
-              Delete Account
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-red-300 font-medium text-center">
-                Are you sure? This will erase everything.
+        {/* Danger zone — authenticated users only */}
+        {!isGuest && (
+          <Card>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={14} className="text-red-400 shrink-0" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-red-400">
+                Danger Zone
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  fullWidth
-                  className="text-slate-400"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleDeleteAccount}
-                  disabled={deleting}
-                  fullWidth
-                  className="text-red-400 hover:bg-red-900/30 border border-red-700"
-                >
-                  <Trash2 size={14} />
-                  {deleting ? 'Deleting…' : 'Yes, Delete'}
-                </Button>
-              </div>
             </div>
-          )}
-        </Card>
+            <p className="text-xs text-slate-500 mb-3">
+              Permanently deletes your account and all associated data. This cannot be undone.
+            </p>
+
+            {deleteError && (
+              <p className="text-xs text-red-400 mb-2">{deleteError}</p>
+            )}
+
+            {!showDeleteConfirm ? (
+              <Button
+                variant="ghost"
+                onClick={() => setShowDeleteConfirm(true)}
+                fullWidth
+                className="text-red-400 hover:bg-red-900/20 border border-red-900/40"
+              >
+                <Trash2 size={16} />
+                Delete Account
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-red-300 font-medium text-center">
+                  Are you sure? This will erase everything.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    fullWidth
+                    className="text-slate-400"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    fullWidth
+                    className="text-red-400 hover:bg-red-900/30 border border-red-700"
+                  >
+                    <Trash2 size={14} />
+                    {deleting ? 'Deleting…' : 'Yes, Delete'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     </AppShell>
   );

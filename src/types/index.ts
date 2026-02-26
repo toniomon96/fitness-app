@@ -49,6 +49,8 @@ export interface User {
   activeProgramId: string;
   onboardedAt: string;
   theme: 'dark' | 'light';
+  /** True when user is in local-only guest mode (no Supabase account) */
+  isGuest?: boolean;
 }
 
 // ─── Exercise Library ─────────────────────────────────────────────────────────

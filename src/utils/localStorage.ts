@@ -22,6 +22,7 @@ const KEYS = {
   INSIGHT_SESSIONS: 'omnexus_insight_sessions',
   ARTICLE_CACHE: 'omnexus_article_cache',
   CUSTOM_PROGRAMS: 'omnexus_custom_programs',
+  GUEST_PROFILE: 'omnexus_guest',
 } as const;
 
 function safeRead<T>(key: string, fallback: T): T {
@@ -223,4 +224,20 @@ export function saveCustomProgram(program: Program): void {
 export function deleteCustomProgram(id: string): void {
   const existing = getCustomPrograms().filter((p) => p.id !== id);
   safeWrite(KEYS.CUSTOM_PROGRAMS, existing);
+}
+
+// ─── Guest Profile ────────────────────────────────────────────────────────────
+
+export function getGuestProfile(): User | null {
+  return safeRead<User | null>(KEYS.GUEST_PROFILE, null);
+}
+
+export function setGuestProfile(profile: User): void {
+  safeWrite(KEYS.GUEST_PROFILE, profile);
+  // Also write to fit_user so existing code that reads the user sees it
+  safeWrite(KEYS.USER, profile);
+}
+
+export function clearGuestProfile(): void {
+  localStorage.removeItem(KEYS.GUEST_PROFILE);
 }

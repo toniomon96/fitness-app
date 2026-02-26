@@ -133,6 +133,19 @@ export function LoginPage() {
             Create one
           </Link>
         </p>
+
+        <div className="relative flex items-center gap-3 my-2">
+          <div className="flex-1 h-px bg-slate-800" />
+          <span className="text-xs text-slate-600">or</span>
+          <div className="flex-1 h-px bg-slate-800" />
+        </div>
+
+        <Link
+          to="/guest"
+          className="flex items-center justify-center gap-2 w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-medium text-slate-400 hover:border-slate-600 hover:text-slate-300 transition-colors"
+        >
+          Try without an account
+        </Link>
       </form>
     </div>
   );

@@ -16,6 +16,8 @@ import { calculateStreak, getWeekStart } from '../utils/dateUtils';
 import { Play, AlertCircle, UserCircle } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { CourseRecommendations } from '../components/learn/CourseRecommendations';
+import { WeeklyRecapCard } from '../components/dashboard/WeeklyRecapCard';
+import { MuscleHeatMap } from '../components/dashboard/MuscleHeatMap';
 
 export function DashboardPage() {
   const { state } = useApp();
@@ -80,6 +82,12 @@ export function DashboardPage() {
 
         {/* Streak */}
         <StreakDisplay streak={streak} />
+
+        {/* Weekly recap */}
+        <WeeklyRecapCard sessions={state.history.sessions} />
+
+        {/* Muscle heat map */}
+        <MuscleHeatMap sessions={state.history.sessions} />
 
         {/* Current program */}
         {program && (
