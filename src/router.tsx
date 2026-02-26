@@ -90,6 +90,8 @@ function GuestOrAuthGuard() {
             .single()
 
           if (!profile) {
+            // Mark hydrated so we don't re-run after OnboardingGuard bounces back to /
+            hydratedRef.current = true
             navigate('/onboarding', { replace: true })
             return
           }
@@ -198,8 +200,12 @@ function AuthOnlyGuard() {
 
 function OnboardingGuard() {
   const { session, loading } = useAuth()
+  const { state } = useApp()
   if (loading) return <LoadingScreen />
-  if (session) return <Navigate to="/" replace />
+  // Only redirect away if the user actually has a loaded profile in state.
+  // A session without a profile row (new device / broken onboarding) should
+  // be allowed to complete onboarding instead of bouncing back to /.
+  if (session && state.user && !state.user.isGuest) return <Navigate to="/" replace />
   return <OnboardingPage />
 }
 

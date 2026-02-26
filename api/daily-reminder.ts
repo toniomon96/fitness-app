@@ -2,11 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { sendPushToUser } from './_sendPush.js';
 
-const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
 const MESSAGES = [
   "Time to hit the gym! Your future self will thank you 🏋️",
   "Consistency beats perfection. Show up today 💪",
@@ -16,6 +11,13 @@ const MESSAGES = [
 ];
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
+  if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(200).json({ sent: 0 });
+  }
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
   try {
     const { data: subs } = await supabaseAdmin
       .from('push_subscriptions')

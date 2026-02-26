@@ -1,17 +1,6 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
-
 export interface PushPayload {
   title: string;
   body: string;
@@ -19,7 +8,31 @@ export interface PushPayload {
   tag?: string;
 }
 
+// Lazy-init so missing env vars don't crash module load
+let vapidReady = false;
+
+function ensureVapid(): boolean {
+  if (vapidReady) return true;
+  const email = process.env.VAPID_EMAIL;
+  const pub = process.env.VAPID_PUBLIC_KEY;
+  const priv = process.env.VAPID_PRIVATE_KEY;
+  if (!email || !pub || !priv) return false;
+  webpush.setVapidDetails(email, pub, priv);
+  vapidReady = true;
+  return true;
+}
+
+function getAdminClient() {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+  const supabaseAdmin = getAdminClient();
+  if (!supabaseAdmin || !ensureVapid()) return;
+
   const { data: subs } = await supabaseAdmin
     .from('push_subscriptions')
     .select('endpoint, p256dh, auth')
