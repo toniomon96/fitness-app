@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../store/AppContext';
+import { useToast } from '../contexts/ToastContext';
 import {
   searchProfiles,
   getFriendships,
@@ -18,6 +19,7 @@ import { Search, UserPlus, UserCircle } from 'lucide-react';
 
 export function FriendsPage() {
   const { state } = useApp();
+  const { toast } = useToast();
   const userId = state.user?.id ?? '';
 
   const [friendships, setFriendships] = useState<FriendshipWithProfile[]>([]);
@@ -52,22 +54,38 @@ export function FriendsPage() {
 
   async function handleSendRequest(addresseeId: string) {
     setPendingSend((s) => new Set(s).add(addresseeId));
-    await sendFriendRequest(userId, addresseeId);
-    const updated = await getFriendships(userId);
-    setFriendships(updated);
-    setSearchResults((prev) => prev.filter((r) => r.id !== addresseeId));
+    try {
+      await sendFriendRequest(userId, addresseeId);
+      const updated = await getFriendships(userId);
+      setFriendships(updated);
+      setSearchResults((prev) => prev.filter((r) => r.id !== addresseeId));
+      toast('Friend request sent', 'success');
+    } catch {
+      toast('Failed to send request', 'error');
+      setPendingSend((s) => { const n = new Set(s); n.delete(addresseeId); return n; });
+    }
   }
 
   async function handleAccept(id: string) {
-    await respondFriendRequest(id, 'accepted');
-    setFriendships((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: 'accepted' } : f)),
-    );
+    try {
+      await respondFriendRequest(id, 'accepted');
+      setFriendships((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, status: 'accepted' } : f)),
+      );
+      toast('Friend request accepted', 'success');
+    } catch {
+      toast('Failed to accept request', 'error');
+    }
   }
 
   async function handleRemove(id: string) {
-    await removeFriendship(id);
-    setFriendships((prev) => prev.filter((f) => f.id !== id));
+    try {
+      await removeFriendship(id);
+      setFriendships((prev) => prev.filter((f) => f.id !== id));
+      toast('Friend removed', 'success');
+    } catch {
+      toast('Failed to remove friend', 'error');
+    }
   }
 
   const received = friendships.filter((f) => f.status === 'pending' && f.direction === 'received');

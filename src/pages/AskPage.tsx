@@ -242,6 +242,16 @@ export function AskPage() {
                 <MarkdownText text={currentAnswer} />
               </div>
             </div>
+            {/* Context limit indicator */}
+            {conversationHistory.length >= 4 && !loading && (
+              <p className="text-[10px] text-slate-500 text-center mt-1">
+                Context limited to last 4 exchanges ·{' '}
+                <button onClick={resetConversation} className="underline hover:text-slate-400 transition-colors">
+                  Start fresh
+                </button>
+              </p>
+            )}
+
             {/* Follow-up suggestions */}
             {followUps.length > 0 && !loading && (
               <div>

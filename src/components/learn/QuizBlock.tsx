@@ -28,7 +28,7 @@ export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
   function handleSelect(optionIndex: number) {
     if (phase !== 'answering') return;
     setSelected(optionIndex);
-    setPhase('explained');
+    setTimeout(() => setPhase('explained'), 200);
   }
 
   function handleNext() {
@@ -183,7 +183,7 @@ export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
       <div className="space-y-2">
         {question.options.map((option, i) => {
           let cls =
-            'w-full text-left px-4 py-3 rounded-xl border text-sm transition-colors flex items-start gap-2.5 ';
+            'w-full text-left px-4 py-3 rounded-xl border text-sm transition-all duration-200 flex items-start gap-2.5 ';
 
           if (phase === 'answering') {
             cls +=

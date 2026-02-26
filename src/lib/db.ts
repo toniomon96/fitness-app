@@ -71,7 +71,7 @@ export async function upsertSession(
   session: WorkoutSession,
   userId: string,
 ): Promise<void> {
-  await supabase.from('workout_sessions').upsert({
+  const { error } = await supabase.from('workout_sessions').upsert({
     id: session.id,
     user_id: userId,
     program_id: session.programId,
@@ -83,6 +83,7 @@ export async function upsertSession(
     total_volume_kg: session.totalVolumeKg,
     notes: session.notes,
   });
+  if (error) throw new Error(`[upsertSession] ${error.message}`);
 }
 
 export async function upsertPersonalRecords(
@@ -90,7 +91,7 @@ export async function upsertPersonalRecords(
   userId: string,
 ): Promise<void> {
   if (prs.length === 0) return;
-  await supabase.from('personal_records').upsert(
+  const { error } = await supabase.from('personal_records').upsert(
     prs.map((pr) => ({
       user_id: userId,
       exercise_id: pr.exerciseId,
@@ -101,6 +102,7 @@ export async function upsertPersonalRecords(
     })),
     { onConflict: 'user_id,exercise_id' },
   );
+  if (error) throw new Error(`[upsertPersonalRecords] ${error.message}`);
 }
 
 // ─── Learning Progress ────────────────────────────────────────────────────────
@@ -128,7 +130,7 @@ export async function upsertLearningProgress(
   progress: LearningProgress,
   userId: string,
 ): Promise<void> {
-  await supabase.from('learning_progress').upsert({
+  const { error } = await supabase.from('learning_progress').upsert({
     user_id: userId,
     completed_lessons: progress.completedLessons,
     completed_modules: progress.completedModules,
@@ -136,6 +138,7 @@ export async function upsertLearningProgress(
     quiz_scores: progress.quizScores,
     last_activity_at: progress.lastActivityAt || new Date().toISOString(),
   });
+  if (error) throw new Error(`[upsertLearningProgress] ${error.message}`);
 }
 
 // ─── Custom Programs ──────────────────────────────────────────────────────────
@@ -155,15 +158,17 @@ export async function upsertCustomProgram(
   program: Program,
   userId: string,
 ): Promise<void> {
-  await supabase.from('custom_programs').upsert({
+  const { error } = await supabase.from('custom_programs').upsert({
     id: program.id,
     user_id: userId,
     data: program,
   });
+  if (error) throw new Error(`[upsertCustomProgram] ${error.message}`);
 }
 
 export async function deleteCustomProgramDb(id: string): Promise<void> {
-  await supabase.from('custom_programs').delete().eq('id', id);
+  const { error } = await supabase.from('custom_programs').delete().eq('id', id);
+  if (error) throw new Error(`[deleteCustomProgramDb] ${error.message}`);
 }
 
 // ─── Community: Friendships ───────────────────────────────────────────────────

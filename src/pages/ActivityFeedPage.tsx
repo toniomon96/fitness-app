@@ -7,6 +7,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { CommunityTabs } from '../components/community/CommunityTabs';
 import { ActivityItem } from '../components/community/ActivityItem';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Users } from 'lucide-react';
 
 export function ActivityFeedPage() {
@@ -16,6 +17,7 @@ export function ActivityFeedPage() {
   const [feed, setFeed] = useState<FeedSession[]>([]);
   const [reactions, setReactions] = useState<FeedReaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export function ActivityFeedPage() {
 
     async function load() {
       setLoading(true);
+      setFeedError(null);
       try {
         const data = await getFriendFeed(userId);
         if (!cancelled) {
@@ -32,6 +35,8 @@ export function ActivityFeedPage() {
             if (!cancelled) setReactions(rxns);
           }
         }
+      } catch {
+        if (!cancelled) setFeedError('Failed to load feed. Tap to retry.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -87,12 +92,36 @@ export function ActivityFeedPage() {
 
       <div className="px-4 pb-6 mt-2">
         {loading && (
-          <div className="flex justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-700 border-t-brand-500" />
+          <div className="space-y-3 mt-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-2xl border border-slate-700/60 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton variant="avatar" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton variant="text" className="w-32" />
+                    <Skeleton variant="text" className="w-20" />
+                  </div>
+                </div>
+                <Skeleton variant="text" className="w-full" />
+                <Skeleton variant="text" className="w-3/4" />
+              </div>
+            ))}
           </div>
         )}
 
-        {!loading && feed.length === 0 && (
+        {!loading && feedError && (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-red-400 text-sm">{feedError}</p>
+            <button
+              onClick={() => { setFeedError(null); setLoading(true); }}
+              className="text-brand-400 text-sm underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !feedError && feed.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center">
               <Users size={26} className="text-slate-400" />
@@ -103,7 +132,7 @@ export function ActivityFeedPage() {
           </div>
         )}
 
-        {!loading && feed.length > 0 && (
+        {!loading && !feedError && feed.length > 0 && (
           <div className="mt-2">
             {feed.map((item) => (
               <ActivityItem

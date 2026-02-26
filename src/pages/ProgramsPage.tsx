@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Goal, Program } from '../types';
 import { useApp } from '../store/AppContext';
+import { useToast } from '../contexts/ToastContext';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { ProgramCard } from '../components/programs/ProgramCard';
@@ -21,6 +22,7 @@ const GOAL_TABS: { value: Goal | 'all'; label: string }[] = [
 export function ProgramsPage() {
   const { state } = useApp();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeGoal, setActiveGoal] = useState<Goal | 'all'>('all');
   const [customPrograms, setCustomPrograms] = useState<Program[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -49,9 +51,10 @@ export function ProgramsPage() {
     deleteCustomProgram(id);
     setCustomPrograms(getCustomPrograms());
     setDeleteConfirm(null);
+    toast('Program deleted', 'success');
     // Sync to Supabase (fire-and-forget)
-    deleteCustomProgramDb(id).catch((err) =>
-      console.error('[ProgramsPage] Supabase delete failed:', err),
+    deleteCustomProgramDb(id).catch(() =>
+      toast('Sync failed — check connection', 'error'),
     );
   }
 

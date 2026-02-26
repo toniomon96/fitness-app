@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Exercise } from '../../types';
 import { Card } from '../ui/Card';
@@ -20,7 +21,7 @@ interface ExerciseCardProps {
   onSelect?: (id: string) => void;
 }
 
-export function ExerciseCard({ exercise, onSelect }: ExerciseCardProps) {
+export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: ExerciseCardProps) {
   const navigate = useNavigate();
 
   function handleClick() {
@@ -58,4 +59,4 @@ export function ExerciseCard({ exercise, onSelect }: ExerciseCardProps) {
       </div>
     </Card>
   );
-}
+});

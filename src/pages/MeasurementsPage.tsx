@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trash2, Plus } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import * as db from '../lib/db';
 import type { Measurement, MeasurementMetric, MeasurementUnit } from '../types';
 import { AppShell } from '../components/layout/AppShell';
@@ -44,6 +45,8 @@ export function MeasurementsPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
 
+  const { toast } = useToast();
+
   const [selectedMetric, setSelectedMetric] = useState<MeasurementMetric>('weight');
   const [entries, setEntries] = useState<Measurement[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,25 +83,36 @@ export function MeasurementsPage() {
     const num = parseFloat(value);
     if (isNaN(num) || num <= 0 || !userId) return;
     setSaving(true);
-    const added = await db.addMeasurement({
-      userId,
-      metric: selectedMetric,
-      value: num,
-      unit,
-      measuredAt: date,
-    });
-    if (added) {
-      setEntries((prev) =>
-        [...prev, added].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt)),
-      );
-      setValue('');
+    try {
+      const added = await db.addMeasurement({
+        userId,
+        metric: selectedMetric,
+        value: num,
+        unit,
+        measuredAt: date,
+      });
+      if (added) {
+        setEntries((prev) =>
+          [...prev, added].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt)),
+        );
+        setValue('');
+        toast('Entry added', 'success');
+      }
+    } catch {
+      toast('Failed to add entry', 'error');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleDelete(id: string) {
-    await db.deleteMeasurement(id);
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await db.deleteMeasurement(id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      toast('Entry deleted', 'success');
+    } catch {
+      toast('Failed to delete entry', 'error');
+    }
   }
 
   const chartData = entries.map((e) => ({ date: e.measuredAt, value: e.value }));

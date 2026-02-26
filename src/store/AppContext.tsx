@@ -170,18 +170,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.theme]);
 
-  // Sync learning progress to Supabase on every change (skip initial render)
+  // Sync learning progress to Supabase — debounced 2s to avoid per-answer writes
   const learningInitRef = useRef(false);
+  const learningSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!learningInitRef.current) {
       learningInitRef.current = true;
       return;
     }
-    if (state.user && state.learningProgress.lastActivityAt) {
-      upsertLearningProgress(state.learningProgress, state.user.id).catch(
+    if (!state.user || !state.learningProgress.lastActivityAt) return;
+    if (learningSyncTimer.current) clearTimeout(learningSyncTimer.current);
+    learningSyncTimer.current = setTimeout(() => {
+      upsertLearningProgress(state.learningProgress, state.user!.id).catch(
         (err) => console.error('[AppContext] Learning progress sync failed:', err),
       );
-    }
+    }, 2000);
+    return () => {
+      if (learningSyncTimer.current) clearTimeout(learningSyncTimer.current);
+    };
   }, [state.learningProgress, state.user]);
 
   return (

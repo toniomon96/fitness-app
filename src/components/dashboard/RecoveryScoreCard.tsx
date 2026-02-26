@@ -56,16 +56,19 @@ function computeScore(sessions: WorkoutSession[], sleepStars: number): number {
   return clamp(1, 10, Math.round(score * 10) / 10);
 }
 
-function scoreColor(score: number) {
+const RADIUS = 22;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS; // ≈ 138.2
+
+function scoreStroke(score: number) {
+  if (score <= 4) return '#ef4444'; // red-500
+  if (score <= 7) return '#f59e0b'; // amber-500
+  return '#22c55e'; // green-500
+}
+
+function scoreTextColor(score: number) {
   if (score <= 4) return 'text-red-400';
   if (score <= 7) return 'text-amber-400';
   return 'text-green-400';
-}
-
-function scoreRing(score: number) {
-  if (score <= 4) return 'bg-red-500/10 border-red-500/40';
-  if (score <= 7) return 'bg-amber-500/10 border-amber-500/40';
-  return 'bg-green-500/10 border-green-500/40';
 }
 
 function scoreMessage(score: number) {
@@ -83,18 +86,35 @@ export function RecoveryScoreCard({ sessions }: RecoveryScoreCardProps) {
   }
 
   const score = computeScore(sessions, sleepStars);
+  const dashOffset = CIRCUMFERENCE * (1 - score / 10);
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/60 border-slate-700/50">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className={`w-14 h-14 rounded-full border-2 flex flex-col items-center justify-center flex-shrink-0 ${scoreRing(score)}`}>
-            <span className={`text-xl font-bold leading-none ${scoreColor(score)}`}>{score.toFixed(score % 1 === 0 ? 0 : 1)}</span>
-            <span className="text-xs text-slate-500">/10</span>
+          {/* SVG arc ring */}
+          <div className="relative flex items-center justify-center shrink-0">
+            <svg width={56} height={56} viewBox="0 0 56 56" className="-rotate-90" aria-hidden>
+              <circle cx={28} cy={28} r={RADIUS} fill="none" stroke="rgba(100,116,139,0.2)" strokeWidth={5} />
+              <circle
+                cx={28} cy={28} r={RADIUS} fill="none"
+                stroke={scoreStroke(score)}
+                strokeWidth={5} strokeLinecap="round"
+                strokeDasharray={CIRCUMFERENCE}
+                strokeDashoffset={dashOffset}
+                style={{ transition: 'stroke-dashoffset 0.6s ease, stroke 0.3s ease' }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={`text-sm font-bold leading-none tabular-nums ${scoreTextColor(score)}`}>
+                {score.toFixed(score % 1 === 0 ? 0 : 1)}
+              </span>
+              <span className="text-[8px] text-slate-500 leading-none mt-0.5">/10</span>
+            </div>
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Recovery Score</p>
-            <p className={`text-xs ${scoreColor(score)}`}>{scoreMessage(score)}</p>
+            <p className={`text-xs ${scoreTextColor(score)}`}>{scoreMessage(score)}</p>
           </div>
         </div>
 

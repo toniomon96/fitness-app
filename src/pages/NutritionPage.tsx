@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import * as db from '../lib/db';
 import type { NutritionLog, NutritionGoals, MealPlan, Meal } from '../types';
 import { getMealPlan } from '../services/claudeService';
@@ -155,6 +156,7 @@ function MacroBar({ icon, label, unit, current, goal, color }: MacroBarProps) {
 export function NutritionPage() {
   const { state } = useApp();
   const { session } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const user = state.user;
@@ -233,17 +235,27 @@ export function NutritionPage() {
         carbsG: car,
         fatG: fat,
       });
-      if (log) setEntries((prev) => [...prev, log]);
+      if (log) {
+        setEntries((prev) => [...prev, log]);
+        toast('Meal logged', 'success');
+      }
       setForm({ mealName: '', calories: '', proteinG: '', carbsG: '', fatG: '' });
       setShowAddModal(false);
+    } catch {
+      toast('Failed to log meal', 'error');
     } finally {
       setAdding(false);
     }
   }
 
   async function handleDelete(id: string) {
-    await db.deleteNutritionLog(id);
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await db.deleteNutritionLog(id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      toast('Entry removed', 'success');
+    } catch {
+      toast('Failed to delete entry', 'error');
+    }
   }
 
   async function handleGenerateMealPlan() {
@@ -268,16 +280,23 @@ export function NutritionPage() {
 
   async function handleLogMeal(meal: Meal) {
     if (!user || isGuest || !session) return;
-    const log = await db.addNutritionLog({
-      userId: user.id,
-      loggedAt: date,
-      mealName: `${meal.mealTime}: ${meal.name}`,
-      calories: meal.calories,
-      proteinG: meal.proteinG,
-      carbsG: meal.carbsG,
-      fatG: meal.fatG,
-    });
-    if (log) setEntries((prev) => [...prev, log]);
+    try {
+      const log = await db.addNutritionLog({
+        userId: user.id,
+        loggedAt: date,
+        mealName: `${meal.mealTime}: ${meal.name}`,
+        calories: meal.calories,
+        proteinG: meal.proteinG,
+        carbsG: meal.carbsG,
+        fatG: meal.fatG,
+      });
+      if (log) {
+        setEntries((prev) => [...prev, log]);
+        toast(`${meal.name} logged`, 'success');
+      }
+    } catch {
+      toast('Failed to log meal', 'error');
+    }
   }
 
   function handleSaveGoals() {

@@ -53,7 +53,7 @@ export function DailyLearningCard({ goal }: DailyLearningCardProps) {
   if (!article) return null;
 
   return (
-    <Card className="p-4">
+    <Card gradient className="border-l-2 border-l-brand-500 p-4">
       <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
           <BookOpen size={16} className="text-brand-400" />

@@ -15,7 +15,7 @@ import { programs } from '../data/programs';
 import { getNextWorkout } from '../utils/programUtils';
 import { getProgramWeekCursor, getCustomPrograms } from '../utils/localStorage';
 import { calculateStreak, getWeekStart } from '../utils/dateUtils';
-import { Play, AlertCircle, AlertTriangle, UserCircle, Zap, Dumbbell, Ruler } from 'lucide-react';
+import { Play, AlertCircle, AlertTriangle, UserCircle, Zap, Dumbbell, Ruler, Users, Utensils } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { CourseRecommendations } from '../components/learn/CourseRecommendations';
 import { WeeklyRecapCard } from '../components/dashboard/WeeklyRecapCard';
@@ -63,28 +63,23 @@ export function DashboardPage() {
 
         {/* Quick Actions (only when no active session) */}
         {!activeSession && (
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => navigate('/workout/quick')}
-              className="flex flex-col items-center gap-1.5 p-3 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
-            >
-              <Zap size={20} />
-              <span className="text-xs font-medium">Quick Log</span>
-            </button>
-            <button
-              onClick={() => navigate('/tools/plate-calculator')}
-              className="flex flex-col items-center gap-1.5 p-3 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
-            >
-              <Dumbbell size={20} />
-              <span className="text-xs font-medium">Plate Calc</span>
-            </button>
-            <button
-              onClick={() => navigate('/measurements')}
-              className="flex flex-col items-center gap-1.5 p-3 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
-            >
-              <Ruler size={20} />
-              <span className="text-xs font-medium">Measurements</span>
-            </button>
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { to: '/workout/quick',       icon: Zap,      label: 'Quick Log'   },
+              { to: '/tools/plate-calculator', icon: Dumbbell, label: 'Plates'   },
+              { to: '/measurements',        icon: Ruler,    label: 'Measure'     },
+              { to: '/feed',                icon: Users,    label: 'Community'   },
+              { to: '/nutrition',           icon: Utensils, label: 'Nutrition'   },
+            ].map(({ to, icon: Icon, label }) => (
+              <button
+                key={to}
+                onClick={() => navigate(to)}
+                className="flex flex-col items-center gap-1.5 p-2.5 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
+              >
+                <Icon size={18} />
+                <span className="text-[10px] font-medium leading-tight text-center">{label}</span>
+              </button>
+            ))}
           </div>
         )}
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { estimate1RM, calculateTotalVolume, getExerciseProgressionData } from './volumeUtils';
+import { estimate1RM, calculateTotalVolume, getExerciseProgressionData, getWeeklyVolumeByMuscle } from './volumeUtils';
 import type { WorkoutSession, WorkoutHistory } from '../types';
 
 // ─── estimate1RM ─────────────────────────────────────────────────────────────
@@ -127,5 +127,59 @@ describe('getExerciseProgressionData', () => {
   it('sorts data points chronologically', () => {
     const data = getExerciseProgressionData('bench', history);
     expect(new Date(data[0].date).getTime()).toBeLessThan(new Date(data[1].date).getTime());
+  });
+});
+
+// ─── getWeeklyVolumeByMuscle ──────────────────────────────────────────────────
+
+describe('getWeeklyVolumeByMuscle', () => {
+  it('returns arrays with length equal to the weeks parameter', () => {
+    const result = getWeeklyVolumeByMuscle({ sessions: [], personalRecords: [] }, 3);
+    for (const vol of Object.values(result)) {
+      expect(vol).toHaveLength(3);
+    }
+  });
+
+  it('defaults to 4 weeks when no weeks argument is provided', () => {
+    const result = getWeeklyVolumeByMuscle({ sessions: [], personalRecords: [] });
+    for (const vol of Object.values(result)) {
+      expect(vol).toHaveLength(4);
+    }
+  });
+
+  it('returns all zeros for empty sessions', () => {
+    const result = getWeeklyVolumeByMuscle({ sessions: [], personalRecords: [] }, 4);
+    for (const vol of Object.values(result)) {
+      expect(vol.every((v) => v === 0)).toBe(true);
+    }
+  });
+
+  it('excludes sessions that fall outside the time window', () => {
+    const oldSession: WorkoutSession = {
+      id: 's-old',
+      programId: 'prog',
+      trainingDayIndex: 0,
+      // 100 weeks ago — well outside any reasonable window
+      startedAt: new Date(Date.now() - 100 * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'barbell-back-squat',
+          sets: [{ setNumber: 1, weight: 100, reps: 10, completed: true, timestamp: '' }],
+        },
+      ],
+      totalVolumeKg: 1000,
+    };
+    const result = getWeeklyVolumeByMuscle({ sessions: [oldSession], personalRecords: [] }, 4);
+    for (const vol of Object.values(result)) {
+      expect(vol.every((v) => v === 0)).toBe(true);
+    }
+  });
+
+  it('returns a result object that includes all expected muscle group keys', () => {
+    const result = getWeeklyVolumeByMuscle({ sessions: [], personalRecords: [] });
+    const expectedMuscles = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core', 'cardio'];
+    for (const muscle of expectedMuscles) {
+      expect(result).toHaveProperty(muscle);
+    }
   });
 });

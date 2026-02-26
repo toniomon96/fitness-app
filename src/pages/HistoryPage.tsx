@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo, memo, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
+import type { WorkoutSession } from '../types';
+import { Skeleton } from '../components/ui/Skeleton';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
@@ -11,9 +13,19 @@ import { getWeeklyVolumeByMuscle } from '../utils/volumeUtils';
 import { getExerciseById } from '../data/exercises';
 import { Clock, List, Calendar } from 'lucide-react';
 
+const SessionList = memo(function SessionList({ sessions }: { sessions: WorkoutSession[] }) {
+  const cards = useMemo(
+    () => sessions.map((s) => <LogCard key={s.id} session={s} />),
+    [sessions],
+  );
+  return <div className="space-y-2">{cards}</div>;
+});
+
 export function HistoryPage() {
   const { state } = useApp();
   const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
   const sessions = [...state.history.sessions].reverse();
   const weeklyVolume = getWeeklyVolumeByMuscle(state.history, 4);
   const totalSessions = state.history.sessions.length;
@@ -48,7 +60,16 @@ export function HistoryPage() {
         }
       />
       <div className="px-4 pb-6 mt-2 space-y-4">
-        {totalSessions > 0 ? (
+        {!ready && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+            </div>
+            {[1, 2, 3].map((i) => <Skeleton key={i} variant="card" />)}
+          </>
+        )}
+        {ready && totalSessions > 0 ? (
           <>
             {/* Summary stats */}
             <div className="grid grid-cols-2 gap-3">
@@ -111,21 +132,17 @@ export function HistoryPage() {
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Workout Log
                 </h2>
-                <div className="space-y-2">
-                  {sessions.map((session) => (
-                    <LogCard key={session.id} session={session} />
-                  ))}
-                </div>
+                <SessionList sessions={sessions} />
               </>
             )}
           </>
-        ) : (
+        ) : ready ? (
           <EmptyState
             icon={<Clock size={40} />}
             title="No workouts yet"
             description="Complete your first workout to see your history here."
           />
-        )}
+        ) : null}
       </div>
     </AppShell>
   );

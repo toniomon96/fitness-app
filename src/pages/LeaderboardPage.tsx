@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import { getWeeklyLeaderboard } from '../lib/db';
 import type { LeaderboardEntry } from '../types';
@@ -19,6 +19,14 @@ function getWeekRange() {
   const fmt = (d: Date) =>
     d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   return `${fmt(mon)} – ${fmt(sun)}`;
+}
+
+function LeaderboardList({ entries }: { entries: LeaderboardEntry[] }) {
+  const rows = useMemo(
+    () => entries.map((entry, i) => <LeaderboardRow key={entry.userId} rank={i + 1} entry={entry} />),
+    [entries],
+  );
+  return <div className="space-y-2">{rows}</div>;
 }
 
 export function LeaderboardPage() {
@@ -67,11 +75,7 @@ export function LeaderboardPage() {
         )}
 
         {!loading && entries.length > 0 && (
-          <div className="space-y-2">
-            {entries.map((entry, i) => (
-              <LeaderboardRow key={entry.userId} rank={i + 1} entry={entry} />
-            ))}
-          </div>
+          <LeaderboardList entries={entries} />
         )}
       </div>
     </AppShell>

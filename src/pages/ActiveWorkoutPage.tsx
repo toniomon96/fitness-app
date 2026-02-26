@@ -8,6 +8,7 @@ import { WorkoutCompleteModal } from '../components/workout/WorkoutCompleteModal
 import { AddExerciseDrawer } from '../components/workout/AddExerciseDrawer';
 import { PRCelebration } from '../components/workout/PRCelebration';
 import { Button } from '../components/ui/Button';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useRestTimer } from '../hooks/useRestTimer';
 import { programs } from '../data/programs';
@@ -32,6 +33,7 @@ export function ActiveWorkoutPage() {
 
   const [elapsed, setElapsed] = useState(0);
   const [showDrawer, setShowDrawer] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [completedData, setCompletedData] = useState<{
     session: WorkoutSession;
     prs: PersonalRecord[];
@@ -70,10 +72,7 @@ export function ActiveWorkoutPage() {
   }
 
   function handleDiscard() {
-    if (confirm('Discard this workout? Progress will be lost.')) {
-      discardWorkout();
-      navigate('/');
-    }
+    setShowDiscardConfirm(true);
   }
 
   // Get previous session sets for reference
@@ -180,6 +179,16 @@ export function ActiveWorkoutPage() {
           prs={completedData.prs}
         />
       )}
+
+      <ConfirmDialog
+        open={showDiscardConfirm}
+        title="Discard workout?"
+        description="All progress will be lost. This cannot be undone."
+        confirmLabel="Discard"
+        variant="danger"
+        onConfirm={() => { discardWorkout(); navigate('/'); }}
+        onCancel={() => setShowDiscardConfirm(false)}
+      />
     </>
   );
 }

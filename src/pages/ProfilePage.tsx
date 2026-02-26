@@ -4,6 +4,7 @@ import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell,
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { setUser, clearGuestProfile } from '../utils/localStorage';
 import type { Goal, ExperienceLevel } from '../types';
 import { AppShell } from '../components/layout/AppShell';
@@ -40,16 +41,14 @@ export function ProfilePage() {
   const [name, setName] = useState(currentUser?.name ?? '');
   const [goal, setGoal] = useState<Goal>(currentUser?.goal ?? 'general-fitness');
   const [level, setLevel] = useState<ExperienceLevel>(currentUser?.experienceLevel ?? 'beginner');
+  const { toast } = useToast();
+
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const [saved, setSaved] = useState(false);
 
   const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState('');
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
 
   const [pushSupported, setPushSupported] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -60,7 +59,6 @@ export function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const isGuest = !!currentUser?.isGuest;
 
@@ -85,8 +83,6 @@ export function ProfilePage() {
   async function handleSave() {
     if (!currentUser || !name.trim()) return;
     setSaving(true);
-    setSaveError('');
-    setSaved(false);
 
     try {
       const updated = {
@@ -102,15 +98,14 @@ export function ProfilePage() {
           .update({ name: name.trim(), goal, experience_level: level })
           .eq('id', currentUser.id);
         if (error) {
-          setSaveError(error.message);
+          toast(error.message, 'error');
           return;
         }
       }
 
       setUser(updated);
       dispatch({ type: 'SET_USER', payload: updated });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      toast('Profile saved', 'success');
     } finally {
       setSaving(false);
     }
@@ -132,7 +127,6 @@ export function ProfilePage() {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPasswordError('');
-    setPasswordSuccess(false);
     if (newPassword.length < 6) {
       setPasswordError('Password must be at least 6 characters.');
       return;
@@ -147,7 +141,7 @@ export function ProfilePage() {
       if (error) {
         setPasswordError(error.message);
       } else {
-        setPasswordSuccess(true);
+        toast('Password updated successfully', 'success');
         setNewPassword('');
         setConfirmPassword('');
       }
@@ -180,7 +174,6 @@ export function ProfilePage() {
 
   async function handleExport() {
     setExporting(true);
-    setExportError('');
     try {
       const {
         data: { session },
@@ -192,7 +185,7 @@ export function ProfilePage() {
       });
 
       if (!res.ok) {
-        setExportError('Export failed. Please try again.');
+        toast('Export failed. Please try again.', 'error');
         return;
       }
 
@@ -204,7 +197,7 @@ export function ProfilePage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      setExportError('Export failed. Please try again.');
+      toast('Export failed. Please try again.', 'error');
     } finally {
       setExporting(false);
     }
@@ -212,7 +205,6 @@ export function ProfilePage() {
 
   async function handleDeleteAccount() {
     setDeleting(true);
-    setDeleteError('');
     try {
       const {
         data: { session },
@@ -225,7 +217,7 @@ export function ProfilePage() {
       });
 
       if (!res.ok) {
-        setDeleteError('Failed to delete account. Please try again.');
+        toast('Failed to delete account. Please try again.', 'error');
         return;
       }
 
@@ -233,7 +225,7 @@ export function ProfilePage() {
       await signOut();
       navigate('/login', { replace: true });
     } catch {
-      setDeleteError('Failed to delete account. Please try again.');
+      toast('Failed to delete account. Please try again.', 'error');
     } finally {
       setDeleting(false);
     }
@@ -326,20 +318,13 @@ export function ProfilePage() {
               </div>
             </div>
 
-            {saveError && (
-              <p className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
-                {saveError}
-              </p>
-            )}
-
             <Button
               onClick={handleSave}
               disabled={saving || !isDirty}
               fullWidth
-              variant={saved ? 'success' : 'primary'}
             >
               <Save size={16} />
-              {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+              {saving ? 'Saving…' : 'Save Changes'}
             </Button>
           </div>
         </Card>
@@ -390,11 +375,6 @@ export function ProfilePage() {
                   {passwordError}
                 </p>
               )}
-              {passwordSuccess && (
-                <p className="text-sm text-green-400 bg-green-900/20 border border-green-800 rounded-lg px-3 py-2">
-                  Password updated successfully.
-                </p>
-              )}
               <Button
                 type="submit"
                 fullWidth
@@ -416,9 +396,6 @@ export function ProfilePage() {
             <p className="text-xs text-slate-500 mb-3">
               Download a copy of all your workout history, personal records, and progress.
             </p>
-            {exportError && (
-              <p className="text-xs text-red-400 mb-2">{exportError}</p>
-            )}
             <Button
               variant="ghost"
               onClick={handleExport}
@@ -489,10 +466,6 @@ export function ProfilePage() {
             <p className="text-xs text-slate-500 mb-3">
               Permanently deletes your account and all associated data. This cannot be undone.
             </p>
-
-            {deleteError && (
-              <p className="text-xs text-red-400 mb-2">{deleteError}</p>
-            )}
 
             {!showDeleteConfirm ? (
               <Button
