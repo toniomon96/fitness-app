@@ -11,6 +11,11 @@ import type {
   LearningProgress,
   Program,
   NutritionLog,
+  Measurement,
+  MeasurementMetric,
+  WorkoutTemplate,
+  FeedReaction,
+  ReactionEmoji,
 } from '../types';
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -430,6 +435,143 @@ export async function deleteNutritionLog(id: string): Promise<void> {
 }
 
 // ─── Community: Activity Feed ─────────────────────────────────────────────────
+
+// ─── Measurements ─────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapMeasurement(row: any): Measurement {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    metric: row.metric as MeasurementMetric,
+    value: row.value,
+    unit: row.unit,
+    measuredAt: row.measured_at,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchMeasurements(
+  userId: string,
+  metric?: MeasurementMetric,
+): Promise<Measurement[]> {
+  let query = supabase
+    .from('measurements')
+    .select('*')
+    .eq('user_id', userId)
+    .order('measured_at', { ascending: true });
+  if (metric) {
+    query = query.eq('metric', metric);
+  }
+  const { data } = await query;
+  return (data ?? []).map(mapMeasurement);
+}
+
+export async function addMeasurement(
+  data: Omit<Measurement, 'id' | 'createdAt'>,
+): Promise<Measurement | null> {
+  const { data: row } = await supabase
+    .from('measurements')
+    .insert({
+      user_id: data.userId,
+      metric: data.metric,
+      value: data.value,
+      unit: data.unit,
+      measured_at: data.measuredAt,
+    })
+    .select('*')
+    .single();
+  return row ? mapMeasurement(row) : null;
+}
+
+export async function deleteMeasurement(id: string): Promise<void> {
+  await supabase.from('measurements').delete().eq('id', id);
+}
+
+// ─── Workout Templates ────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapTemplate(row: any): WorkoutTemplate {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    exercises: row.exercises,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchWorkoutTemplates(
+  userId: string,
+): Promise<WorkoutTemplate[]> {
+  const { data } = await supabase
+    .from('workout_templates')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+  return (data ?? []).map(mapTemplate);
+}
+
+export async function upsertWorkoutTemplate(
+  template: WorkoutTemplate,
+  userId: string,
+): Promise<void> {
+  await supabase.from('workout_templates').upsert({
+    id: template.id,
+    user_id: userId,
+    name: template.name,
+    exercises: template.exercises,
+  });
+}
+
+export async function deleteWorkoutTemplateDb(id: string): Promise<void> {
+  await supabase.from('workout_templates').delete().eq('id', id);
+}
+
+// ─── Feed Reactions ───────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapReaction(row: any): FeedReaction {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    userId: row.user_id,
+    emoji: row.emoji as ReactionEmoji,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getSessionReactions(
+  sessionIds: string[],
+): Promise<FeedReaction[]> {
+  if (sessionIds.length === 0) return [];
+  const { data } = await supabase
+    .from('feed_reactions')
+    .select('*')
+    .in('session_id', sessionIds);
+  return (data ?? []).map(mapReaction);
+}
+
+export async function addReaction(
+  sessionId: string,
+  userId: string,
+  emoji: ReactionEmoji,
+): Promise<void> {
+  await supabase
+    .from('feed_reactions')
+    .upsert({ session_id: sessionId, user_id: userId, emoji }, { onConflict: 'session_id,user_id' });
+}
+
+export async function removeReaction(
+  sessionId: string,
+  userId: string,
+): Promise<void> {
+  await supabase
+    .from('feed_reactions')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('user_id', userId);
+}
 
 export async function getFriendFeed(userId: string): Promise<FeedSession[]> {
   const { data: friendships } = await supabase

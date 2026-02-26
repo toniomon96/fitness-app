@@ -12,6 +12,7 @@ interface QuizBlockProps {
 }
 
 type Phase = 'answering' | 'explained';
+type Screen = 'quiz' | 'score' | 'review';
 
 export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -19,6 +20,7 @@ export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [completedAttempt, setCompletedAttempt] = useState<QuizAttempt | null>(null);
+  const [screen, setScreen] = useState<Screen>('quiz');
 
   const question = quiz.questions[questionIndex];
   const isCorrect = selected !== null && selected === question?.correctIndex;
@@ -44,6 +46,7 @@ export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
       };
       setAnswers(newAnswers);
       setCompletedAttempt(attempt);
+      setScreen('score');
       onComplete(attempt);
     } else {
       setAnswers(newAnswers);
@@ -53,8 +56,54 @@ export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
     }
   }
 
+  // ── Review screen ───────────────────────────────────────────────────────────
+  if (screen === 'review' && completedAttempt) {
+    return (
+      <div className="space-y-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Answer Review</p>
+        {quiz.questions.map((q, qi) => {
+          const userAns = answers[qi] ?? -1;
+          const isRight = userAns === q.correctIndex;
+          return (
+            <div key={q.id} className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/60">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">{qi + 1}. {q.question}</p>
+              </div>
+              <div className="px-4 py-3 space-y-1.5">
+                {q.options.map((opt, oi) => {
+                  const isCorrectOpt = oi === q.correctIndex;
+                  const isUserOpt = oi === userAns;
+                  return (
+                    <div
+                      key={oi}
+                      className={[
+                        'flex items-center gap-2 text-sm px-3 py-2 rounded-lg',
+                        isCorrectOpt ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
+                        isUserOpt && !isCorrectOpt ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+                        'text-slate-500 dark:text-slate-500',
+                      ].join(' ')}
+                    >
+                      {isCorrectOpt ? <CheckCircle size={14} className="text-green-500 shrink-0" /> :
+                       isUserOpt ? <XCircle size={14} className="text-red-500 shrink-0" /> :
+                       <span className="w-3.5 h-3.5 shrink-0" />}
+                      {opt}
+                    </div>
+                  );
+                })}
+                <div className={`mt-2 p-2 rounded-lg text-xs ${isRight ? 'bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300' : 'bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-300'}`}>
+                  <strong>Explanation:</strong> {q.explanation}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <Button fullWidth onClick={onContinue}>Back to Course</Button>
+      </div>
+    );
+  }
+
   // ── Score screen ────────────────────────────────────────────────────────────
-  if (completedAttempt) {
+  if (screen === 'score' && completedAttempt) {
     const passed = completedAttempt.score >= 70;
     return (
       <div className="flex flex-col items-center text-center py-6 space-y-4">
@@ -92,6 +141,9 @@ export function QuizBlock({ quiz, onComplete, onContinue }: QuizBlockProps) {
         >
           {passed ? '🎉 Module complete!' : "Keep it up — review the lessons and try again."}
         </p>
+        <Button variant="secondary" fullWidth onClick={() => setScreen('review')}>
+          Review Answers
+        </Button>
         <Button fullWidth onClick={onContinue}>
           Back to Course
         </Button>

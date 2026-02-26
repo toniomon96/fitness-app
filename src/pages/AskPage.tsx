@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { useApp } from '../store/AppContext';
 import { askOmnexus } from '../services/claudeService';
+import type { ConversationMessage } from '../services/claudeService';
 import {
   appendInsightSession,
   getInsightSessions,
@@ -20,6 +21,7 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
+  RotateCcw,
 } from 'lucide-react';
 
 const SUGGESTED = [
@@ -30,11 +32,29 @@ const SUGGESTED = [
   'Is creatine safe and effective?',
 ];
 
+// Topic keyword → follow-up chips
+const FOLLOW_UP_MAP: Record<string, string[]> = {
+  protein:  ['How do I hit my protein goal daily?', 'What are the best protein sources?', 'Is plant protein as good as whey?'],
+  muscle:   ['How long does it take to build muscle?', 'What\'s the best training split for hypertrophy?', 'Does cardio hurt muscle gains?'],
+  sleep:    ['How many hours of sleep do I need?', 'What\'s the best pre-sleep routine?', 'Does napping help recovery?'],
+  creatine: ['When should I take creatine?', 'Do I need to load creatine?', 'Are there creatine side effects?'],
+  sore:     ['What causes DOMS?', 'Should I stretch to reduce soreness?', 'Does cold therapy help recovery?'],
+  fat:      ['What\'s the best diet for fat loss?', 'Does cardio burn more fat than lifting?', 'How much of a calorie deficit is safe?'],
+  default:  ['What should I eat post-workout?', 'How important is rest day nutrition?', 'How do I track progress effectively?'],
+};
+
+function getFollowUps(question: string): string[] {
+  const lower = question.toLowerCase();
+  for (const [key, chips] of Object.entries(FOLLOW_UP_MAP)) {
+    if (key !== 'default' && lower.includes(key)) return chips;
+  }
+  return FOLLOW_UP_MAP.default;
+}
+
 export function AskPage() {
   const { state } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
-  // Support pre-filling from the Insights page quick-question buttons
   const prefill = (location.state as { prefill?: string } | null)?.prefill ?? '';
   const [question, setQuestion] = useState(prefill);
   const [loading, setLoading] = useState(false);
@@ -45,24 +65,26 @@ export function AskPage() {
     getInsightSessions().slice(0, 5),
   );
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
+  const [followUps, setFollowUps] = useState<string[]>([]);
 
   const answerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to answer when it arrives
   useEffect(() => {
     if (currentAnswer && answerRef.current) {
       answerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [currentAnswer]);
 
-  async function handleSubmit() {
-    const q = question.trim();
+  async function handleSubmit(overrideQuestion?: string) {
+    const q = (overrideQuestion ?? question).trim();
     if (!q || loading) return;
 
     setLoading(true);
     setCurrentAnswer(null);
     setCurrentQuestion(q);
     setError(null);
+    setFollowUps([]);
 
     try {
       const { answer } = await askOmnexus({
@@ -70,27 +92,25 @@ export function AskPage() {
         userContext: state.user
           ? { goal: state.user.goal, experienceLevel: state.user.experienceLevel }
           : undefined,
+        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
       });
 
       setCurrentAnswer(answer);
 
-      // Persist session
+      const newHistory: ConversationMessage[] = [
+        ...conversationHistory,
+        { role: 'user', content: q },
+        { role: 'assistant', content: answer },
+      ];
+      setConversationHistory(newHistory);
+      setFollowUps(getFollowUps(q));
+
       const session: InsightSession = {
         id: uuidv4(),
         category: 'ask-anything',
         messages: [
-          {
-            id: uuidv4(),
-            role: 'user',
-            content: q,
-            timestamp: new Date().toISOString(),
-          },
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: answer,
-            timestamp: new Date().toISOString(),
-          },
+          { id: uuidv4(), role: 'user', content: q, timestamp: new Date().toISOString() },
+          { id: uuidv4(), role: 'assistant', content: answer, timestamp: new Date().toISOString() },
         ],
         createdAt: new Date().toISOString(),
       };
@@ -98,13 +118,9 @@ export function AskPage() {
       setSessions(getInsightSessions().slice(0, 5));
       setQuestion('');
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : 'Something went wrong.';
-      // Give a friendly hint if the API isn't running
+      const msg = err instanceof Error ? err.message : 'Something went wrong.';
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-        setError(
-          'Cannot reach the API. Make sure you are running `vercel dev` instead of `npm run dev`.',
-        );
+        setError('Cannot reach the API. Make sure you are running `vercel dev` instead of `npm run dev`.');
       } else {
         setError(msg);
       }
@@ -113,11 +129,23 @@ export function AskPage() {
     }
   }
 
+  function handleFollowUp(chip: string) {
+    setQuestion(chip);
+    handleSubmit(chip);
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
+  }
+
+  function resetConversation() {
+    setCurrentAnswer(null);
+    setCurrentQuestion(null);
+    setConversationHistory([]);
+    setFollowUps([]);
   }
 
   return (
@@ -153,7 +181,7 @@ export function AskPage() {
           />
           <Button
             fullWidth
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={!question.trim() || loading}
           >
             {loading ? (
@@ -214,15 +242,31 @@ export function AskPage() {
                 <MarkdownText text={currentAnswer} />
               </div>
             </div>
+            {/* Follow-up suggestions */}
+            {followUps.length > 0 && !loading && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Follow up</p>
+                <div className="flex flex-wrap gap-2">
+                  {followUps.map((chip) => (
+                    <button
+                      key={chip}
+                      onClick={() => handleFollowUp(chip)}
+                      className="px-3 py-1.5 rounded-full text-xs bg-brand-500/10 text-brand-400 border border-brand-500/20 hover:bg-brand-500/20 transition-colors"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <Button
               variant="secondary"
               fullWidth
-              onClick={() => {
-                setCurrentAnswer(null);
-                setCurrentQuestion(null);
-              }}
+              onClick={resetConversation}
             >
-              Ask another question
+              <RotateCcw size={14} />
+              New conversation
             </Button>
           </div>
         )}

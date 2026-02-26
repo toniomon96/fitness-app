@@ -30,6 +30,10 @@ import { LeaderboardPage } from './pages/LeaderboardPage'
 import { ChallengesPage } from './pages/ChallengesPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { NutritionPage } from './pages/NutritionPage'
+import { MeasurementsPage } from './pages/MeasurementsPage'
+import { QuickLogPage } from './pages/QuickLogPage'
+import { PlateCalculatorPage } from './pages/PlateCalculatorPage'
+import { PreWorkoutBriefingPage } from './pages/PreWorkoutBriefingPage'
 import { CookieConsent } from './components/ui/CookieConsent'
 import { GuestBanner } from './components/ui/GuestBanner'
 
@@ -251,6 +255,10 @@ export const router = createBrowserRouter([
           { path: '/insights', element: <InsightsPage /> },
           { path: '/ask', element: <AskPage /> },
           { path: '/nutrition', element: <NutritionPage /> },
+          { path: '/measurements', element: <MeasurementsPage /> },
+          { path: '/workout/quick', element: <QuickLogPage /> },
+          { path: '/tools/plate-calculator', element: <PlateCalculatorPage /> },
+          { path: '/briefing', element: <PreWorkoutBriefingPage /> },
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },

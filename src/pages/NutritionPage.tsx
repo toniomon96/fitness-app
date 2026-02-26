@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import * as db from '../lib/db';
-import type { NutritionLog, NutritionGoals } from '../types';
+import type { NutritionLog, NutritionGoals, MealPlan, Meal } from '../types';
+import { getMealPlan } from '../services/claudeService';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Modal } from '../components/ui/Modal';
@@ -16,11 +17,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  Flame,
   Beef,
   Wheat,
   Droplets,
   Settings2,
+  Wand2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 // ─── Default goals by fitness goal ────────────────────────────────────────────
@@ -60,6 +63,56 @@ function formatDisplayDate(dateStr: string): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+// ─── Calorie ring ─────────────────────────────────────────────────────────────
+
+const CAL_RADIUS = 38;
+const CAL_CIRCUMFERENCE = 2 * Math.PI * CAL_RADIUS; // ≈ 238.76
+
+// ─── Calorie ring (centres label inside SVG) ─────────────────────────────────
+
+interface CalorieSectionProps {
+  current: number;
+  goal: number;
+}
+
+function CalorieSection({ current, goal }: CalorieSectionProps) {
+  const pct = goal > 0 ? Math.min(100, (current / goal) * 100) : 0;
+  const over = current > goal;
+  const offset = CAL_CIRCUMFERENCE * (1 - pct / 100);
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative flex items-center justify-center">
+        <svg width={96} height={96} viewBox="0 0 96 96" className="-rotate-90" aria-hidden>
+          <circle cx={48} cy={48} r={CAL_RADIUS} fill="none" stroke="rgba(100,116,139,0.25)" strokeWidth={8} />
+          <circle
+            cx={48} cy={48} r={CAL_RADIUS} fill="none"
+            stroke={over ? '#f87171' : 'var(--color-brand-500, #7c3aed)'}
+            strokeWidth={8} strokeLinecap="round"
+            strokeDasharray={CAL_CIRCUMFERENCE}
+            strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 0.5s ease, stroke 0.3s ease' }}
+          />
+        </svg>
+        {/* Overlaid text centred in the SVG */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`text-base font-bold tabular-nums leading-none ${over ? 'text-red-400' : 'text-slate-900 dark:text-white'}`}>
+            {Math.round(current)}
+          </span>
+          <span className="text-[9px] text-slate-400 leading-none mt-0.5">cal</span>
+        </div>
+      </div>
+      <div className="flex flex-col items-center mt-1">
+        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+          <span className={`font-semibold ${over ? 'text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
+            {Math.abs(goal - current).toFixed(0)}
+          </span>
+          {' '}kcal {over ? 'over' : 'left'}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 // ─── Macro bar ────────────────────────────────────────────────────────────────
@@ -126,6 +179,14 @@ export function NutritionPage() {
   });
   const [adding, setAdding] = useState(false);
 
+  // Meal plan state
+  const [showMealPlanModal, setShowMealPlanModal] = useState(false);
+  const [mealPlanPrefs, setMealPlanPrefs] = useState('');
+  const [generatingMealPlan, setGeneratingMealPlan] = useState(false);
+  const [generatedPlan, setGeneratedPlan] = useState<MealPlan | null>(null);
+  const [mealPlanError, setMealPlanError] = useState('');
+  const [expandedMealIdx, setExpandedMealIdx] = useState<number | null>(null);
+
   // Goal edit state
   const [goalDraft, setGoalDraft] = useState(goals);
 
@@ -183,6 +244,40 @@ export function NutritionPage() {
   async function handleDelete(id: string) {
     await db.deleteNutritionLog(id);
     setEntries((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  async function handleGenerateMealPlan() {
+    setGeneratingMealPlan(true);
+    setMealPlanError('');
+    setGeneratedPlan(null);
+    try {
+      const res = await getMealPlan({
+        calories: goals.calories,
+        proteinG: goals.proteinG,
+        carbsG: goals.carbsG,
+        fatG: goals.fatG,
+        preferences: mealPlanPrefs.trim() || undefined,
+      });
+      setGeneratedPlan(res.plan);
+    } catch (e) {
+      setMealPlanError(e instanceof Error ? e.message : 'Failed to generate meal plan');
+    } finally {
+      setGeneratingMealPlan(false);
+    }
+  }
+
+  async function handleLogMeal(meal: Meal) {
+    if (!user || isGuest || !session) return;
+    const log = await db.addNutritionLog({
+      userId: user.id,
+      loggedAt: date,
+      mealName: `${meal.mealTime}: ${meal.name}`,
+      calories: meal.calories,
+      proteinG: meal.proteinG,
+      carbsG: meal.carbsG,
+      fatG: meal.fatG,
+    });
+    if (log) setEntries((prev) => [...prev, log]);
   }
 
   function handleSaveGoals() {
@@ -255,60 +350,49 @@ export function NutritionPage() {
             </button>
           </div>
 
-          <MacroBar
-            icon={<Flame size={12} className="text-orange-400" />}
-            label="Calories"
-            unit=" kcal"
-            current={totals.calories}
-            goal={goals.calories}
-            color="bg-orange-400"
-          />
-          <MacroBar
-            icon={<Beef size={12} className="text-red-400" />}
-            label="Protein"
-            unit="g"
-            current={totals.proteinG}
-            goal={goals.proteinG}
-            color="bg-red-400"
-          />
-          <MacroBar
-            icon={<Wheat size={12} className="text-amber-400" />}
-            label="Carbs"
-            unit="g"
-            current={totals.carbsG}
-            goal={goals.carbsG}
-            color="bg-amber-400"
-          />
-          <MacroBar
-            icon={<Droplets size={12} className="text-blue-400" />}
-            label="Fat"
-            unit="g"
-            current={totals.fatG}
-            goal={goals.fatG}
-            color="bg-blue-400"
-          />
-
-          {/* Calorie balance chip */}
-          <div className="pt-1 border-t border-slate-100 dark:border-slate-700/50">
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>Remaining</span>
-              <span className={`font-semibold tabular-nums ${
-                goals.calories - totals.calories < 0
-                  ? 'text-red-400'
-                  : 'text-green-500'
-              }`}>
-                {Math.abs(goals.calories - totals.calories).toFixed(0)} kcal{' '}
-                {goals.calories - totals.calories < 0 ? 'over' : 'left'}
-              </span>
+          {/* Calories ring + macro bars side-by-side */}
+          <div className="flex items-center gap-4">
+            <CalorieSection current={totals.calories} goal={goals.calories} />
+            <div className="flex-1 space-y-2.5">
+              <MacroBar
+                icon={<Beef size={12} className="text-red-400" />}
+                label="Protein"
+                unit="g"
+                current={totals.proteinG}
+                goal={goals.proteinG}
+                color="bg-red-400"
+              />
+              <MacroBar
+                icon={<Wheat size={12} className="text-amber-400" />}
+                label="Carbs"
+                unit="g"
+                current={totals.carbsG}
+                goal={goals.carbsG}
+                color="bg-amber-400"
+              />
+              <MacroBar
+                icon={<Droplets size={12} className="text-blue-400" />}
+                label="Fat"
+                unit="g"
+                current={totals.fatG}
+                goal={goals.fatG}
+                color="bg-blue-400"
+              />
             </div>
           </div>
         </Card>
 
         {/* Add entry button */}
-        <Button fullWidth onClick={() => setShowAddModal(true)}>
-          <Plus size={16} />
-          Log Food
-        </Button>
+        <div className="flex gap-2">
+          <Button fullWidth onClick={() => setShowAddModal(true)}>
+            <Plus size={16} />
+            Log Food
+          </Button>
+          <Button variant="secondary" onClick={() => { setShowMealPlanModal(true); setGeneratedPlan(null); setMealPlanError(''); }}>
+            <Wand2 size={16} />
+            Meal Plan
+          </Button>
+        </div>
 
         {/* Entries list */}
         {loading && (
@@ -426,6 +510,77 @@ export function NutritionPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* ─── Meal Plan Modal ──────────────────────────────────────────────────── */}
+      <Modal
+        open={showMealPlanModal}
+        onClose={() => setShowMealPlanModal(false)}
+        title="AI Meal Plan"
+      >
+        {!generatedPlan ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">
+              Generate a one-day meal plan matching your macro goals ({goals.calories} kcal, {goals.proteinG}g protein).
+            </p>
+            <textarea
+              value={mealPlanPrefs}
+              onChange={(e) => setMealPlanPrefs(e.target.value)}
+              placeholder="Any dietary preferences or restrictions? (e.g. vegetarian, no gluten, high fiber…)"
+              rows={3}
+              className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            {mealPlanError && <p className="text-red-400 text-xs">{mealPlanError}</p>}
+            <div className="flex gap-2 pt-1">
+              <Button variant="ghost" onClick={() => setShowMealPlanModal(false)} fullWidth>Cancel</Button>
+              <Button onClick={handleGenerateMealPlan} disabled={generatingMealPlan} fullWidth>
+                {generatingMealPlan ? 'Generating…' : 'Generate Plan'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">
+              Tap "Log This" to add a meal to today's diary.
+            </p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {generatedPlan.meals.map((meal, i) => (
+                <div key={i} className="border border-slate-700 rounded-xl overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 text-left"
+                    onClick={() => setExpandedMealIdx(expandedMealIdx === i ? null : i)}
+                  >
+                    <div>
+                      <span className="text-xs text-brand-400 font-medium">{meal.mealTime}</span>
+                      <p className="text-sm font-semibold text-slate-200">{meal.name}</p>
+                      <p className="text-xs text-slate-400">{meal.calories} kcal · {meal.proteinG}g P</p>
+                    </div>
+                    {expandedMealIdx === i ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                  </button>
+                  {expandedMealIdx === i && (
+                    <div className="px-3 py-2 bg-slate-900 space-y-1.5">
+                      <p className="text-xs text-slate-400">{meal.description}</p>
+                      <div className="flex gap-3 text-xs">
+                        <span className="text-amber-400">{meal.carbsG}g carbs</span>
+                        <span className="text-blue-400">{meal.fatG}g fat</span>
+                      </div>
+                      <Button size="sm" onClick={() => handleLogMeal(meal)} className="w-full mt-1">
+                        Log This
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-700 pt-2 text-xs text-slate-400 flex justify-between">
+              <span>Total</span>
+              <span>{generatedPlan.totalCalories} kcal · {generatedPlan.totalProtein}g protein</span>
+            </div>
+            <Button variant="ghost" onClick={() => setGeneratedPlan(null)} fullWidth>
+              Regenerate
+            </Button>
+          </div>
+        )}
       </Modal>
 
       {/* ─── Goals Modal ─────────────────────────────────────────────────────── */}

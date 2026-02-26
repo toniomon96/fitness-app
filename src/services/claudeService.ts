@@ -1,11 +1,17 @@
 // ─── Request / Response types ─────────────────────────────────────────────────
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface AskRequest {
   question: string;
   userContext?: {
     goal: string;
     experienceLevel: string;
   };
+  conversationHistory?: ConversationMessage[];
 }
 
 export interface AskResponse {
@@ -52,4 +58,38 @@ export function askOmnexus(body: AskRequest): Promise<AskResponse> {
 
 export function getWorkoutInsights(body: InsightRequest): Promise<InsightResponse> {
   return post<InsightResponse>('/api/insights', body);
+}
+
+// ─── Pre-Workout Briefing ──────────────────────────────────────────────────────
+
+export interface BriefingRequest {
+  exerciseNames: string[];
+  recentHistory: Array<{ name: string; recent: string[] }>;
+  userContext: { goal: string; experienceLevel: string };
+}
+
+export interface BriefingResponse {
+  briefing: string;
+}
+
+export function getPreWorkoutBriefing(body: BriefingRequest): Promise<BriefingResponse> {
+  return post<BriefingResponse>('/api/briefing', body);
+}
+
+// ─── Meal Plan ────────────────────────────────────────────────────────────────
+
+export interface MealPlanRequest {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  preferences?: string;
+}
+
+export interface MealPlanApiResponse {
+  plan: import('../types').MealPlan;
+}
+
+export function getMealPlan(body: MealPlanRequest): Promise<MealPlanApiResponse> {
+  return post<MealPlanApiResponse>('/api/meal-plan', body);
 }

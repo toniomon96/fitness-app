@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
@@ -5,12 +6,14 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LogCard } from '../components/history/LogCard';
 import { VolumeChart } from '../components/history/VolumeChart';
+import { HeatmapCalendar } from '../components/history/HeatmapCalendar';
 import { getWeeklyVolumeByMuscle } from '../utils/volumeUtils';
 import { getExerciseById } from '../data/exercises';
-import { Clock } from 'lucide-react';
+import { Clock, List, Calendar } from 'lucide-react';
 
 export function HistoryPage() {
   const { state } = useApp();
+  const [view, setView] = useState<'list' | 'calendar'>('list');
   const sessions = [...state.history.sessions].reverse();
   const weeklyVolume = getWeeklyVolumeByMuscle(state.history, 4);
   const totalSessions = state.history.sessions.length;
@@ -21,7 +24,29 @@ export function HistoryPage() {
 
   return (
     <AppShell>
-      <TopBar title="History" />
+      <TopBar
+        title="History"
+        right={
+          totalSessions > 0 ? (
+            <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
+              <button
+                onClick={() => setView('list')}
+                className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+                aria-label="List view"
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => setView('calendar')}
+                className={`p-1.5 rounded-md transition-colors ${view === 'calendar' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+                aria-label="Calendar view"
+              >
+                <Calendar size={16} />
+              </button>
+            </div>
+          ) : null
+        }
+      />
       <div className="px-4 pb-6 mt-2 space-y-4">
         {totalSessions > 0 ? (
           <>
@@ -68,22 +93,31 @@ export function HistoryPage() {
               </Card>
             )}
 
-            {/* Volume chart */}
-            {sessions.length >= 2 && (
-              <Card>
-                <VolumeChart weeklyVolume={weeklyVolume} weeks={4} />
+            {view === 'calendar' ? (
+              /* Calendar view */
+              <Card className="p-4">
+                <HeatmapCalendar sessions={state.history.sessions} />
               </Card>
-            )}
+            ) : (
+              <>
+                {/* Volume chart */}
+                {sessions.length >= 2 && (
+                  <Card>
+                    <VolumeChart weeklyVolume={weeklyVolume} weeks={4} />
+                  </Card>
+                )}
 
-            {/* Session list */}
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Workout Log
-            </h2>
-            <div className="space-y-2">
-              {sessions.map((session) => (
-                <LogCard key={session.id} session={session} />
-              ))}
-            </div>
+                {/* Session list */}
+                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Workout Log
+                </h2>
+                <div className="space-y-2">
+                  {sessions.map((session) => (
+                    <LogCard key={session.id} session={session} />
+                  ))}
+                </div>
+              </>
+            )}
           </>
         ) : (
           <EmptyState

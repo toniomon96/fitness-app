@@ -7,6 +7,8 @@ import type {
   InsightSession,
   ArticleCache,
   Program,
+  WorkoutTemplate,
+  HealthArticle,
 } from '../types';
 
 const KEYS = {
@@ -22,6 +24,8 @@ const KEYS = {
   INSIGHT_SESSIONS: 'omnexus_insight_sessions',
   ARTICLE_CACHE: 'omnexus_article_cache',
   CUSTOM_PROGRAMS: 'omnexus_custom_programs',
+  WORKOUT_TEMPLATES: 'omnexus_workout_templates',
+  DAILY_SNIPPET_CACHE: 'omnexus_daily_snippet',
   GUEST_PROFILE: 'omnexus_guest',
 } as const;
 
@@ -224,6 +228,42 @@ export function saveCustomProgram(program: Program): void {
 export function deleteCustomProgram(id: string): void {
   const existing = getCustomPrograms().filter((p) => p.id !== id);
   safeWrite(KEYS.CUSTOM_PROGRAMS, existing);
+}
+
+// ─── Workout Templates ────────────────────────────────────────────────────────
+
+export function getWorkoutTemplates(): WorkoutTemplate[] {
+  return safeRead<WorkoutTemplate[]>(KEYS.WORKOUT_TEMPLATES, []);
+}
+
+export function setWorkoutTemplates(templates: WorkoutTemplate[]): void {
+  safeWrite(KEYS.WORKOUT_TEMPLATES, templates);
+}
+
+export function saveWorkoutTemplate(template: WorkoutTemplate): void {
+  const existing = getWorkoutTemplates();
+  const idx = existing.findIndex((t) => t.id === template.id);
+  if (idx >= 0) {
+    existing[idx] = template;
+  } else {
+    existing.push(template);
+  }
+  safeWrite(KEYS.WORKOUT_TEMPLATES, existing);
+}
+
+export function deleteWorkoutTemplate(id: string): void {
+  const existing = getWorkoutTemplates().filter((t) => t.id !== id);
+  safeWrite(KEYS.WORKOUT_TEMPLATES, existing);
+}
+
+// ─── Daily Snippet Cache ──────────────────────────────────────────────────────
+
+export function getDailySnippetCache(): { date: string; article: HealthArticle } | null {
+  return safeRead<{ date: string; article: HealthArticle } | null>(KEYS.DAILY_SNIPPET_CACHE, null);
+}
+
+export function setDailySnippetCache(data: { date: string; article: HealthArticle }): void {
+  safeWrite(KEYS.DAILY_SNIPPET_CACHE, data);
 }
 
 // ─── Guest Profile ────────────────────────────────────────────────────────────

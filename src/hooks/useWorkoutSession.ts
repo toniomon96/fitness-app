@@ -45,6 +45,31 @@ export function useWorkoutSession() {
     [dispatch],
   );
 
+  const startQuickWorkout = useCallback(
+    (exerciseIds: string[]) => {
+      const session: WorkoutSession = {
+        id: uuid(),
+        programId: 'quick-log',
+        trainingDayIndex: 0,
+        startedAt: new Date().toISOString(),
+        exercises: exerciseIds.map((exerciseId) => ({
+          exerciseId,
+          sets: Array.from({ length: 3 }, (_, i) => ({
+            setNumber: i + 1,
+            weight: 0,
+            reps: 0,
+            completed: false,
+            timestamp: '',
+          })),
+        })),
+        totalVolumeKg: 0,
+      };
+      setActiveSession(session);
+      dispatch({ type: 'SET_ACTIVE_SESSION', payload: session });
+    },
+    [dispatch],
+  );
+
   const updateSet = useCallback(
     (
       exerciseIdx: number,
@@ -183,6 +208,7 @@ export function useWorkoutSession() {
   return {
     session: state.activeSession,
     startWorkout,
+    startQuickWorkout,
     updateSet,
     addSet,
     removeSet,

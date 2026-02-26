@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'AI service is not configured' });
   }
 
-  const { question, userContext } = req.body ?? {};
+  const { question, userContext, conversationHistory } = req.body ?? {};
 
   if (!question || typeof question !== 'string' || question.trim().length === 0) {
     return res.status(400).json({ error: 'question is required' });
@@ -88,11 +88,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `Experience: ${userContext.experienceLevel ?? 'unspecified'}]`;
     }
 
+    // Build messages array with optional conversation history (last 4 turns for context)
+    type MessageParam = { role: 'user' | 'assistant'; content: string };
+    const history: MessageParam[] = Array.isArray(conversationHistory)
+      ? (conversationHistory as MessageParam[]).slice(-4)
+      : [];
+    const messages: MessageParam[] = [...history, { role: 'user', content: userMessage }];
+
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+      messages,
     });
 
     const block = message.content[0];

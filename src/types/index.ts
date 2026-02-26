@@ -318,6 +318,79 @@ export interface FeedSession {
   durationSeconds?: number;
 }
 
+// ─── Body Measurements ────────────────────────────────────────────────────────
+
+export type MeasurementMetric =
+  | 'weight'
+  | 'body-fat'
+  | 'waist'
+  | 'chest'
+  | 'left-arm'
+  | 'right-arm'
+  | 'hips'
+  | 'thighs';
+
+export type MeasurementUnit = 'kg' | 'lbs' | 'cm' | 'in' | '%';
+
+export interface Measurement {
+  id: string;
+  userId: string;
+  metric: MeasurementMetric;
+  value: number;
+  unit: MeasurementUnit;
+  measuredAt: string; // YYYY-MM-DD
+  createdAt: string;
+}
+
+// ─── Workout Templates ────────────────────────────────────────────────────────
+
+export interface TemplateExercise {
+  exerciseId: string;
+  sets: number;
+  reps: number;
+  restSeconds: number;
+}
+
+export interface WorkoutTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  exercises: TemplateExercise[];
+  createdAt: string;
+}
+
+// ─── Feed Reactions ───────────────────────────────────────────────────────────
+
+export type ReactionEmoji = '💪' | '🔥' | '👏' | '🎉' | '⭐';
+
+export interface FeedReaction {
+  id: string;
+  sessionId: string;
+  userId: string;
+  emoji: ReactionEmoji;
+  createdAt: string;
+}
+
+// ─── Meal Plan ────────────────────────────────────────────────────────────────
+
+export interface Meal {
+  name: string;
+  description: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  mealTime: string; // e.g. 'Breakfast', 'Lunch', 'Dinner', 'Snack'
+}
+
+export interface MealPlan {
+  meals: Meal[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+}
+
 // ─── Nutrition ────────────────────────────────────────────────────────────────
 
 export interface NutritionLog {

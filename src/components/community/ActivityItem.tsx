@@ -1,8 +1,13 @@
 import { Dumbbell, Clock } from 'lucide-react';
-import type { FeedSession } from '../../types';
+import type { FeedSession, FeedReaction, ReactionEmoji } from '../../types';
+import { FeedReactionBar } from './FeedReactionBar';
 
 interface ActivityItemProps {
   item: FeedSession;
+  reactions?: FeedReaction[];
+  currentUserId?: string;
+  onReact?: (sessionId: string, emoji: ReactionEmoji) => void;
+  onUnreact?: (sessionId: string) => void;
 }
 
 function formatDuration(seconds: number) {
@@ -20,7 +25,7 @@ function timeAgo(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function ActivityItem({ item }: ActivityItemProps) {
+export function ActivityItem({ item, reactions, currentUserId, onReact, onUnreact }: ActivityItemProps) {
   return (
     <div className="flex gap-3 py-3.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
       <div className="w-9 h-9 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0 mt-0.5">
@@ -51,6 +56,17 @@ export function ActivityItem({ item }: ActivityItemProps) {
             </span>
           )}
         </div>
+
+        {/* Reactions */}
+        {reactions && currentUserId && onReact && onUnreact && (
+          <FeedReactionBar
+            sessionId={item.sessionId}
+            reactions={reactions}
+            currentUserId={currentUserId}
+            onReact={(emoji) => onReact(item.sessionId, emoji)}
+            onUnreact={() => onUnreact(item.sessionId)}
+          />
+        )}
       </div>
     </div>
   );

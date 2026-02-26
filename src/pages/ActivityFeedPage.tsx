@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { supabase } from '../lib/supabase';
-import { getFriendFeed } from '../lib/db';
-import type { FeedSession } from '../types';
+import { getFriendFeed, getSessionReactions, addReaction, removeReaction } from '../lib/db';
+import type { FeedSession, FeedReaction, ReactionEmoji } from '../types';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { CommunityTabs } from '../components/community/CommunityTabs';
@@ -14,6 +14,7 @@ export function ActivityFeedPage() {
   const userId = state.user?.id ?? '';
 
   const [feed, setFeed] = useState<FeedSession[]>([]);
+  const [reactions, setReactions] = useState<FeedReaction[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -24,7 +25,13 @@ export function ActivityFeedPage() {
       setLoading(true);
       try {
         const data = await getFriendFeed(userId);
-        if (!cancelled) setFeed(data);
+        if (!cancelled) {
+          setFeed(data);
+          if (data.length > 0) {
+            const rxns = await getSessionReactions(data.map((s) => s.sessionId));
+            if (!cancelled) setReactions(rxns);
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,6 +64,22 @@ export function ActivityFeedPage() {
     };
   }, [userId]);
 
+  async function handleReact(sessionId: string, emoji: ReactionEmoji) {
+    if (!userId) return;
+    // Optimistic: remove any existing reaction from this user for this session, then add
+    setReactions((prev) => [
+      ...prev.filter((r) => !(r.sessionId === sessionId && r.userId === userId)),
+      { id: `${sessionId}-${userId}`, sessionId, userId, emoji, createdAt: new Date().toISOString() },
+    ]);
+    await addReaction(sessionId, userId, emoji);
+  }
+
+  async function handleUnreact(sessionId: string) {
+    if (!userId) return;
+    setReactions((prev) => prev.filter((r) => !(r.sessionId === sessionId && r.userId === userId)));
+    await removeReaction(sessionId, userId);
+  }
+
   return (
     <AppShell>
       <TopBar title="Community" />
@@ -83,7 +106,14 @@ export function ActivityFeedPage() {
         {!loading && feed.length > 0 && (
           <div className="mt-2">
             {feed.map((item) => (
-              <ActivityItem key={item.sessionId} item={item} />
+              <ActivityItem
+                key={item.sessionId}
+                item={item}
+                reactions={reactions.filter((r) => r.sessionId === item.sessionId)}
+                currentUserId={userId}
+                onReact={handleReact}
+                onUnreact={handleUnreact}
+              />
             ))}
           </div>
         )}

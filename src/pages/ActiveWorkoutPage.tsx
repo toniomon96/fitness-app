@@ -6,6 +6,7 @@ import { ExerciseBlock } from '../components/workout/ExerciseBlock';
 import { RestTimer } from '../components/workout/RestTimer';
 import { WorkoutCompleteModal } from '../components/workout/WorkoutCompleteModal';
 import { AddExerciseDrawer } from '../components/workout/AddExerciseDrawer';
+import { PRCelebration } from '../components/workout/PRCelebration';
 import { Button } from '../components/ui/Button';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useRestTimer } from '../hooks/useRestTimer';
@@ -35,6 +36,7 @@ export function ActiveWorkoutPage() {
     session: WorkoutSession;
     prs: PersonalRecord[];
   } | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Redirect if no active session
   useEffect(() => {
@@ -59,7 +61,12 @@ export function ActiveWorkoutPage() {
   function handleComplete() {
     if (!program) return;
     const result = completeWorkout(program);
-    if (result) setCompletedData(result);
+    if (result) {
+      setCompletedData(result);
+      if (result.prs.length > 0) {
+        setShowCelebration(true);
+      }
+    }
   }
 
   function handleDiscard() {
@@ -159,7 +166,14 @@ export function ActiveWorkoutPage() {
         onAdd={(id) => addExercise(id)}
       />
 
-      {completedData && (
+      {showCelebration && completedData && completedData.prs.length > 0 && (
+        <PRCelebration
+          prs={completedData.prs}
+          onDismiss={() => setShowCelebration(false)}
+        />
+      )}
+
+      {completedData && !showCelebration && (
         <WorkoutCompleteModal
           open={!!completedData}
           session={completedData.session}

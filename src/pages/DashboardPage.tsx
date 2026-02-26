@@ -7,13 +7,15 @@ import { WelcomeBanner } from '../components/dashboard/WelcomeBanner';
 import { CurrentProgramCard } from '../components/dashboard/CurrentProgramCard';
 import { TodayCard } from '../components/dashboard/TodayCard';
 import { StreakDisplay } from '../components/dashboard/StreakDisplay';
+import { RecoveryScoreCard } from '../components/dashboard/RecoveryScoreCard';
+import { DailyLearningCard } from '../components/dashboard/DailyLearningCard';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { getNextWorkout } from '../utils/programUtils';
 import { getProgramWeekCursor, getCustomPrograms } from '../utils/localStorage';
 import { calculateStreak, getWeekStart } from '../utils/dateUtils';
-import { Play, AlertCircle, UserCircle } from 'lucide-react';
+import { Play, AlertCircle, AlertTriangle, UserCircle, Zap, Dumbbell, Ruler } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { CourseRecommendations } from '../components/learn/CourseRecommendations';
 import { WeeklyRecapCard } from '../components/dashboard/WeeklyRecapCard';
@@ -59,6 +61,36 @@ export function DashboardPage() {
       <div className="px-4 pb-6 space-y-4 mt-2">
         <WelcomeBanner user={user} />
 
+        {/* Quick Actions (only when no active session) */}
+        {!activeSession && (
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => navigate('/workout/quick')}
+              className="flex flex-col items-center gap-1.5 p-3 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
+            >
+              <Zap size={20} />
+              <span className="text-xs font-medium">Quick Log</span>
+            </button>
+            <button
+              onClick={() => navigate('/tools/plate-calculator')}
+              className="flex flex-col items-center gap-1.5 p-3 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
+            >
+              <Dumbbell size={20} />
+              <span className="text-xs font-medium">Plate Calc</span>
+            </button>
+            <button
+              onClick={() => navigate('/measurements')}
+              className="flex flex-col items-center gap-1.5 p-3 bg-slate-800 rounded-xl hover:bg-brand-500/10 hover:text-brand-400 transition-colors text-slate-300"
+            >
+              <Ruler size={20} />
+              <span className="text-xs font-medium">Measurements</span>
+            </button>
+          </div>
+        )}
+
+        {/* Recovery Score */}
+        <RecoveryScoreCard sessions={state.history.sessions} />
+
         {/* Resume banner */}
         {activeSession && (
           <Card className="border-brand-400 bg-brand-50 dark:bg-brand-900/20">
@@ -89,11 +121,35 @@ export function DashboardPage() {
         {/* Streak with 7-day history */}
         <StreakDisplay streak={streak} sessionDates={sessionDates} />
 
+        {/* Daily Learning Snippet */}
+        <DailyLearningCard goal={user.goal} />
+
         {/* Weekly recap */}
         <WeeklyRecapCard sessions={state.history.sessions} />
 
         {/* Muscle heat map */}
         <MuscleHeatMap sessions={state.history.sessions} />
+
+        {/* Deload week banner — shown after 4+ weeks on same program */}
+        {program && week >= 4 && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-50 dark:bg-amber-900/15 px-4 py-3">
+            <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                Consider a deload week
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                You've been on this program for {week}+ weeks. A deload can help recovery and prevent burnout.
+              </p>
+              <button
+                onClick={() => navigate('/ask', { state: { prefill: 'What is a deload week and when should I take one?' } })}
+                className="mt-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 underline underline-offset-2"
+              >
+                Learn more →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Current program summary */}
         {program && (
