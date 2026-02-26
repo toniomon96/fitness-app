@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { Home, GraduationCap, Sparkles, BookOpen, Clock, Users } from 'lucide-react';
+import { Home, GraduationCap, Sparkles, BookOpen, Clock, Users, Utensils } from 'lucide-react';
 
 const links = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/learn', icon: GraduationCap, label: 'Learn' },
+  { to: '/nutrition', icon: Utensils, label: 'Nutrition' },
   { to: '/insights', icon: Sparkles, label: 'Insights' },
   { to: '/library', icon: BookOpen, label: 'Library' },
   { to: '/history', icon: Clock, label: 'History' },

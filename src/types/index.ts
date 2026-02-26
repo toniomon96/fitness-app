@@ -317,3 +317,26 @@ export interface FeedSession {
   totalVolumeKg: number;
   durationSeconds?: number;
 }
+
+// ─── Nutrition ────────────────────────────────────────────────────────────────
+
+export interface NutritionLog {
+  id: string;
+  userId: string;
+  /** YYYY-MM-DD */
+  loggedAt: string;
+  mealName?: string;
+  calories?: number;
+  proteinG?: number;
+  carbsG?: number;
+  fatG?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface NutritionGoals {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}

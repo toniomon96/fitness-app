@@ -10,6 +10,7 @@ import type {
   FeedSession,
   LearningProgress,
   Program,
+  NutritionLog,
 } from '../types';
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -368,6 +369,61 @@ export async function createChallenge(
     .single();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data as any).id as string;
+}
+
+// ─── Nutrition ────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapNutritionLog(row: any): NutritionLog {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    loggedAt: row.logged_at,
+    mealName: row.meal_name ?? undefined,
+    calories: row.calories ?? undefined,
+    proteinG: row.protein_g ?? undefined,
+    carbsG: row.carbs_g ?? undefined,
+    fatG: row.fat_g ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchNutritionLogs(
+  userId: string,
+  date: string,
+): Promise<NutritionLog[]> {
+  const { data } = await supabase
+    .from('nutrition_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('logged_at', date)
+    .order('created_at', { ascending: true });
+  return (data ?? []).map(mapNutritionLog);
+}
+
+export async function addNutritionLog(
+  log: Omit<NutritionLog, 'id' | 'createdAt'>,
+): Promise<NutritionLog | null> {
+  const { data } = await supabase
+    .from('nutrition_logs')
+    .insert({
+      user_id: log.userId,
+      logged_at: log.loggedAt,
+      meal_name: log.mealName ?? null,
+      calories: log.calories ?? null,
+      protein_g: log.proteinG ?? null,
+      carbs_g: log.carbsG ?? null,
+      fat_g: log.fatG ?? null,
+      notes: log.notes ?? null,
+    })
+    .select('*')
+    .single();
+  return data ? mapNutritionLog(data) : null;
+}
+
+export async function deleteNutritionLog(id: string): Promise<void> {
+  await supabase.from('nutrition_logs').delete().eq('id', id);
 }
 
 // ─── Community: Activity Feed ─────────────────────────────────────────────────

@@ -29,6 +29,7 @@ import { FriendsPage } from './pages/FriendsPage'
 import { LeaderboardPage } from './pages/LeaderboardPage'
 import { ChallengesPage } from './pages/ChallengesPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
+import { NutritionPage } from './pages/NutritionPage'
 import { CookieConsent } from './components/ui/CookieConsent'
 import { GuestBanner } from './components/ui/GuestBanner'
 
@@ -243,6 +244,7 @@ export const router = createBrowserRouter([
           { path: '/learn/:courseId/:moduleId', element: <LessonPage /> },
           { path: '/insights', element: <InsightsPage /> },
           { path: '/ask', element: <AskPage /> },
+          { path: '/nutrition', element: <NutritionPage /> },
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },

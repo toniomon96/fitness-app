@@ -5,7 +5,7 @@ import { TopBar } from '../components/layout/TopBar';
 import { ThemeToggle } from '../components/layout/ThemeToggle';
 import { WelcomeBanner } from '../components/dashboard/WelcomeBanner';
 import { CurrentProgramCard } from '../components/dashboard/CurrentProgramCard';
-import { NextWorkoutCard } from '../components/dashboard/NextWorkoutCard';
+import { TodayCard } from '../components/dashboard/TodayCard';
 import { StreakDisplay } from '../components/dashboard/StreakDisplay';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -28,7 +28,7 @@ export function DashboardPage() {
   if (!user) return null;
 
   const allPrograms = [...programs, ...getCustomPrograms()];
-  const program = allPrograms.find((p) => p.id === user.activeProgramId);
+  const program = allPrograms.find((p) => p.id === user.activeProgramId) ?? null;
   const nextWorkout = program ? getNextWorkout(program) : null;
   const week = program ? getProgramWeekCursor(program.id) : 1;
 
@@ -69,10 +69,7 @@ export function DashboardPage() {
                   Workout in progress
                 </p>
               </div>
-              <Button
-                size="sm"
-                onClick={() => navigate('/workout/active')}
-              >
+              <Button size="sm" onClick={() => navigate('/workout/active')}>
                 <Play size={14} />
                 Resume
               </Button>
@@ -80,8 +77,17 @@ export function DashboardPage() {
           </Card>
         )}
 
-        {/* Streak */}
-        <StreakDisplay streak={streak} />
+        {/* Today's plan — workout + next lesson */}
+        {!activeSession && (
+          <TodayCard
+            program={program}
+            day={nextWorkout?.day ?? null}
+            dayIndex={nextWorkout?.dayIndex ?? 0}
+          />
+        )}
+
+        {/* Streak with 7-day history */}
+        <StreakDisplay streak={streak} sessionDates={sessionDates} />
 
         {/* Weekly recap */}
         <WeeklyRecapCard sessions={state.history.sessions} />
@@ -89,7 +95,7 @@ export function DashboardPage() {
         {/* Muscle heat map */}
         <MuscleHeatMap sessions={state.history.sessions} />
 
-        {/* Current program */}
+        {/* Current program summary */}
         {program && (
           <CurrentProgramCard
             program={program}
@@ -98,23 +104,12 @@ export function DashboardPage() {
           />
         )}
 
-        {/* Next workout */}
-        {program && nextWorkout && !activeSession && (
-          <NextWorkoutCard
-            program={program}
-            day={nextWorkout.day}
-            dayIndex={nextWorkout.dayIndex}
-          />
-        )}
-
         {!program && (
           <Card className="text-center py-8">
             <p className="text-slate-500 dark:text-slate-400 mb-3">
               No active program selected
             </p>
-            <Button onClick={() => navigate('/programs')}>
-              Browse Programs
-            </Button>
+            <Button onClick={() => navigate('/programs')}>Browse Programs</Button>
           </Card>
         )}
 
