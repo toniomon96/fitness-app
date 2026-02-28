@@ -40,7 +40,7 @@ export function HeatmapCalendar({ sessions, weeks = 26 }: HeatmapCalendarProps) 
 
   // Build 2D grid: columns = weeks, rows = days (Mon–Sun)
   const columns: Date[][] = [];
-  let cursor = new Date(startDate);
+  const cursor = new Date(startDate);
   while (cursor <= endDate) {
     const col: Date[] = [];
     for (let d = 0; d < 7; d++) {

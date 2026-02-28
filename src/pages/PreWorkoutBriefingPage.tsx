@@ -75,7 +75,6 @@ export function PreWorkoutBriefingPage() {
     if (exerciseNames.length > 0) {
       fetchBriefing();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleStart() {

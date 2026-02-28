@@ -8,6 +8,16 @@ export default tseslint.config(
     ignores: ['dist/', 'node_modules/'],
   },
   {
+    // Service worker runs in a dedicated worker scope — declare its globals
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        clients: 'readonly',
+      },
+    },
+  },
+  {
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'warn',

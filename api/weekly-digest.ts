@@ -40,7 +40,6 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
   }
 
   // Group by user, split into this week vs last week
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userMap: Record<string, { thisWeek: number; lastWeek: number; count: number }> = {};
   for (const s of activeSessions) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
