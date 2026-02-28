@@ -32,6 +32,8 @@ Users can sign up with an email + password, or try the app instantly in **Guest 
 | Icons | Lucide React |
 | Auth & Database | Supabase (Auth, PostgreSQL, Realtime, RLS) |
 | AI | Anthropic Claude (`claude-sonnet-4-6`) via Vercel serverless functions |
+| Embeddings | OpenAI `text-embedding-3-small` (1536 dims) via `/api/seed-embeddings` + `/api/recommend-content` |
+| Vector Search | Supabase pgvector — `exercise_embeddings` + `content_embeddings` tables, IVFFlat cosine index |
 | Push Notifications | Web Push API + VAPID via `web-push` npm package |
 | External Data | PubMed E-utilities API (free, no key required) |
 | State | Context API + useReducer; Supabase as source of truth; localStorage as read-through cache |
@@ -317,3 +319,4 @@ Everything below is hardcoded in the app — it does not come from an API or dat
 | E5 | Test coverage: 28 Vitest unit tests; ESLint and TypeScript both clean |
 | Capacitor | iOS + Android native packaging (Capacitor v8): status bar, splash screen, haptics, safe areas, `apiBase` abstraction for native builds |
 | Phase 1 AI | AI Onboarding Agent (multi-turn Claude chat), Generative Mesocycle Engine (8-week program JSON), Exercise `MovementPattern` tags, `training_profiles` Supabase table |
+| Phase 2 Learning | Supabase pgvector (`exercise_embeddings`, `content_embeddings`), semantic content search (`/api/recommend-content`), dynamic micro-lesson generation (`/api/generate-lesson`), seed endpoint (`/api/seed-embeddings`), `MicroLessonModal`, content gap detection |

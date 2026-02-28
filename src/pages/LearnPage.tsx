@@ -1,22 +1,40 @@
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
-import { GraduationCap, Sparkles } from 'lucide-react';
+import { GraduationCap, Sparkles, Search, BookOpen, Dumbbell, Loader2, Zap } from 'lucide-react';
 import { courses } from '../data/courses';
 import { CourseCard } from '../components/learn/CourseCard';
+import { MicroLessonModal } from '../components/learn/MicroLessonModal';
 import { useLearningProgress } from '../hooks/useLearningProgress';
+import { getContentRecommendations } from '../services/learningService';
+import type { ContentRecommendation } from '../types';
 
 const DIFFICULTY_ORDER: Record<string, number> = { beginner: 0, intermediate: 1, advanced: 2 };
+
+function typeIcon(type: ContentRecommendation['type']) {
+  if (type === 'exercise') return <Dumbbell size={12} />;
+  if (type === 'course') return <GraduationCap size={12} />;
+  return <BookOpen size={12} />;
+}
+
+function typeLabel(type: ContentRecommendation['type']) {
+  if (type === 'exercise') return 'Exercise';
+  if (type === 'course') return 'Course';
+  return 'Lesson';
+}
 
 export function LearnPage() {
   const { state } = useApp();
   const { progress } = useLearningProgress();
+  const navigate = useNavigate();
   const hasActivity = progress.lastActivityAt !== '';
 
   const goal = state.user?.goal;
   const level = state.user?.experienceLevel;
 
-  // Recommended: matches goal, sorted by experience level proximity
+  // ── Recommended (rule-based, unchanged) ──────────────────────────────────
   const recommended = goal
     ? courses
         .filter((c) => c.relatedGoals.includes(goal))
@@ -29,6 +47,63 @@ export function LearnPage() {
     : [];
 
   const allCourses = courses;
+
+  // ── Semantic search state ─────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<ContentRecommendation[] | null>(null);
+  const [hasContentGap, setHasContentGap] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showMicroLesson, setShowMicroLesson] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setHasContentGap(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await getContentRecommendations({
+          query: searchQuery.trim(),
+          completedLessons: progress.completedLessons,
+          goals: goal ? [goal] : undefined,
+          experienceLevel: level,
+          limit: 6,
+        });
+        setSearchResults(res.recommendations);
+        setHasContentGap(res.hasContentGap);
+      } catch {
+        setSearchResults([]);
+        setHasContentGap(false);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleResultClick(rec: ContentRecommendation) {
+    if (rec.type === 'exercise') {
+      navigate(`/library/${rec.id}`);
+    } else if (rec.type === 'course') {
+      navigate(`/learn/${rec.id}`);
+    } else if (rec.type === 'lesson' && rec.courseId) {
+      // Find the module containing this lesson
+      const course = courses.find((c) => c.id === rec.courseId);
+      const module = course?.modules.find((m) => m.lessons.some((l) => l.id === rec.id));
+      if (course && module) {
+        navigate(`/learn/${course.id}/${module.id}`);
+      }
+    }
+  }
 
   return (
     <AppShell>
@@ -52,8 +127,87 @@ export function LearnPage() {
           </div>
         </div>
 
+        {/* Semantic search */}
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search topics, exercises, lessons…"
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          />
+          {searchLoading && (
+            <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand-500" />
+          )}
+        </div>
+
+        {/* Search results */}
+        {searchQuery.trim() && searchResults !== null && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+              Search Results
+            </p>
+
+            {searchResults.length === 0 && !hasContentGap && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">No results found.</p>
+            )}
+
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                {searchResults.map((rec) => (
+                  <button
+                    key={rec.id}
+                    onClick={() => handleResultClick(rec)}
+                    className="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 px-4 py-3 hover:border-brand-400 dark:hover:border-brand-500 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-medium text-slate-900 dark:text-white leading-snug">
+                        {rec.title}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                        {typeIcon(rec.type)}
+                        <span>{typeLabel(rec.type)}</span>
+                      </div>
+                    </div>
+                    {rec.category && (
+                      <p className="text-xs text-slate-400 mt-0.5 capitalize">
+                        {rec.category.replace('-', ' ')}
+                      </p>
+                    )}
+                    {/* Relevance bar */}
+                    <div className="mt-2 h-1 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-brand-500"
+                        style={{ width: `${Math.round(rec.relevanceScore * 100)}%` }}
+                      />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Content gap CTA */}
+            {hasContentGap && searchQuery.trim() && (
+              <div className="mt-3 rounded-xl border border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 p-4">
+                <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                  No existing content fully covers <span className="font-medium">"{searchQuery.trim()}"</span>.
+                  Generate a personalised AI lesson on this topic?
+                </p>
+                <button
+                  onClick={() => setShowMicroLesson(true)}
+                  className="flex items-center gap-2 rounded-lg bg-brand-500 text-white text-sm font-semibold px-4 py-2 hover:bg-brand-600 transition-colors"
+                >
+                  <Zap size={14} />
+                  Generate lesson
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Recommended for you */}
-        {recommended.length > 0 && (
+        {!searchQuery.trim() && recommended.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-3">
               <Sparkles size={13} className="text-brand-400" />
@@ -75,16 +229,18 @@ export function LearnPage() {
         )}
 
         {/* All Courses */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-            {recommended.length > 0 ? 'All Courses' : 'Courses'}
-          </p>
-          <div className="space-y-3">
-            {allCourses.map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
+        {!searchQuery.trim() && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+              {recommended.length > 0 ? 'All Courses' : 'Courses'}
+            </p>
+            <div className="space-y-3">
+              {allCourses.map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Disclaimer */}
         <p className="text-xs text-slate-400 dark:text-slate-500 text-center leading-relaxed px-2">
@@ -93,6 +249,14 @@ export function LearnPage() {
         </p>
 
       </div>
+
+      {/* Micro-lesson modal */}
+      {showMicroLesson && (
+        <MicroLessonModal
+          topic={searchQuery.trim()}
+          onClose={() => setShowMicroLesson(false)}
+        />
+      )}
     </AppShell>
   );
 }

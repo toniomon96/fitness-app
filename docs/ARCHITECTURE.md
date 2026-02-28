@@ -53,7 +53,9 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 │                              ├── reactions                           │
 │                              ├── push_subscriptions                  │
 │                              ├── nutrition_logs                      │
-│                              └── measurements                        │
+│                              ├── measurements                        │
+│                              ├── exercise_embeddings  ← Phase 2      │
+│                              └── content_embeddings   ← Phase 2      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -684,6 +686,74 @@ create policy "Users manage own measurements" on measurements
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
+### Phase 2 — Embeddings (pgvector)
+
+```sql
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Exercise embeddings (1536-dim, text-embedding-3-small)
+CREATE TABLE IF NOT EXISTS exercise_embeddings (
+  id          text PRIMARY KEY,  -- Exercise.id
+  embedding   vector(1536) NOT NULL,
+  metadata    jsonb NOT NULL DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Content embeddings (lessons + courses)
+CREATE TABLE IF NOT EXISTS content_embeddings (
+  id          text PRIMARY KEY,  -- lesson.id or course.id
+  type        text NOT NULL,     -- 'lesson' | 'course'
+  embedding   vector(1536) NOT NULL,
+  metadata    jsonb NOT NULL DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- IVFFlat indexes for cosine similarity search
+CREATE INDEX IF NOT EXISTS exercise_embeddings_embedding_idx
+  ON exercise_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10);
+CREATE INDEX IF NOT EXISTS content_embeddings_embedding_idx
+  ON content_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10);
+
+-- RPC: search exercises by semantic similarity
+CREATE OR REPLACE FUNCTION match_exercises(
+  query_embedding vector(1536),
+  match_threshold float DEFAULT 0.5,
+  match_count     int   DEFAULT 5
+)
+RETURNS TABLE (id text, metadata jsonb, similarity float)
+LANGUAGE sql STABLE AS $$
+  SELECT e.id, e.metadata, 1 - (e.embedding <=> query_embedding) AS similarity
+  FROM exercise_embeddings e
+  WHERE 1 - (e.embedding <=> query_embedding) >= match_threshold
+  ORDER BY e.embedding <=> query_embedding
+  LIMIT match_count;
+$$;
+
+-- RPC: search lessons/courses by semantic similarity
+CREATE OR REPLACE FUNCTION match_content(
+  query_embedding vector(1536),
+  match_threshold float DEFAULT 0.5,
+  match_count     int   DEFAULT 5
+)
+RETURNS TABLE (id text, type text, metadata jsonb, similarity float)
+LANGUAGE sql STABLE AS $$
+  SELECT c.id, c.type, c.metadata, 1 - (c.embedding <=> query_embedding) AS similarity
+  FROM content_embeddings c
+  WHERE 1 - (c.embedding <=> query_embedding) >= match_threshold
+  ORDER BY c.embedding <=> query_embedding
+  LIMIT match_count;
+$$;
+
+-- RLS: public read; service role writes only
+ALTER TABLE exercise_embeddings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_embeddings  ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read exercise_embeddings" ON exercise_embeddings FOR SELECT USING (true);
+CREATE POLICY "Public read content_embeddings"  ON content_embeddings  FOR SELECT USING (true);
+```
+
 ---
 
 ## Personalization Logic
@@ -734,6 +804,7 @@ general-fitness → strength-training
 | E5 | Test coverage: db.test, volumeUtils, programUtils; lint fixes | ✅ |
 | Capacitor | iOS + Android packaging (v8): status bar, splash, haptics, safe areas, `apiBase` abstraction | ✅ |
 | Phase 1 AI | AI Onboarding Agent + Generative Mesocycle Engine + Exercise `MovementPattern` tags | ✅ |
+| Phase 2 Learning | Supabase pgvector embeddings, semantic content retrieval, dynamic micro-lesson generation | ✅ |
 
 ---
 

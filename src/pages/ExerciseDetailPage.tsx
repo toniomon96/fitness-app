@@ -1,17 +1,22 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Skeleton } from '../components/ui/Skeleton';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { getExerciseById } from '../data/exercises';
 import { useApp } from '../store/AppContext';
 import { getExerciseProgressionData } from '../utils/volumeUtils';
 import { ExerciseProgressChart } from '../components/exercise-library/ExerciseProgressChart';
 import { askOmnexus } from '../services/claudeService';
-import { CheckCircle2, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
+import { getContentRecommendations } from '../services/learningService';
+import { useLearningProgress } from '../hooks/useLearningProgress';
+import { courses } from '../data/courses';
+import { CheckCircle2, TrendingUp, Sparkles, Loader2, BookOpen, ArrowRight } from 'lucide-react';
+import type { ContentRecommendation } from '../types';
 
 const equipEmoji: Record<string, string> = {
   barbell: '🏋️',
@@ -28,10 +33,49 @@ export function ExerciseDetailPage() {
   const { exerciseId } = useParams<{ exerciseId: string }>();
   const exercise = getExerciseById(exerciseId ?? '');
   const { state } = useApp();
+  const { progress } = useLearningProgress();
+  const navigate = useNavigate();
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const [relatedLessons, setRelatedLessons] = useState<ContentRecommendation[] | null>(null);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+
+  useEffect(() => {
+    if (!exercise) return;
+    let cancelled = false;
+
+    async function fetchRelated() {
+      if (!exercise) return;
+      setRelatedLoading(true);
+      try {
+        const query = `${exercise.name} ${exercise.primaryMuscles.join(' ')}`;
+        const res = await getContentRecommendations({
+          query,
+          completedLessons: progress.completedLessons,
+          limit: 3,
+        });
+        const lessons = res.recommendations.filter((r) => r.type === 'lesson').slice(0, 2);
+        if (!cancelled) setRelatedLessons(lessons);
+      } catch {
+        if (!cancelled) setRelatedLessons([]);
+      } finally {
+        if (!cancelled) setRelatedLoading(false);
+      }
+    }
+
+    void fetchRelated();
+    return () => { cancelled = true; };
+  }, [exercise?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleLessonClick(rec: ContentRecommendation) {
+    if (!rec.courseId) return;
+    const course = courses.find((c) => c.id === rec.courseId);
+    const module = course?.modules.find((m) => m.lessons.some((l) => l.id === rec.id));
+    if (course && module) navigate(`/learn/${course.id}/${module.id}`);
+  }
 
   if (!exercise) {
     return (
@@ -211,6 +255,39 @@ export function ExerciseDetailPage() {
                 </li>
               ))}
             </ul>
+          </Card>
+        )}
+
+        {/* Related Learning */}
+        {(relatedLoading || (relatedLessons && relatedLessons.length > 0)) && (
+          <Card>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
+              <BookOpen size={15} className="text-brand-500" />
+              Related Learning
+            </h2>
+            {relatedLoading ? (
+              <div className="space-y-2">
+                <Skeleton variant="text" className="w-3/4" />
+                <Skeleton variant="text" className="w-1/2" />
+                <Skeleton variant="text" className="w-2/3" />
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {(relatedLessons ?? []).map((rec) => (
+                  <li key={rec.id}>
+                    <button
+                      onClick={() => handleLessonClick(rec)}
+                      className="w-full text-left flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
+                    >
+                      <span className="text-sm text-slate-700 dark:text-slate-300 leading-snug">
+                        {rec.title}
+                      </span>
+                      <ArrowRight size={14} className="shrink-0 text-brand-500" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         )}
       </div>

@@ -30,7 +30,8 @@
 | **Generative Mesocycle Engine** | Claude generates a complete 8-week `Program` JSON tailored to the user's profile. All exercise IDs validated server-side; hardcoded fallback returned on Claude failure. |
 | **AI Q&A** | Ask Omnexus any fitness question — powered by Claude. Maintains conversation context, shows follow-up chips, context limit indicator at 4 exchanges. |
 | **AI Training Insights** | Analyzes last 4 weeks of workout data and returns personalized training observations and recommendations. |
-| **Learning System** | Structured courses → modules → lessons with quiz scoring, completion tracking, and animated answer reveal. |
+| **Learning System** | Structured courses → modules → lessons with quiz scoring, completion tracking, and animated answer reveal. Semantic search powered by pgvector (OpenAI embeddings). Dynamic micro-lesson generation for content gaps via Claude. |
+| **Semantic Content Search** | Debounced search input on LearnPage queries `/api/recommend-content` (pgvector cosine similarity). Results show exercises and lessons ranked by relevance score. Content gap CTA triggers `MicroLessonModal`. |
 | **Research Feed** | Live PubMed articles across 7 categories with 6-hour client-side caching. |
 | **Community** | Friends, activity feed with emoji reactions, weekly leaderboard, challenges. Supabase Realtime pushes live updates. |
 | **Nutrition Tracking** | Daily macro logging with progress bars, date navigator, food search, and goal management. |
@@ -41,7 +42,7 @@
 | **Guest Mode** | Try the app without an account. Auth-only features show upgrade prompts. |
 | **Dark Mode** | Full dark theme; persisted to localStorage. |
 
-**Tech Stack:** React 19 · TypeScript 5.7 · Vite 6 · Tailwind CSS 4 · Supabase (Auth + PostgreSQL + Realtime) · Vercel Serverless + Crons · Claude API (`claude-sonnet-4-6`) · PubMed E-utilities · Capacitor v8 (iOS + Android)
+**Tech Stack:** React 19 · TypeScript 5.7 · Vite 6 · Tailwind CSS 4 · Supabase (Auth + PostgreSQL + Realtime + pgvector) · Vercel Serverless + Crons · Claude API (`claude-sonnet-4-6`) · OpenAI (`text-embedding-3-small`) · PubMed E-utilities · Capacitor v8 (iOS + Android)
 
 ---
 
@@ -426,7 +427,11 @@ create policy "Users can manage own training profile"
 | Native mobile (Capacitor) | ✅ Implemented | iOS + Android packaging; status bar, haptics, splash, safe areas |
 | Volume calculation | ✅ Correct | `weight × reps` for completed sets only |
 | 1RM estimation | ✅ Correct | Epley formula: `weight × (1 + reps/30)` |
+| Semantic content search | ✅ Implemented | pgvector cosine similarity, 400ms debounce, exercise + lesson results |
+| Content gap detection | ✅ Implemented | `hasContentGap` when best similarity < 0.65 → triggers `MicroLessonModal` |
+| Dynamic micro-lessons | ✅ Implemented | Claude generates JSON lesson on demand; fallback on parse failure |
+| Exercise related learning | ✅ Implemented | `ExerciseDetailPage` fetches related lessons via pgvector on mount |
 
 ---
 
-*The app has a complete, production-capable architecture with Supabase Auth, RLS, real-time features, push notifications, a full CI pipeline, Capacitor native packaging, and an AI-native onboarding + mesocycle generation system. The primary outstanding items before a public launch are API rate limiting (Upstash Redis), error tracking (Sentry), an accessibility audit, and running the `training_profiles` SQL migration in Supabase.*
+*The app has a complete, production-capable architecture with Supabase Auth, RLS, real-time features, push notifications, a full CI pipeline, Capacitor native packaging, an AI-native onboarding + mesocycle generation system, and Phase 2 pgvector semantic learning layer. The primary outstanding items before a public launch are: running the pgvector SQL migration in Supabase, seeding embeddings via `POST /api/seed-embeddings`, adding `OPENAI_API_KEY` and `SEED_SECRET` to Vercel env, API rate limiting (Upstash Redis), error tracking (Sentry), and an accessibility audit.*

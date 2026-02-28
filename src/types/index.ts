@@ -214,6 +214,22 @@ export interface Lesson {
   estimatedMinutes: number;
 }
 
+export interface ContentRecommendation {
+  id: string;
+  title: string;
+  type: 'lesson' | 'exercise' | 'course';
+  courseId?: string;
+  category?: string;
+  relevanceScore: number;  // 0-1 cosine similarity
+  metadata?: Record<string, unknown>;
+}
+
+export interface DynamicLesson extends Lesson {
+  isGenerated: true;
+  generatedAt: string;
+  topic: string;
+}
+
 export interface CourseModule {
   id: string;
   title: string;
