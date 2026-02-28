@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useApp } from '../store/AppContext';
 import { apiBase } from '../lib/api';
-import type { WorkoutSession, LoggedExercise, LoggedSet, Program } from '../types';
+import type { WorkoutSession, LoggedExercise, LoggedSet, Program, BlockMission } from '../types';
 import {
   setActiveSession,
   clearActiveSession,
@@ -11,8 +11,75 @@ import {
 } from '../utils/localStorage';
 import { calculateTotalVolume, detectPersonalRecords } from '../utils/volumeUtils';
 import { advanceProgramCursor } from '../utils/programUtils';
-import { upsertSession, upsertPersonalRecords } from '../lib/db';
+import { upsertSession, upsertPersonalRecords, getBlockMissions, updateMissionProgress } from '../lib/db';
 import { supabase } from '../lib/supabase';
+
+// ─── Block mission progress helper ────────────────────────────────────────────
+
+async function updateBlockMissions(
+  userId: string,
+  programId: string,
+  session: WorkoutSession,
+  prs: { exerciseId: string }[],
+): Promise<void> {
+  try {
+    const missions = await getBlockMissions(userId, programId);
+    if (missions.length === 0) return;
+
+    const sessionVolume = session.exercises.reduce((total, ex) => {
+      return total + ex.sets
+        .filter((s) => s.completed)
+        .reduce((sum, s) => sum + s.weight * s.reps, 0);
+    }, 0);
+
+    const completedSetsWithRpe = session.exercises.flatMap((ex) =>
+      ex.sets.filter((s) => s.completed && s.rpe !== undefined),
+    );
+    const avgRpe = completedSetsWithRpe.length > 0
+      ? completedSetsWithRpe.reduce((sum, s) => sum + (s.rpe ?? 0), 0) / completedSetsWithRpe.length
+      : null;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const mission of missions) {
+      let delta = 0;
+      let shouldUpdate = false;
+
+      if (mission.type === 'pr' && prs.length > 0) {
+        delta = prs.length;
+        shouldUpdate = true;
+      } else if (mission.type === 'consistency') {
+        delta = 1;
+        shouldUpdate = true;
+      } else if (mission.type === 'volume' && sessionVolume > 0) {
+        delta = sessionVolume;
+        shouldUpdate = true;
+      } else if (mission.type === 'rpe' && avgRpe !== null) {
+        // For RPE missions, target is the max acceptable avg RPE
+        // Increment current only if session avg RPE <= target
+        if (avgRpe <= mission.target.value) {
+          delta = 1;
+          shouldUpdate = true;
+        }
+      }
+
+      if (!shouldUpdate) continue;
+
+      const newCurrent = mission.progress.current + delta;
+      const newHistory = [
+        ...mission.progress.history,
+        { date: today, value: delta },
+      ];
+      const newProgress: BlockMission['progress'] = { current: newCurrent, history: newHistory };
+      const newStatus: BlockMission['status'] =
+        newCurrent >= mission.target.value ? 'completed' : 'active';
+
+      await updateMissionProgress(mission.id, newProgress, newStatus);
+    }
+  } catch (err) {
+    console.error('[useWorkoutSession] Mission progress update failed:', err);
+  }
+}
 
 export function useWorkoutSession() {
   const { state, dispatch } = useApp();
@@ -179,6 +246,8 @@ export function useWorkoutSession() {
       // Sync to Supabase and notify friends (fire-and-forget)
       if (state.user && !state.user.isGuest) {
         const userId = state.user.id;
+        const activeProgramId = state.user.activeProgramId;
+
         Promise.all([
           upsertSession(completed, userId),
           upsertPersonalRecords(prs, userId),
@@ -194,6 +263,11 @@ export function useWorkoutSession() {
             }).catch(() => {});
           }
         });
+
+        // Update block mission progress (fire-and-forget)
+        if (activeProgramId) {
+          void updateBlockMissions(userId, activeProgramId, completed, prs);
+        }
       }
 
       return { session: completed, prs };

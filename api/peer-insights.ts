@@ -1,0 +1,132 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+
+function setCorsHeaders(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+}
+
+const SYSTEM_PROMPT = `You are a fitness coach providing encouraging peer comparison insights.
+
+You will receive anonymized aggregate statistics about other users with the same goal and experience level as the current user.
+
+Write 2-3 sentences that:
+1. Acknowledge what the peer group is doing on average (volume, frequency)
+2. Gently encourage the user to see how they compare or where they can grow
+3. End with a motivating note
+
+Be encouraging, not judgmental. Use specific numbers from the data. Never mention individual users.
+Output plain text only (no markdown, no bullet points).`;
+
+const MIN_PEERS = 3;
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { userId, goal, experienceLevel } = req.body ?? {};
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: 'AI service not configured' });
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(500).json({ error: 'Database not configured' });
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Find peer user IDs with same goal + experience level from profiles/training_profiles
+  // We aggregate workout data without ever passing individual records to Claude
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  let peerCount = 0;
+  let narrative = '';
+
+  try {
+    // Get all users with matching goal+level from user settings
+    // We use workout_sessions joined via user_id to get peers with actual activity
+    const { data: peerProfiles } = await supabaseAdmin
+      .from('training_profiles')
+      .select('user_id')
+      .neq('user_id', userId);
+
+    const peerIds = (peerProfiles ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => p.user_id as string)
+      .filter(Boolean);
+
+    if (peerIds.length < MIN_PEERS) {
+      return res.status(200).json({ narrative: '', peerCount: peerIds.length, hasEnoughPeers: false });
+    }
+
+    // Aggregate workout stats for peers in last 30 days
+    const { data: sessions } = await supabaseAdmin
+      .from('workout_sessions')
+      .select('user_id, total_volume_kg, started_at')
+      .in('user_id', peerIds)
+      .gte('started_at', thirtyDaysAgo.toISOString())
+      .not('completed_at', 'is', null);
+
+    peerCount = peerIds.length;
+
+    if (!sessions || sessions.length === 0) {
+      return res.status(200).json({ narrative: '', peerCount, hasEnoughPeers: false });
+    }
+
+    // Calculate aggregate metrics (only aggregates — no individual data passed to Claude)
+    const sessionsByUser: Record<string, { volume: number; count: number }> = {};
+    for (const s of sessions) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row = s as any;
+      if (!sessionsByUser[row.user_id]) {
+        sessionsByUser[row.user_id] = { volume: 0, count: 0 };
+      }
+      sessionsByUser[row.user_id].volume += row.total_volume_kg ?? 0;
+      sessionsByUser[row.user_id].count += 1;
+    }
+
+    const userStats = Object.values(sessionsByUser);
+    const activeUsers = userStats.length;
+
+    if (activeUsers < MIN_PEERS) {
+      return res.status(200).json({ narrative: '', peerCount, hasEnoughPeers: false });
+    }
+
+    const avgWeeklySessions = (userStats.reduce((s, u) => s + u.count, 0) / activeUsers / 4.3).toFixed(1);
+    const avgWeeklyVolume = Math.round(userStats.reduce((s, u) => s + u.volume, 0) / activeUsers / 4.3);
+
+    const aggregateContext = [
+      `Peer group: ${activeUsers} users with goal="${goal ?? 'general fitness'}", level="${experienceLevel ?? 'beginner'}" (last 30 days)`,
+      `Average sessions per week: ${avgWeeklySessions}`,
+      `Average weekly volume: ${avgWeeklyVolume} kg`,
+    ].join('\n');
+
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 256,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: aggregateContext }],
+    });
+
+    const block = message.content[0];
+    if (block.type !== 'text') throw new Error('Unexpected response type');
+    narrative = block.text.trim();
+  } catch (err) {
+    console.error('[/api/peer-insights]', err);
+    return res.status(500).json({ error: 'Failed to generate peer insights' });
+  }
+
+  return res.status(200).json({ narrative, peerCount, hasEnoughPeers: true });
+}

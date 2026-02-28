@@ -80,6 +80,7 @@ The training profile is stored in Supabase `training_profiles` (with RLS) and th
 - Set any program as the active program
 - **Custom program builder** (`/programs/builder`): create programs from scratch, name training days, assign exercises, configure sets/reps/rest
 - **AI-generated programs** display an "AI" badge (sparkle icon) on the active program card and program detail header
+- **Block Missions** — when a program is activated, `/api/generate-missions` generates 4–5 Claude-tailored missions (PR, consistency, volume, RPE). Progress is auto-tracked on every workout completion; displayed as a progress card on ProgramDetailPage
 
 ### 3. Active Workout
 
@@ -92,6 +93,7 @@ The training profile is stored in Supabase `training_profiles` (with RLS) and th
 - Discard workout prompts a ConfirmDialog (no browser `confirm()`)
 - End workout → calculates total volume (kg), saves to Supabase + localStorage
 - **PR celebration**: canvas confetti + animated gold PR banner in the complete modal
+- **Next Session tab** in WorkoutCompleteModal: calls `/api/adapt` to fetch per-exercise adjustment suggestions (increase weight/reps, maintain, deload); result persisted to `localStorage [omnexus_last_adaptation]`
 
 ### 4. Exercise Library
 
@@ -137,6 +139,8 @@ The training profile is stored in Supabase `training_profiles` (with RLS) and th
 - Returns structured analysis: Training Overview, Observations, Recommendations
 - Quick-question shortcuts that pre-fill the Ask page
 - Personalized PubMed article feed below the analysis
+- **AdaptationCard** — shows per-exercise adjustment recommendations from the last completed session (reads `omnexus_last_adaptation` from localStorage)
+- **PeerInsightsCard** — aggregate cross-user benchmarking narrative (hidden if fewer than 3 peers)
 
 ### 9. Research Feed (PubMed Articles)
 
@@ -152,6 +156,7 @@ The training profile is stored in Supabase `training_profiles` (with RLS) and th
 - **Friends** (`/friends`): search users, send/accept/remove friend requests; toast feedback on all actions
 - **Leaderboard** (`/leaderboard`): weekly volume rankings among friends (memoized rows)
 - **Challenges** (`/challenges`): browse + create + join challenges (volume, streak, sessions types)
+- **AI Challenges** — personalized private challenge generated on demand via `/api/generate-personal-challenge`; shared community challenge generated every Monday 6am UTC via Vercel cron
 - All community routes require a real Supabase account (guests see an upgrade prompt)
 
 ### 11. Nutrition Tracking
@@ -254,6 +259,8 @@ Every response ends with:
 | `push_subscriptions` | VAPID endpoints |
 | `nutrition_logs` | Daily food entries |
 | `measurements` | Body metric entries |
+| `block_missions` | Program-scoped AI goals (pr / consistency / volume / rpe); RLS per user |
+| `ai_challenges` | AI-generated challenges — personal (`user_id = auth.uid()`) + shared (`user_id IS NULL`) |
 
 ### localStorage (cache + guest data)
 
@@ -273,6 +280,7 @@ Every response ends with:
 | `omnexus_guest` | Guest mode flag |
 | `omnexus_cookie_consent` | `"accepted"` or `"declined"` |
 | `omnexus_migrated_v1` | One-time migration completion flag |
+| `omnexus_last_adaptation` | Last `AdaptationResult` JSON — read by AdaptationCard on InsightsPage |
 
 ---
 
@@ -320,3 +328,4 @@ Everything below is hardcoded in the app — it does not come from an API or dat
 | Capacitor | iOS + Android native packaging (Capacitor v8): status bar, splash screen, haptics, safe areas, `apiBase` abstraction for native builds |
 | Phase 1 AI | AI Onboarding Agent (multi-turn Claude chat), Generative Mesocycle Engine (8-week program JSON), Exercise `MovementPattern` tags, `training_profiles` Supabase table |
 | Phase 2 Learning | Supabase pgvector (`exercise_embeddings`, `content_embeddings`), semantic content search (`/api/recommend-content`), dynamic micro-lesson generation (`/api/generate-lesson`), seed endpoint (`/api/seed-embeddings`), `MicroLessonModal`, content gap detection |
+| Phase 3 Intelligence | Adaptation Engine (`/api/adapt` + `NextSessionTab` + `AdaptationCard`), Block Missions (`/api/generate-missions` + `BlockMissionsCard` + auto progress tracking), AI Challenges (`/api/generate-personal-challenge` + `/api/generate-shared-challenge` cron), Peer Insights (`/api/peer-insights` + `PeerInsightsCard`) |

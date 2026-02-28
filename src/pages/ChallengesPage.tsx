@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { supabase } from '../lib/supabase';
-import { getChallenges, joinChallenge, createChallenge } from '../lib/db';
-import type { Challenge } from '../types';
+import { getChallenges, joinChallenge, createChallenge, getAiChallenges } from '../lib/db';
+import type { Challenge, AiChallenge } from '../types';
+import { PersonalChallengeCard } from '../components/challenges/PersonalChallengeCard';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { CommunityTabs } from '../components/community/CommunityTabs';
@@ -10,7 +11,7 @@ import { ChallengeCard } from '../components/community/ChallengeCard';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Trophy, Plus, X, ChevronDown } from 'lucide-react';
+import { Trophy, Plus, X, ChevronDown, Sparkles } from 'lucide-react';
 
 interface CreateForm {
   name: string;
@@ -31,8 +32,10 @@ const nextMonth = () => {
 export function ChallengesPage() {
   const { state } = useApp();
   const userId = state.user?.id ?? '';
+  const user = state.user;
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [sharedChallenge, setSharedChallenge] = useState<AiChallenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -47,8 +50,16 @@ export function ChallengesPage() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const load = useCallback(async () => {
-    const data = await getChallenges(userId);
+    const [data, aiData] = await Promise.all([
+      getChallenges(userId),
+      userId ? getAiChallenges(userId) : Promise.resolve([]),
+    ]);
     setChallenges(data);
+    const today = new Date().toISOString().split('T')[0];
+    const shared = aiData.find(
+      (c) => c.type === 'shared' && c.startDate <= today && c.endDate >= today,
+    );
+    setSharedChallenge(shared ?? null);
     setLoading(false);
   }, [userId]);
 
@@ -110,6 +121,36 @@ export function ChallengesPage() {
       <CommunityTabs />
 
       <div className="px-4 pb-6 mt-4 space-y-5">
+
+        {/* AI Personal Challenge */}
+        {user && !user.isGuest && (
+          <PersonalChallengeCard
+            userId={userId}
+            goal={user.goal}
+            experienceLevel={user.experienceLevel}
+            weeklyVolumeKg={0}
+            sessionsLast30Days={0}
+            avgRpe={0}
+          />
+        )}
+
+        {/* Shared AI Challenge */}
+        {sharedChallenge && (
+          <div className="rounded-xl border border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={14} className="text-brand-500" />
+              <span className="text-xs font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+                This Week's Community Challenge
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white mb-1">{sharedChallenge.title}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{sharedChallenge.description}</p>
+            <p className="text-xs text-slate-400">
+              Target: {sharedChallenge.target} {sharedChallenge.unit} · Ends {sharedChallenge.endDate}
+            </p>
+          </div>
+        )}
+
         <Button onClick={() => setShowCreate((v) => !v)} fullWidth variant="ghost">
           {showCreate ? <X size={16} /> : <Plus size={16} />}
           {showCreate ? 'Cancel' : 'Create Challenge'}

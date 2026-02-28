@@ -29,7 +29,11 @@
 | **AI Onboarding** | Multi-turn Claude conversation that collects goals, training age, schedule, equipment, and injuries. Outputs a `UserTrainingProfile` + natural-language `aiSummary`. |
 | **Generative Mesocycle Engine** | Claude generates a complete 8-week `Program` JSON tailored to the user's profile. All exercise IDs validated server-side; hardcoded fallback returned on Claude failure. |
 | **AI Q&A** | Ask Omnexus any fitness question — powered by Claude. Maintains conversation context, shows follow-up chips, context limit indicator at 4 exchanges. |
-| **AI Training Insights** | Analyzes last 4 weeks of workout data and returns personalized training observations and recommendations. |
+| **AI Training Insights** | Analyzes last 4 weeks of workout data and returns personalized training observations and recommendations. AdaptationCard (last session suggestions) and PeerInsightsCard (aggregate benchmarking) shown below the analysis. |
+| **Adaptation Engine** | After each workout, `/api/adapt` fetches last 3 sessions per exercise and returns per-exercise adjustment recommendations. Displayed in a "Next Session" tab in WorkoutCompleteModal and persisted to `omnexus_last_adaptation` in localStorage. |
+| **Block Missions** | When a training program is activated, Claude generates 4–5 program-scoped missions (PR, consistency, volume, RPE). Progress is auto-tracked on every workout completion. Displayed as a card on ProgramDetailPage. |
+| **AI Challenges** | Personalized 7-day challenges generated on demand. A shared community challenge is generated every Monday 6am UTC via Vercel cron and shown to all users on ChallengesPage. Stored in the `ai_challenges` Supabase table. |
+| **Peer Insights** | Aggregate cross-user benchmarking: volume and session frequency of peers with the same goal + experience level. Claude generates a 2–3 sentence narrative. Requires at least 3 peers to display. |
 | **Learning System** | Structured courses → modules → lessons with quiz scoring, completion tracking, and animated answer reveal. Semantic search powered by pgvector (OpenAI embeddings). Dynamic micro-lesson generation for content gaps via Claude. |
 | **Semantic Content Search** | Debounced search input on LearnPage queries `/api/recommend-content` (pgvector cosine similarity). Results show exercises and lessons ranked by relevance score. Content gap CTA triggers `MicroLessonModal`. |
 | **Research Feed** | Live PubMed articles across 7 categories with 6-hour client-side caching. |
@@ -72,8 +76,14 @@
 │ /api/onboard│
 │ /api/generate-program
 │ /api/notify-friends
-│ /api/daily-reminder  (cron 9am UTC)
-│ /api/weekly-digest   (cron Mon 8am UTC)
+│ /api/adapt
+│ /api/generate-missions
+│ /api/generate-personal-challenge
+│ /api/generate-shared-challenge
+│ /api/peer-insights
+│ /api/daily-reminder          (cron 9am UTC)
+│ /api/weekly-digest           (cron Mon 8am UTC)
+│ /api/generate-shared-challenge (cron Mon 6am UTC)
 └─────────────┘
 ```
 
@@ -106,7 +116,7 @@ src/
 ├── hooks/            useWorkoutSession, useRestTimer, useLearningProgress
 ├── lib/              supabase.ts, db.ts, dataMigration.ts, pushSubscription.ts, api.ts, capacitor.ts
 ├── pages/            One file per route
-├── services/         claudeService.ts (AI calls)
+├── services/         claudeService.ts, adaptService.ts (AI calls + Phase 3 wrappers)
 ├── store/            AppContext.tsx (global state + reducer)
 ├── types/            index.ts (all interfaces incl. MovementPattern, UserTrainingProfile)
 └── utils/            volumeUtils, programUtils, dateUtils, localStorage, shareCard
@@ -167,6 +177,8 @@ Community (`/feed`) and Nutrition (`/nutrition`) are accessible via Dashboard qu
 | `push_subscriptions` | Web Push VAPID endpoints |
 | `nutrition_logs` | Daily food entries (calories + macros) |
 | `measurements` | Body metric entries per user |
+| `block_missions` | Program-scoped Claude-generated goals with progress tracking; RLS per user |
+| `ai_challenges` | AI challenges — personal (`user_id = uid`) and shared/public (`user_id IS NULL`) |
 
 All tables have Row Level Security enabled with `auth.uid() = user_id` policies.
 
@@ -431,7 +443,12 @@ create policy "Users can manage own training profile"
 | Content gap detection | ✅ Implemented | `hasContentGap` when best similarity < 0.65 → triggers `MicroLessonModal` |
 | Dynamic micro-lessons | ✅ Implemented | Claude generates JSON lesson on demand; fallback on parse failure |
 | Exercise related learning | ✅ Implemented | `ExerciseDetailPage` fetches related lessons via pgvector on mount |
+| Adaptation Engine | ✅ Implemented | `/api/adapt` → per-exercise action chips (increase/maintain/deload + confidence); Next Session tab in WorkoutCompleteModal; AdaptationCard on InsightsPage reads localStorage |
+| Block Missions | ✅ Implemented | `/api/generate-missions` creates 4–5 missions on program activate; progress auto-tracked per session (pr/consistency/volume/rpe); BlockMissionsCard on ProgramDetailPage |
+| AI Challenges (personal) | ✅ Implemented | `/api/generate-personal-challenge` → 7-day personal challenge stored in `ai_challenges`; PersonalChallengeCard on ChallengesPage with time-based progress bar |
+| AI Challenges (shared) | ✅ Implemented | `/api/generate-shared-challenge` cron (Mon 6am UTC) → community-wide weekly challenge; highlighted banner on ChallengesPage for all authenticated users |
+| Peer Insights | ✅ Implemented | `/api/peer-insights` aggregates peers' volume/sessions (service role) → Claude narrative; PeerInsightsCard hidden if fewer than 3 peers |
 
 ---
 
-*The app has a complete, production-capable architecture with Supabase Auth, RLS, real-time features, push notifications, a full CI pipeline, Capacitor native packaging, an AI-native onboarding + mesocycle generation system, and Phase 2 pgvector semantic learning layer. The primary outstanding items before a public launch are: running the pgvector SQL migration in Supabase, seeding embeddings via `POST /api/seed-embeddings`, adding `OPENAI_API_KEY` and `SEED_SECRET` to Vercel env, API rate limiting (Upstash Redis), error tracking (Sentry), and an accessibility audit.*
+*The app has a complete, production-capable architecture with Supabase Auth, RLS, real-time features, push notifications, a full CI pipeline, Capacitor native packaging, an AI-native onboarding + mesocycle generation system, Phase 2 pgvector semantic learning layer, and Phase 3 intelligence layer (adaptation engine, block missions, AI challenges, and peer benchmarking). The primary outstanding items before a public launch are: running the Phase 3 SQL migrations (`block_missions`, `ai_challenges`) in Supabase, running the pgvector SQL migration and seeding embeddings via `POST /api/seed-embeddings`, adding `OPENAI_API_KEY` and `SEED_SECRET` to Vercel env, API rate limiting (Upstash Redis), error tracking (Sentry), and an accessibility audit.*

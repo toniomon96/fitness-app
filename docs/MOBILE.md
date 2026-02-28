@@ -338,4 +338,4 @@ This is only needed if you add magic link or social OAuth login — email/passwo
 - [ ] App Store screenshots taken at required sizes
 - [ ] Play Store feature graphic (1024×500) created
 - [ ] Content rating questionnaire completed in Play Console
-- [ ] Cron jobs verified working on production Vercel (daily-reminder, weekly-digest)
+- [ ] Cron jobs verified working on production Vercel (daily-reminder, weekly-digest, generate-shared-challenge)

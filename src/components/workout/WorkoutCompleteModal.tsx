@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { WorkoutSession, PersonalRecord } from '../../types';
+import type { WorkoutSession, PersonalRecord, AdaptationResult } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { ShareCardModal } from '../ui/ShareCardModal';
+import { NextSessionTab } from './NextSessionTab';
 import { formatDuration } from '../../utils/dateUtils';
 import { getExerciseById } from '../../data/exercises';
 import { generatePRCard } from '../../utils/shareCard';
-import { Trophy, Timer, Zap, Star, Share2 } from 'lucide-react';
+import { Trophy, Timer, Zap, Star, Share2, ChevronRight, Loader2 } from 'lucide-react';
 import { triggerHapticNotification } from '../../lib/capacitor';
+import { getAdaptation } from '../../services/adaptService';
+import { useApp } from '../../store/AppContext';
 
 interface WorkoutCompleteModalProps {
   open: boolean;
@@ -81,16 +84,68 @@ function useConfetti(active: boolean) {
   }, [active]);
 }
 
+type Tab = 'summary' | 'next';
+
 export function WorkoutCompleteModal({
   open,
   session,
   prs,
 }: WorkoutCompleteModalProps) {
   const navigate = useNavigate();
+  const { state } = useApp();
   const hasPRs = prs.length > 0;
   useConfetti(open && hasPRs);
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('summary');
+  const [adaptation, setAdaptation] = useState<AdaptationResult | null>(null);
+  const [adaptLoading, setAdaptLoading] = useState(false);
+
+  // Fetch adaptation on open
+  useEffect(() => {
+    if (!open || !state.user || state.user.isGuest) return;
+    let cancelled = false;
+
+    async function fetchAdaptation() {
+      setAdaptLoading(true);
+      try {
+        const exerciseSets = session.exercises
+          .filter((e) => e.sets.some((s) => s.completed))
+          .map((e) => {
+            const ex = getExerciseById(e.exerciseId);
+            return {
+              exerciseId: e.exerciseId,
+              exerciseName: ex?.name ?? e.exerciseId,
+              sets: e.sets,
+            };
+          });
+
+        if (exerciseSets.length === 0) return;
+
+        const result = await getAdaptation({
+          sessionId: session.id,
+          userId: state.user!.id,
+          exerciseSets,
+        });
+
+        if (!cancelled) {
+          setAdaptation(result);
+          // Persist to localStorage for InsightsPage
+          localStorage.setItem('omnexus_last_adaptation', JSON.stringify({
+            ...result,
+            savedAt: new Date().toISOString(),
+          }));
+        }
+      } catch {
+        // Non-fatal: tab will show a message
+      } finally {
+        if (!cancelled) setAdaptLoading(false);
+      }
+    }
+
+    void fetchAdaptation();
+    return () => { cancelled = true; };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pick the PR with the highest weight to feature on the share card
   const featuredPR = hasPRs
@@ -105,91 +160,148 @@ export function WorkoutCompleteModal({
   return (
     <Modal open={open} title="Workout Complete! 🎉">
       <div className="space-y-4">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            {
-              icon: <Timer size={18} className="text-brand-500" />,
-              label: 'Duration',
-              value: formatDuration(session.durationSeconds ?? 0),
-            },
-            {
-              icon: <Zap size={18} className="text-orange-500" />,
-              label: 'Volume',
-              value: `${session.totalVolumeKg.toFixed(0)} kg`,
-            },
-            {
-              icon: <Trophy size={18} className="text-yellow-500" />,
-              label: 'Sets',
-              value: String(totalSets),
-            },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="flex flex-col items-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3"
+        {/* Tab bar */}
+        <div className="flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+          {(['summary', 'next'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                activeTab === tab
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
             >
-              {stat.icon}
-              <span className="text-lg font-bold text-slate-900 dark:text-white">
-                {stat.value}
-              </span>
-              <span className="text-xs text-slate-400">{stat.label}</span>
-            </div>
+              {tab === 'summary' ? 'Summary' : 'Next Session'}
+              {tab === 'next' && adaptLoading && (
+                <Loader2 size={10} className="inline ml-1 animate-spin" />
+              )}
+            </button>
           ))}
         </div>
 
-        {/* PRs */}
-        {hasPRs && (
-          <div
-            className="rounded-2xl border-2 border-yellow-400 dark:border-yellow-500 overflow-hidden"
-            style={{ animation: 'prGlow 0.6s ease-out' }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-center gap-2 bg-yellow-400 dark:bg-yellow-500 px-4 py-2.5">
-              <Star size={16} className="text-yellow-900 fill-yellow-900" />
-              <p className="text-sm font-bold text-yellow-900 tracking-wide uppercase">
-                Personal Record{prs.length > 1 ? 's' : ''}!
-              </p>
-              <Star size={16} className="text-yellow-900 fill-yellow-900" />
+        {/* Summary tab */}
+        {activeTab === 'summary' && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                {
+                  icon: <Timer size={18} className="text-brand-500" />,
+                  label: 'Duration',
+                  value: formatDuration(session.durationSeconds ?? 0),
+                },
+                {
+                  icon: <Zap size={18} className="text-orange-500" />,
+                  label: 'Volume',
+                  value: `${session.totalVolumeKg.toFixed(0)} kg`,
+                },
+                {
+                  icon: <Trophy size={18} className="text-yellow-500" />,
+                  label: 'Sets',
+                  value: String(totalSets),
+                },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3"
+                >
+                  {stat.icon}
+                  <span className="text-lg font-bold text-slate-900 dark:text-white">
+                    {stat.value}
+                  </span>
+                  <span className="text-xs text-slate-400">{stat.label}</span>
+                </div>
+              ))}
             </div>
 
-            {/* PR rows */}
-            <ul className="divide-y divide-yellow-200 dark:divide-yellow-800/40 bg-yellow-50 dark:bg-yellow-900/20">
-              {prs.map((pr, i) => {
-                const ex = getExerciseById(pr.exerciseId);
-                return (
-                  <li
-                    key={pr.exerciseId}
-                    className="flex items-center justify-between px-4 py-2.5"
-                    style={{ animation: `prSlideIn 0.35s ease-out ${i * 80}ms both` }}
-                  >
-                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                      {ex?.name ?? pr.exerciseId}
-                    </span>
-                    <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400 tabular-nums">
-                      {pr.weight} kg × {pr.reps}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+            {/* PRs */}
+            {hasPRs && (
+              <div
+                className="rounded-2xl border-2 border-yellow-400 dark:border-yellow-500 overflow-hidden"
+                style={{ animation: 'prGlow 0.6s ease-out' }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-center gap-2 bg-yellow-400 dark:bg-yellow-500 px-4 py-2.5">
+                  <Star size={16} className="text-yellow-900 fill-yellow-900" />
+                  <p className="text-sm font-bold text-yellow-900 tracking-wide uppercase">
+                    Personal Record{prs.length > 1 ? 's' : ''}!
+                  </p>
+                  <Star size={16} className="text-yellow-900 fill-yellow-900" />
+                </div>
+
+                {/* PR rows */}
+                <ul className="divide-y divide-yellow-200 dark:divide-yellow-800/40 bg-yellow-50 dark:bg-yellow-900/20">
+                  {prs.map((pr, i) => {
+                    const ex = getExerciseById(pr.exerciseId);
+                    return (
+                      <li
+                        key={pr.exerciseId}
+                        className="flex items-center justify-between px-4 py-2.5"
+                        style={{ animation: `prSlideIn 0.35s ease-out ${i * 80}ms both` }}
+                      >
+                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {ex?.name ?? pr.exerciseId}
+                        </span>
+                        <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400 tabular-nums">
+                          {pr.weight} kg × {pr.reps}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {/* Share PR card */}
+            {hasPRs && featuredPR && (
+              <Button
+                variant="ghost"
+                onClick={() => setShowShareModal(true)}
+                fullWidth
+              >
+                <Share2 size={15} />
+                Share your PR
+              </Button>
+            )}
+
+            {/* CTA to Next Session tab */}
+            {(adaptation || adaptLoading) && (
+              <button
+                onClick={() => setActiveTab('next')}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-900/20 text-sm text-brand-600 dark:text-brand-400 font-medium"
+              >
+                <span>View next session suggestions</span>
+                <ChevronRight size={16} />
+              </button>
+            )}
+
+            <Button onClick={() => navigate('/')} fullWidth size="lg">
+              Back to Dashboard
+            </Button>
+          </>
         )}
 
-        {/* Share PR card */}
-        {hasPRs && featuredPR && (
-          <Button
-            variant="ghost"
-            onClick={() => setShowShareModal(true)}
-            fullWidth
-          >
-            <Share2 size={15} />
-            Share your PR
-          </Button>
+        {/* Next Session tab */}
+        {activeTab === 'next' && (
+          <>
+            {adaptLoading ? (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Loader2 size={28} className="animate-spin text-brand-500" />
+                <p className="text-sm text-slate-500">Analyzing your session…</p>
+              </div>
+            ) : adaptation ? (
+              <NextSessionTab result={adaptation} />
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-sm text-slate-500">No adaptation data available.</p>
+              </div>
+            )}
+            <Button onClick={() => navigate('/')} fullWidth size="lg">
+              Back to Dashboard
+            </Button>
+          </>
         )}
-
-        <Button onClick={() => navigate('/')} fullWidth size="lg">
-          Back to Dashboard
-        </Button>
       </div>
 
       {/* Share modal — rendered outside the main modal so stacking works */}

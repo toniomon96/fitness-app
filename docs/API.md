@@ -26,6 +26,11 @@ All API endpoints are Vercel serverless functions in `/api/`. They run on Node.j
 | `POST /api/notify-friends` | **Yes** — Bearer JWT |
 | `GET /api/export-data` | **Yes** — Bearer JWT |
 | `DELETE /api/delete-account` | **Yes** — Bearer JWT |
+| `POST /api/adapt` | Bearer JWT (optional — `userId` in body) |
+| `POST /api/generate-missions` | Bearer JWT (optional — `userId` in body) |
+| `POST /api/generate-personal-challenge` | Bearer JWT (optional — `userId` in body) |
+| `GET /api/generate-shared-challenge` | Vercel Cron (internal) |
+| `POST /api/peer-insights` | Bearer JWT (optional — `userId` in body) |
 | `GET /api/daily-reminder` | Vercel Cron (internal) |
 | `GET /api/weekly-digest` | Vercel Cron (internal) |
 
@@ -418,6 +423,8 @@ Not called by the client. Scheduled in `vercel.json`:
 { "path": "/api/weekly-digest", "schedule": "0 8 * * 1" }
 ```
 
+> **Also on Mondays:** `GET /api/generate-shared-challenge` runs at **6am UTC** (before the digest) to create the new weekly community challenge. See the [generate-shared-challenge](#get-apigenerate-shared-challenge) section above.
+
 **Response 200**
 
 ```json
@@ -508,6 +515,292 @@ After receiving `200`, the client calls `localStorage.clear()` then `supabase.au
 
 ---
 
+## POST /api/adapt
+
+Analyzes the exercises from a completed workout session and returns per-exercise adjustment recommendations using Claude.
+
+**Request**
+
+```http
+POST /api/adapt
+Content-Type: application/json
+Authorization: Bearer <supabase-access-token>
+```
+
+```json
+{
+  "userId": "uuid",
+  "exerciseSets": [
+    {
+      "exerciseId": "barbell-squat",
+      "exerciseName": "Barbell Squat",
+      "sets": [
+        { "setNumber": 1, "weight": 100, "reps": 5, "completed": true, "rpe": 8, "timestamp": "..." }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `userId` | `string` (UUID) | Yes | Caller passes Supabase user ID |
+| `exerciseSets` | `array` | Yes | Exercises + sets from the completed session |
+
+**Process:**
+1. Fetches last 3 sessions containing each `exerciseId` from `workout_sessions` using service role
+2. Builds per-exercise history table: `[date, sets×reps×weight, avgRPE]`
+3. Sends to Claude (`claude-sonnet-4-6`, `max_tokens: 1024`) for double-progression analysis
+4. Returns JSON with per-exercise actions and a session narrative summary
+
+**Response 200**
+
+```json
+{
+  "adaptations": [
+    {
+      "exerciseId": "barbell-squat",
+      "exerciseName": "Barbell Squat",
+      "action": "increase_weight",
+      "suggestion": "Add 2.5 kg next session — hit all reps at RPE 7",
+      "confidence": "high"
+    }
+  ],
+  "summary": "Strong session today. You're progressing well on compound lifts."
+}
+```
+
+`action` values: `increase_weight` | `decrease_weight` | `increase_reps` | `maintain` | `deload`
+`confidence` values: `high` | `medium` | `low`
+
+**Fallback:** On Claude error, returns `{ adaptations: [], summary: "..." }` with `HTTP 200` — never errors.
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 1024`
+
+---
+
+## POST /api/generate-missions
+
+Generates 4–5 program-scoped block missions using Claude when a user activates a training program.
+
+**Request**
+
+```http
+POST /api/generate-missions
+Content-Type: application/json
+```
+
+```json
+{
+  "userId": "uuid",
+  "programId": "program-id",
+  "programName": "PPL Hypertrophy",
+  "goal": "hypertrophy",
+  "experienceLevel": "intermediate",
+  "daysPerWeek": 3,
+  "durationWeeks": 8
+}
+```
+
+**Process:**
+1. Claude generates 4–5 missions as JSON: `{ type, description, target }` per mission
+2. Deletes existing `active` missions for `(userId, programId)` via service role
+3. Inserts new missions to `block_missions`
+4. Returns `{ missions: BlockMission[] }`
+
+**Response 200**
+
+```json
+{
+  "missions": [
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "programId": "program-id",
+      "type": "pr",
+      "description": "Hit a new 1RM on Barbell Squat",
+      "target": { "metric": "pr_count", "value": 1, "unit": "PRs" },
+      "progress": { "current": 0, "history": [] },
+      "status": "active",
+      "createdAt": "..."
+    }
+  ]
+}
+```
+
+**Errors**
+
+| Status | Cause |
+|---|---|
+| `400` | Missing required fields |
+| `500` | Claude API failure or database error |
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 512`
+
+---
+
+## POST /api/generate-personal-challenge
+
+Generates a personalized 7-day AI challenge for a single user based on their goal, experience level, and recent activity.
+
+**Request**
+
+```http
+POST /api/generate-personal-challenge
+Content-Type: application/json
+```
+
+```json
+{
+  "userId": "uuid",
+  "goal": "hypertrophy",
+  "experienceLevel": "intermediate",
+  "recentStats": {
+    "weeklyVolume": 12500,
+    "sessionsLast30Days": 14,
+    "avgRpe": 7.5
+  }
+}
+```
+
+**Response 200**
+
+```json
+{
+  "challenge": {
+    "id": "uuid",
+    "userId": "uuid",
+    "type": "personal",
+    "title": "Volume Surge Week",
+    "description": "Push your weekly tonnage to a new high...",
+    "metric": "total_volume",
+    "target": 15000,
+    "unit": "kg",
+    "startDate": "2026-02-28",
+    "endDate": "2026-03-07",
+    "createdAt": "..."
+  }
+}
+```
+
+`metric` values: `total_volume` | `sessions_count` | `pr_count` | `consistency`
+
+**Errors**
+
+| Status | Cause |
+|---|---|
+| `400` | Missing `userId` |
+| `500` | Claude API failure or database error |
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 256`
+
+---
+
+## GET /api/generate-shared-challenge
+
+**Vercel Cron** — runs at **6am UTC every Monday**. Generates a community-wide 7-day shared challenge visible to all authenticated users.
+
+Not called by the client. Scheduled in `vercel.json`:
+```json
+{ "path": "/api/generate-shared-challenge", "schedule": "0 6 * * 1" }
+```
+
+**Process:**
+1. Queries aggregate workout stats from the last 7 days (all users, service role)
+2. Claude generates a community challenge JSON based on current activity trends
+3. Inserts to `ai_challenges` with `user_id = NULL` and `type = 'shared'`
+4. Returns `{ challenge: AiChallenge }`
+
+**Response 200**
+
+```json
+{
+  "challenge": {
+    "id": "uuid",
+    "userId": null,
+    "type": "shared",
+    "title": "Community Volume Week",
+    "description": "This week the whole community is lifting together...",
+    "metric": "sessions_count",
+    "target": 3,
+    "unit": "sessions",
+    "startDate": "2026-03-03",
+    "endDate": "2026-03-10",
+    "createdAt": "..."
+  }
+}
+```
+
+**Fallback:** If Claude fails, a hardcoded default challenge is inserted — the endpoint always returns `HTTP 200`.
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 512`
+
+---
+
+## POST /api/peer-insights
+
+Generates a 2–3 sentence benchmarking narrative comparing the requesting user's peer group activity. Only aggregate statistics are passed to Claude — no individual user records.
+
+**Request**
+
+```http
+POST /api/peer-insights
+Content-Type: application/json
+```
+
+```json
+{
+  "userId": "uuid",
+  "goal": "hypertrophy",
+  "experienceLevel": "intermediate"
+}
+```
+
+| Field | Type | Required |
+|---|---|---|
+| `userId` | `string` (UUID) | Yes |
+| `goal` | `string` | No |
+| `experienceLevel` | `string` | No |
+
+**Process:**
+1. Service role queries `training_profiles` for all peers (excluding `userId`)
+2. Queries `workout_sessions` for those peers in the last 30 days
+3. Calculates aggregate averages (sessions/week, volume/week)
+4. If `peerCount < 3`: returns `{ hasEnoughPeers: false }` without calling Claude
+5. Passes **only aggregated numbers** to Claude (never individual records)
+6. Returns Claude-generated narrative
+
+**Response 200 — enough peers**
+
+```json
+{
+  "narrative": "Your peer group averages 3.2 sessions per week lifting 9,400 kg...",
+  "peerCount": 47,
+  "hasEnoughPeers": true
+}
+```
+
+**Response 200 — not enough peers**
+
+```json
+{
+  "narrative": "",
+  "peerCount": 2,
+  "hasEnoughPeers": false
+}
+```
+
+**Errors**
+
+| Status | Cause |
+|---|---|
+| `400` | Missing `userId` |
+| `500` | Claude API failure or database error |
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 256`
+
+---
+
 ## Shared AI System Prompt
 
 Both `/api/ask` and `/api/insights` use this persona:
@@ -539,9 +832,10 @@ Every response ends with:
 | File | Calls | Responsibility |
 |---|---|---|
 | [`src/services/claudeService.ts`](../src/services/claudeService.ts) | `/api/ask`, `/api/insights` | Typed `fetch()` wrappers; passes conversation history |
+| [`src/services/adaptService.ts`](../src/services/adaptService.ts) | `/api/adapt`, `/api/generate-missions`, `/api/generate-personal-challenge`, `/api/peer-insights` | Phase 3 typed wrappers; uses `apiBase` + Supabase auth bearer token |
 | [`src/services/insightsService.ts`](../src/services/insightsService.ts) | — | Builds `workoutSummary` string from `WorkoutSession[]` |
 | [`src/services/pubmedService.ts`](../src/services/pubmedService.ts) | `/api/articles` | Calls API + manages 6h localStorage cache |
-| [`src/lib/db.ts`](../src/lib/db.ts) | Supabase directly | All typed Supabase table operations |
+| [`src/lib/db.ts`](../src/lib/db.ts) | Supabase directly | All typed Supabase table operations (incl. `getBlockMissions`, `updateMissionProgress`, `getAiChallenges`) |
 | [`src/lib/pushSubscription.ts`](../src/lib/pushSubscription.ts) | `/api/notify-friends` | VAPID subscription management + permission checks |
 | [`src/components/onboarding/OnboardingChat.tsx`](../src/components/onboarding/OnboardingChat.tsx) | `/api/onboard` | Chat bubble UI for AI onboarding conversation |
 | [`src/components/onboarding/ProfileSummaryCard.tsx`](../src/components/onboarding/ProfileSummaryCard.tsx) | `/api/generate-program` | Profile review + "Generate My 8-Week Program" trigger |

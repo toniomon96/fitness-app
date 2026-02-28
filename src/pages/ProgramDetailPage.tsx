@@ -1,17 +1,21 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { DaySchedule } from '../components/programs/DaySchedule';
+import { BlockMissionsCard } from '../components/programs/BlockMissionsCard';
 import { GoalBadge, LevelBadge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { setUser, resetProgramCursors, getCustomPrograms } from '../utils/localStorage';
+import { generateMissions } from '../services/adaptService';
 import { Calendar, Clock, CheckCircle2, Sparkles } from 'lucide-react';
 
 export function ProgramDetailPage() {
   const { programId } = useParams<{ programId: string }>();
   const { state, dispatch } = useApp();
+  const { user: authUser } = useAuth();
   const navigate = useNavigate();
 
   const allPrograms = [...programs, ...getCustomPrograms()];
@@ -35,6 +39,20 @@ export function ProgramDetailPage() {
     setUser(updated);
     resetProgramCursors(program.id);
     dispatch({ type: 'SET_USER', payload: updated });
+
+    // Fire-and-forget: generate block missions for this program
+    if (authUser) {
+      generateMissions({
+        userId: authUser.id,
+        programId: program.id,
+        programName: program.name,
+        goal: state.user.goal,
+        experienceLevel: state.user.experienceLevel,
+        daysPerWeek: program.daysPerWeek,
+        durationWeeks: program.estimatedDurationWeeks,
+      }).catch(() => {});
+    }
+
     navigate('/');
   }
 
@@ -80,6 +98,16 @@ export function ProgramDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Block Missions */}
+        {authUser && (
+          <BlockMissionsCard
+            programId={program.id}
+            programName={program.name}
+            daysPerWeek={program.daysPerWeek}
+            durationWeeks={program.estimatedDurationWeeks}
+          />
+        )}
 
         {/* Activate button */}
         {isActive ? (

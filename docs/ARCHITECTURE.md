@@ -31,10 +31,16 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 │  /api/notify-friends   → web-push (VAPID) → push_subscriptions        │
 │  /api/export-data      → Supabase Admin SDK                           │
 │  /api/delete-account   → Supabase Admin SDK                           │
+│  /api/adapt                  → Supabase Admin SDK + Claude (adapt.)   │
+│  /api/generate-missions      → Claude + Supabase (block_missions)     │
+│  /api/generate-personal-challenge → Claude + Supabase (ai_challenges) │
+│  /api/generate-shared-challenge   → Claude + Supabase (ai_challenges) │
+│  /api/peer-insights          → Supabase Admin SDK + Claude (peers)    │
 │                                                                       │
 │  Cron jobs (vercel.json):                                             │
-│  /api/daily-reminder  [0 9 * * *]  → push all subscribers            │
-│  /api/weekly-digest   [0 8 * * 1]  → push volume summary to all      │
+│  /api/daily-reminder         [0 9 * * *]  → push all subscribers     │
+│  /api/weekly-digest          [0 8 * * 1]  → push volume summary      │
+│  /api/generate-shared-challenge [0 6 * * 1] → weekly AI challenge    │
 └──────────────────────────────────────────────────────────────────────┘
                     │
 ┌───────────────────▼──────────────────────────────────────────────────┐
@@ -55,7 +61,9 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 │                              ├── nutrition_logs                      │
 │                              ├── measurements                        │
 │                              ├── exercise_embeddings  ← Phase 2      │
-│                              └── content_embeddings   ← Phase 2      │
+│                              ├── content_embeddings   ← Phase 2      │
+│                              ├── block_missions       ← Phase 3      │
+│                              └── ai_challenges        ← Phase 3      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -115,6 +123,9 @@ onAuthStateChange → session present:
 On every workout complete:
   completeWorkout() → localStorage (instant) + upsertSession() fire-and-forget
                     + POST /api/notify-friends (fire-and-forget)
+                    + updateBlockMissions() fire-and-forget (mission progress per type)
+                    + getAdaptation() called from WorkoutCompleteModal on open
+                      → stores AdaptationResult in localStorage [omnexus_last_adaptation]
 
 On every learning action:
   AppContext reducer → localStorage (instant)
@@ -446,6 +457,38 @@ LearningProgress (localStorage + Supabase learning_progress)
 └── lastActivityAt: ISO string
 ```
 
+### Phase 3 — Intelligence Layer
+
+```
+BlockMission (Supabase block_missions)
+├── id, userId, programId
+├── type: 'pr' | 'consistency' | 'volume' | 'rpe'
+├── description: string
+├── target: { metric: string; value: number; unit: string }
+├── progress: { current: number; history: { date: string; value: number }[] }
+├── status: 'active' | 'completed' | 'failed'
+├── createdAt: string
+└── completedAt?: string
+
+AdaptationAction (in-memory / localStorage)
+├── exerciseId, exerciseName
+├── action: 'increase_weight' | 'decrease_weight' | 'increase_reps' | 'maintain' | 'deload'
+├── suggestion: string       (e.g. "Add 2.5 kg next session")
+└── confidence: 'high' | 'medium' | 'low'
+
+AdaptationResult (in-memory / localStorage [omnexus_last_adaptation])
+├── adaptations: AdaptationAction[]
+└── summary: string          (1-2 sentence session narrative)
+
+AiChallenge (Supabase ai_challenges)
+├── id, userId (null = shared/public)
+├── type: 'personal' | 'shared'
+├── title, description
+├── metric: 'total_volume' | 'sessions_count' | 'pr_count' | 'consistency'
+├── target: number, unit: string
+├── startDate, endDate, createdAt
+```
+
 ### Community
 
 ```
@@ -686,6 +729,52 @@ create policy "Users manage own measurements" on measurements
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
+### Phase 3 — Intelligence Layer
+
+```sql
+-- ── Block Missions ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS block_missions (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  program_id   text NOT NULL,
+  type         text NOT NULL CHECK (type IN ('pr','consistency','volume','rpe')),
+  description  text NOT NULL,
+  target       jsonb NOT NULL,   -- { metric: string, value: number, unit: string }
+  progress     jsonb NOT NULL DEFAULT '{"current":0,"history":[]}',
+  status       text NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','failed')),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+ALTER TABLE block_missions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own block_missions" ON block_missions
+  FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS block_missions_user_program_idx
+  ON block_missions(user_id, program_id);
+
+-- ── AI Challenges (shared = user_id IS NULL) ────────────────────────────────
+CREATE TABLE IF NOT EXISTS ai_challenges (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  type        text NOT NULL CHECK (type IN ('personal','shared')),
+  title       text NOT NULL,
+  description text NOT NULL,
+  metric      text NOT NULL,  -- 'total_volume'|'sessions_count'|'pr_count'|'consistency'
+  target      numeric NOT NULL,
+  unit        text NOT NULL,
+  start_date  date NOT NULL,
+  end_date    date NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE ai_challenges ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users read own + shared challenges" ON ai_challenges
+  FOR SELECT USING (user_id = auth.uid() OR user_id IS NULL);
+CREATE POLICY "Users insert own challenges" ON ai_challenges
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS ai_challenges_user_idx ON ai_challenges(user_id);
+CREATE INDEX IF NOT EXISTS ai_challenges_shared_idx ON ai_challenges(type, start_date)
+  WHERE user_id IS NULL;
+```
+
 ### Phase 2 — Embeddings (pgvector)
 
 ```sql
@@ -805,6 +894,7 @@ general-fitness → strength-training
 | Capacitor | iOS + Android packaging (v8): status bar, splash, haptics, safe areas, `apiBase` abstraction | ✅ |
 | Phase 1 AI | AI Onboarding Agent + Generative Mesocycle Engine + Exercise `MovementPattern` tags | ✅ |
 | Phase 2 Learning | Supabase pgvector embeddings, semantic content retrieval, dynamic micro-lesson generation | ✅ |
+| Phase 3 Intelligence | Adaptation Engine (post-workout Next Session tab + InsightsPage card), Block Missions (program-scoped Claude goals + auto progress tracking), AI Challenges (personal + shared weekly cron), Peer Insights (aggregate cross-user benchmarking) | ✅ |
 
 ---
 
@@ -821,8 +911,9 @@ general-fitness → strength-training
     { "src": "/(.*)",      "dest": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/daily-reminder", "schedule": "0 9 * * *" },
-    { "path": "/api/weekly-digest",  "schedule": "0 8 * * 1" }
+    { "path": "/api/daily-reminder",          "schedule": "0 9 * * *" },
+    { "path": "/api/weekly-digest",           "schedule": "0 8 * * 1" },
+    { "path": "/api/generate-shared-challenge", "schedule": "0 6 * * 1" }
   ]
 }
 ```

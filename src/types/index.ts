@@ -230,6 +230,48 @@ export interface DynamicLesson extends Lesson {
   topic: string;
 }
 
+// ─── Intelligence Layer (Phase 3) ─────────────────────────────────────────────
+
+export interface BlockMission {
+  id: string;
+  userId: string;
+  programId: string;
+  type: 'pr' | 'consistency' | 'volume' | 'rpe';
+  description: string;
+  target: { metric: string; value: number; unit: string };
+  progress: { current: number; history: { date: string; value: number }[] };
+  status: 'active' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface AdaptationAction {
+  exerciseId: string;
+  exerciseName: string;
+  action: 'increase_weight' | 'decrease_weight' | 'increase_reps' | 'maintain' | 'deload';
+  suggestion: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface AdaptationResult {
+  adaptations: AdaptationAction[];
+  summary: string;
+}
+
+export interface AiChallenge {
+  id: string;
+  userId: string | null;
+  type: 'personal' | 'shared';
+  title: string;
+  description: string;
+  metric: 'total_volume' | 'sessions_count' | 'pr_count' | 'consistency';
+  target: number;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
 export interface CourseModule {
   id: string;
   title: string;

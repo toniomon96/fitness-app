@@ -6,7 +6,10 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { ArticleFeed } from '../components/insights/ArticleFeed';
+import { AdaptationCard } from '../components/insights/AdaptationCard';
+import { PeerInsightsCard } from '../components/insights/PeerInsightsCard';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getWorkoutInsights } from '../services/claudeService';
 import { buildInsightRequest } from '../services/insightsService';
 import { Sparkles, Loader, Shield, MessageCircle, BarChart2, Newspaper } from 'lucide-react';
@@ -26,6 +29,7 @@ const QUICK_QUESTIONS = [
 
 export function InsightsPage() {
   const { state } = useApp();
+  const { user: authUser } = useAuth();
   const navigate = useNavigate();
   const user = state.user!;
   const sessions = state.history.sessions;
@@ -85,6 +89,18 @@ export function InsightsPage() {
             </p>
           </div>
         </div>
+
+        {/* Adaptation from last session */}
+        <AdaptationCard />
+
+        {/* Peer benchmarking */}
+        {authUser && !user.isGuest && (
+          <PeerInsightsCard
+            userId={authUser.id}
+            goal={user.goal}
+            experienceLevel={user.experienceLevel}
+          />
+        )}
 
         {/* Analyze card */}
         <Card>

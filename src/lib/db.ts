@@ -17,6 +17,8 @@ import type {
   FeedReaction,
   ReactionEmoji,
   UserTrainingProfile,
+  BlockMission,
+  AiChallenge,
 } from '../types';
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -657,4 +659,97 @@ export async function saveAiGeneratedProgram(
   };
   await upsertCustomProgram(programWithMeta, userId);
   return id;
+}
+
+// ─── Block Missions ───────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapMission(row: any): BlockMission {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    programId: row.program_id,
+    type: row.type as BlockMission['type'],
+    description: row.description,
+    target: row.target,
+    progress: row.progress ?? { current: 0, history: [] },
+    status: row.status as BlockMission['status'],
+    createdAt: row.created_at,
+    completedAt: row.completed_at ?? undefined,
+  };
+}
+
+export async function getBlockMissions(userId: string, programId: string): Promise<BlockMission[]> {
+  const { data } = await supabase
+    .from('block_missions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('program_id', programId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((row: any) => mapMission(row));
+}
+
+export async function updateMissionProgress(
+  missionId: string,
+  progress: BlockMission['progress'],
+  status?: BlockMission['status'],
+): Promise<void> {
+  const update: Record<string, unknown> = { progress };
+  if (status) {
+    update.status = status;
+    if (status === 'completed') {
+      update.completed_at = new Date().toISOString();
+    }
+  }
+  const { error } = await supabase
+    .from('block_missions')
+    .update(update)
+    .eq('id', missionId);
+  if (error) throw new Error(`[updateMissionProgress] ${error.message}`);
+}
+
+// ─── AI Challenges ────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAiChallenge(row: any): AiChallenge {
+  return {
+    id: row.id,
+    userId: row.user_id ?? null,
+    type: row.type as AiChallenge['type'],
+    title: row.title,
+    description: row.description,
+    metric: row.metric as AiChallenge['metric'],
+    target: Number(row.target),
+    unit: row.unit,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getAiChallenges(userId: string): Promise<AiChallenge[]> {
+  // Fetch user's personal challenges + shared (user_id IS NULL) active this week
+  const today = new Date().toISOString().split('T')[0];
+  const { data: personal } = await supabase
+    .from('ai_challenges')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', 'personal')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const { data: shared } = await supabase
+    .from('ai_challenges')
+    .select('*')
+    .is('user_id', null)
+    .eq('type', 'shared')
+    .lte('start_date', today)
+    .gte('end_date', today)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return [...(personal ?? []).map((r: any) => mapAiChallenge(r)), ...(shared ?? []).map((r: any) => mapAiChallenge(r))];
 }
