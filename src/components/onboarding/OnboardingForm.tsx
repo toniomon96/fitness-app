@@ -6,11 +6,11 @@ import { OnboardingChat } from './OnboardingChat';
 import { ProfileSummaryCard } from './ProfileSummaryCard';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { setUser, resetProgramCursors } from '../../utils/localStorage';
+import { setUser, resetProgramCursors, saveCustomProgram } from '../../utils/localStorage';
 import { apiBase } from '../../lib/api';
 import { useApp } from '../../store/AppContext';
 import { supabase } from '../../lib/supabase';
-import { upsertTrainingProfile, saveAiGeneratedProgram } from '../../lib/db';
+import { upsertTrainingProfile, upsertCustomProgram } from '../../lib/db';
 
 // Step 0: Account, Step 1: Name, Step 2: AI Chat, Step 3: Profile summary + generate
 const STEPS = ['Account', 'Name', 'Discover', 'Your Plan'];
@@ -85,8 +85,19 @@ export function OnboardingForm() {
           ? 'intermediate'
           : 'advanced';
 
-      // Save AI-generated program — get the assigned ID back
-      const programId = await saveAiGeneratedProgram(userId, program);
+      // Save AI-generated program locally first (works regardless of email confirmation status)
+      const programId = crypto.randomUUID();
+      const programWithMeta: Program = {
+        ...program,
+        id: programId,
+        isCustom: true,
+        isAiGenerated: true,
+        createdAt: new Date().toISOString(),
+      };
+      saveCustomProgram(programWithMeta);
+      // Best-effort DB sync — will fail if email confirmation is pending (no session yet).
+      // The dataMigration will sync it on first login.
+      upsertCustomProgram(programWithMeta, userId).catch(() => { /* synced later */ });
 
       const profileRes = await fetch(`${apiBase}/api/setup-profile`, {
         method: 'POST',
