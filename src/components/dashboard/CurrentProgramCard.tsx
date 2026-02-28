@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Program } from '../../types';
 import { Card } from '../ui/Card';
 import { GoalBadge, LevelBadge } from '../ui/Badge';
-import { ChevronRight, Calendar } from 'lucide-react';
+import { ChevronRight, Calendar, Sparkles } from 'lucide-react';
 
 interface CurrentProgramCardProps {
   program: Program;
@@ -31,9 +31,17 @@ export function CurrentProgramCard({
           <p className="text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">
             Current Program
           </p>
-          <p className="font-bold text-slate-900 dark:text-white text-lg leading-snug truncate">
-            {program.name}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-slate-900 dark:text-white text-lg leading-snug truncate">
+              {program.name}
+            </p>
+            {program.isAiGenerated && (
+              <span className="flex items-center gap-1 text-xs bg-brand-500/10 text-brand-600 dark:text-brand-400 px-2 py-0.5 rounded-full shrink-0">
+                <Sparkles size={10} />
+                AI
+              </span>
+            )}
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <GoalBadge goal={program.goal} />
             <LevelBadge level={program.experienceLevel} />

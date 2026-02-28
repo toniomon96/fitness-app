@@ -25,7 +25,9 @@
 | Feature Area | Description |
 |---|---|
 | **Workout Tracking** | Logs sets, reps, weight, and RPE. Auto-detects PRs via Epley 1RM formula with confetti celebration. |
-| **Training Programs** | Pre-built and custom-built programs with day-by-day scheduling, progression, and an in-app builder. |
+| **Training Programs** | Pre-built and custom-built programs with day-by-day scheduling, progression, and an in-app builder. AI-generated programs display an "AI" badge (sparkle icon). |
+| **AI Onboarding** | Multi-turn Claude conversation that collects goals, training age, schedule, equipment, and injuries. Outputs a `UserTrainingProfile` + natural-language `aiSummary`. |
+| **Generative Mesocycle Engine** | Claude generates a complete 8-week `Program` JSON tailored to the user's profile. All exercise IDs validated server-side; hardcoded fallback returned on Claude failure. |
 | **AI Q&A** | Ask Omnexus any fitness question — powered by Claude. Maintains conversation context, shows follow-up chips, context limit indicator at 4 exchanges. |
 | **AI Training Insights** | Analyzes last 4 weeks of workout data and returns personalized training observations and recommendations. |
 | **Learning System** | Structured courses → modules → lessons with quiz scoring, completion tracking, and animated answer reveal. |
@@ -35,10 +37,11 @@
 | **Measurements** | Track body metrics (weight, body fat, etc.) over time with confirm-on-delete. |
 | **Push Notifications** | Opt-in Web Push via VAPID. Friend workout alerts + daily motivational reminders via Vercel cron. |
 | **Shareable Cards** | Canvas-generated 1080×1080 PNG cards for PRs and weekly recaps. Web Share API + download fallback. |
+| **Native Mobile** | Capacitor v8 packages the web app as a native iOS and Android app. Status bar, splash screen, haptics, and safe-area handling via Capacitor plugins. |
 | **Guest Mode** | Try the app without an account. Auth-only features show upgrade prompts. |
 | **Dark Mode** | Full dark theme; persisted to localStorage. |
 
-**Tech Stack:** React 19 · TypeScript 5.7 · Vite 6 · Tailwind CSS 4 · Supabase (Auth + PostgreSQL + Realtime) · Vercel Serverless + Crons · Claude API (`claude-sonnet-4-6`) · PubMed E-utilities
+**Tech Stack:** React 19 · TypeScript 5.7 · Vite 6 · Tailwind CSS 4 · Supabase (Auth + PostgreSQL + Realtime) · Vercel Serverless + Crons · Claude API (`claude-sonnet-4-6`) · PubMed E-utilities · Capacitor v8 (iOS + Android)
 
 ---
 
@@ -65,6 +68,8 @@
 │ /api/ask    │  │  + RLS       │  └────────────────┘
 │ /api/insights│  └──────────────┘
 │ /api/articles│
+│ /api/onboard│
+│ /api/generate-program
 │ /api/notify-friends
 │ /api/daily-reminder  (cron 9am UTC)
 │ /api/weekly-digest   (cron Mon 8am UTC)
@@ -83,7 +88,7 @@
 
 ```
 src/
-├── api/              Vercel serverless functions
+├── api/              Vercel serverless functions (ask, insights, articles, onboard, generate-program, …)
 ├── components/       UI + feature components (by domain)
 │   ├── community/
 │   ├── dashboard/
@@ -91,17 +96,18 @@ src/
 │   ├── history/
 │   ├── layout/         AppShell, TopBar, BottomNav
 │   ├── learn/
+│   ├── onboarding/     OnboardingChat.tsx, ProfileSummaryCard.tsx (AI onboarding)
 │   ├── programs/
 │   ├── ui/             Button, Card, Modal, Toast, Skeleton, ConfirmDialog, …
 │   └── workout/
 ├── contexts/         ToastContext, AuthContext
-├── data/             Static exercises + programs
+├── data/             Static exercises (with MovementPattern tags) + programs
 ├── hooks/            useWorkoutSession, useRestTimer, useLearningProgress
-├── lib/              supabase.ts, db.ts, dataMigration.ts, pushSubscription.ts
+├── lib/              supabase.ts, db.ts, dataMigration.ts, pushSubscription.ts, api.ts, capacitor.ts
 ├── pages/            One file per route
 ├── services/         claudeService.ts (AI calls)
 ├── store/            AppContext.tsx (global state + reducer)
-├── types/            index.ts (all interfaces)
+├── types/            index.ts (all interfaces incl. MovementPattern, UserTrainingProfile)
 └── utils/            volumeUtils, programUtils, dateUtils, localStorage, shareCard
 ```
 
@@ -148,10 +154,11 @@ Community (`/feed`) and Nutrition (`/nutrition`) are accessible via Dashboard qu
 | Table | Purpose |
 |---|---|
 | `profiles` | User profile (name, goal, experience level) |
+| `training_profiles` | AI-collected training data: goals array, trainingAge, daysPerWeek, sessionDuration, equipment, injuries, aiSummary. Unique per user. |
 | `workout_sessions` | Completed sessions with exercises, sets, and volume |
 | `personal_records` | Best lifts per exercise per user |
 | `learning_progress` | Completed lessons/modules/courses + quiz scores |
-| `custom_programs` | User-built training programs |
+| `custom_programs` | User-built and AI-generated training programs |
 | `friendships` | Friend graph (pending / accepted) |
 | `reactions` | Emoji reactions on feed sessions |
 | `leaderboard_entries` | Weekly volume leaderboard |
@@ -230,6 +237,8 @@ All tables have Row Level Security enabled with `auth.uid() = user_id` policies.
 - `/api/ask` — 1,000-character question limit enforced.
 - `/api/insights` — 10,000-character workout summary limit enforced.
 - `/api/notify-friends` and `/api/weekly-digest` — require valid Supabase JWT in `Authorization` header.
+- `/api/onboard` — conversation history capped at 12 turns server-side; no auth required (no user data persisted server-side).
+- `/api/generate-program` — all exercise IDs validated against a server-side allowlist; invalid IDs and invalid enum values (`goal`, `experienceLevel`) cause fallback to a hardcoded program rather than returning an error. Always returns `HTTP 200`.
 
 ### Known Gaps
 
@@ -278,6 +287,7 @@ Structured `Skeleton` component (`animate-pulse`, 4 variants: text / card / avat
 VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
 VITE_VAPID_PUBLIC_KEY
+VITE_API_BASE_URL   # empty for web; set to production Vercel URL for Capacitor native builds
 ```
 
 **Server (Vercel — never in client bundle):**
@@ -302,6 +312,16 @@ Generate VAPID keys: `npx web-push generate-vapid-keys`
 ### Local Development
 
 Use `vercel dev` (not `npm run dev`). Serverless functions require the Vercel runtime to proxy the Claude and Supabase service-role calls.
+
+### Native Mobile (Capacitor)
+
+Capacitor v8 wraps the Vite build as a native app for iOS and Android:
+
+- **Config:** `capacitor.config.ts` — `appId: com.omnexus.app`, `webDir: dist`
+- **Plugins:** `@capacitor/status-bar`, `splash-screen`, `haptics`, `app`
+- **Platform utils:** `src/lib/capacitor.ts` — `isNative`, `isIOS`, `isAndroid`, `initStatusBar`, `hideSplashScreen`, `triggerHaptic`
+- **API abstraction:** `src/lib/api.ts` exports `apiBase = import.meta.env.VITE_API_BASE_URL ?? ''`. All `fetch('/api/...')` calls use this prefix so native builds point to the production Vercel URL.
+- **Build scripts:** `cap:sync`, `cap:ios`, `cap:android`, `cap:open:ios`, `cap:open:android`, `cap:run:ios`, `cap:run:android`
 
 ### Supabase SQL (run once per environment)
 
@@ -335,6 +355,28 @@ create table nutrition_logs (
 alter table nutrition_logs enable row level security;
 create policy "Users manage own nutrition logs" on nutrition_logs
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- AI training profiles (Phase 1)
+create table public.training_profiles (
+  id                       uuid primary key default gen_random_uuid(),
+  user_id                  uuid not null references auth.users(id) on delete cascade,
+  goals                    text[] not null default '{}',
+  training_age_years       numeric not null default 0,
+  days_per_week            int not null default 3,
+  session_duration_minutes int not null default 60,
+  equipment                text[] not null default '{}',
+  injuries                 text[] not null default '{}',
+  ai_summary               text,
+  raw_profile              jsonb,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now(),
+  unique(user_id)
+);
+alter table public.training_profiles enable row level security;
+create policy "Users can manage own training profile"
+  on public.training_profiles for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 ```
 
 ---
@@ -366,6 +408,10 @@ create policy "Users manage own nutrition logs" on nutrition_logs
 | Workout tracking | ✅ Solid | Sets, reps, weight, RPE, volume, PR detection all correct |
 | RPE entry | ✅ Improved | Tap-button row (6–10) below incomplete sets |
 | Program progression | ✅ Good | Day/week cursor, custom programs fully supported |
+| AI Onboarding | ✅ Implemented | Multi-turn Claude chat; `[PROFILE_COMPLETE]` signal; chip quick-replies |
+| AI Program Generation | ✅ Implemented | 8-week Program JSON from Claude; server-side ID validation; always-200 fallback |
+| AI badge | ✅ Implemented | "AI" sparkle badge on `CurrentProgramCard` + `ProgramDetailPage` |
+| Exercise pattern tags | ✅ Implemented | `MovementPattern` on all exercises; used in generate-program system prompt |
 | Learning system | ✅ Good | Quiz answer reveal has 200ms animation delay |
 | AI Q&A | ✅ Good | Conversation history, context limit indicator, follow-up chips |
 | AI Insights | ✅ Good | 28-day window, personalized observations |
@@ -377,9 +423,10 @@ create policy "Users manage own nutrition logs" on nutrition_logs
 | Skeleton loaders | ✅ Implemented | Feed, History, Learn show structured skeletons |
 | Confirm dialogs | ✅ Implemented | Discard workout, delete measurement, remove friend — no browser `confirm()` |
 | Recovery score ring | ✅ Upgraded | SVG arc with animated `strokeDashoffset`, color-coded by score |
+| Native mobile (Capacitor) | ✅ Implemented | iOS + Android packaging; status bar, haptics, splash, safe areas |
 | Volume calculation | ✅ Correct | `weight × reps` for completed sets only |
 | 1RM estimation | ✅ Correct | Epley formula: `weight × (1 + reps/30)` |
 
 ---
 
-*The app has a complete, production-capable architecture with Supabase Auth, RLS, real-time features, push notifications, and a full CI pipeline. The primary outstanding items before a public launch are API rate limiting, error tracking (Sentry), and an accessibility audit.*
+*The app has a complete, production-capable architecture with Supabase Auth, RLS, real-time features, push notifications, a full CI pipeline, Capacitor native packaging, and an AI-native onboarding + mesocycle generation system. The primary outstanding items before a public launch are API rate limiting (Upstash Redis), error tracking (Sentry), an accessibility audit, and running the `training_profiles` SQL migration in Supabase.*

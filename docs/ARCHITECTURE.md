@@ -22,13 +22,15 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 ┌───────────────────┼──────────────────────────────────────────────────┐
 │                   │              Vercel Edge                          │
 │                                                                       │
-│  /api/ask          → Anthropic Claude (claude-sonnet-4-6)            │
-│  /api/insights     → Anthropic Claude (claude-sonnet-4-6)            │
-│  /api/articles     → PubMed E-utilities (NCBI)                       │
-│  /api/setup-profile → Supabase Admin SDK                             │
-│  /api/notify-friends → web-push (VAPID) → push_subscriptions         │
-│  /api/export-data   → Supabase Admin SDK                             │
-│  /api/delete-account → Supabase Admin SDK                            │
+│  /api/ask              → Anthropic Claude (claude-sonnet-4-6)         │
+│  /api/insights         → Anthropic Claude (claude-sonnet-4-6)         │
+│  /api/onboard          → Anthropic Claude (multi-turn onboarding)     │
+│  /api/generate-program → Anthropic Claude (mesocycle generation)      │
+│  /api/articles         → PubMed E-utilities (NCBI)                    │
+│  /api/setup-profile    → Supabase Admin SDK                           │
+│  /api/notify-friends   → web-push (VAPID) → push_subscriptions        │
+│  /api/export-data      → Supabase Admin SDK                           │
+│  /api/delete-account   → Supabase Admin SDK                           │
 │                                                                       │
 │  Cron jobs (vercel.json):                                             │
 │  /api/daily-reminder  [0 9 * * *]  → push all subscribers            │
@@ -44,8 +46,9 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 │                              ├── personal_records                    │
 │  Realtime                    ├── learning_progress                   │
 │  ├── workout_sessions INSERT ├── custom_programs                     │
-│  └── challenge_participants  ├── friendships                         │
-│      UPDATE                  ├── challenges                           │
+│  └── challenge_participants  ├── training_profiles  ← NEW            │
+│      UPDATE                  ├── friendships                         │
+│                              ├── challenges                           │
 │                              ├── challenge_participants              │
 │                              ├── reactions                           │
 │                              ├── push_subscriptions                  │
@@ -59,8 +62,18 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 ## Auth Flow
 
 ```
-New user:
-  /onboarding  →  supabase.auth.signUp()  →  POST /api/setup-profile (admin insert)
+New user (AI onboarding):
+  /onboarding  →  Step 0: email + password input
+               →  Step 1: name input
+               →  Step 2: OnboardingChat (POST /api/onboard, multi-turn)
+                          → AI gathers goals, training age, schedule, equipment, injuries
+                          → profileComplete: true → UserTrainingProfile produced
+               →  Step 3: ProfileSummaryCard
+                          → POST /api/generate-program → Program JSON returned
+                          → supabase.auth.signUp()
+                          → saveAiGeneratedProgram() → custom_programs table
+                          → POST /api/setup-profile (admin insert, sets activeProgramId)
+                          → upsertTrainingProfile() → training_profiles table
                →  if email confirmation ON: show "check email" message
                →  if email confirmation OFF: dispatch SET_USER → navigate to /
 
@@ -355,6 +368,30 @@ App
 
 ## Data Models
 
+### AI Training Profile
+
+```
+UserTrainingProfile (Supabase training_profiles + passed through onboarding flow)
+├── goals: Goal[]                  (e.g. ["hypertrophy", "fat-loss"])
+├── trainingAgeYears: number       (0 = beginner)
+├── daysPerWeek: number            (1–7)
+├── sessionDurationMinutes: number
+├── equipment: string[]            (e.g. ["barbell", "dumbbell"])
+├── injuries: string[]             (e.g. ["lower back"])
+└── aiSummary: string              (1–2 sentence Claude-generated summary)
+
+Exercise (src/data/exercises.ts)
+├── … (existing fields)
+└── pattern?: MovementPattern       (squat | hinge | push-horizontal | push-vertical |
+                                     pull-horizontal | pull-vertical | isolation | carry | cardio)
+
+Program (Supabase custom_programs for AI-generated)
+├── … (existing fields)
+├── isCustom?: boolean
+└── isAiGenerated?: boolean         (true for Claude-generated programs)
+                                     → shown as "AI" badge in CurrentProgramCard + ProgramDetailPage
+```
+
 ### Core Entities
 
 ```
@@ -436,6 +473,31 @@ Challenge (Supabase challenges)
 ## Supabase Schema
 
 Run these in the Supabase SQL editor in order.
+
+### AI Training Profiles
+
+```sql
+create table public.training_profiles (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  goals       text[] not null default '{}',
+  training_age_years numeric not null default 0,
+  days_per_week int not null default 3,
+  session_duration_minutes int not null default 60,
+  equipment   text[] not null default '{}',
+  injuries    text[] not null default '{}',
+  ai_summary  text,
+  raw_profile jsonb,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique(user_id)
+);
+alter table public.training_profiles enable row level security;
+create policy "Users can manage own profile"
+  on public.training_profiles for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
 
 ### Profiles
 
@@ -670,6 +732,8 @@ general-fitness → strength-training
 | E3 | Mobile UX: 5-tab nav, RPE tap-buttons, ConfirmDialog | ✅ |
 | E4 | Visual polish: Skeleton loaders, SVG ring, gradient cards, quiz animation | ✅ |
 | E5 | Test coverage: db.test, volumeUtils, programUtils; lint fixes | ✅ |
+| Capacitor | iOS + Android packaging (v8): status bar, splash, haptics, safe areas, `apiBase` abstraction | ✅ |
+| Phase 1 AI | AI Onboarding Agent + Generative Mesocycle Engine + Exercise `MovementPattern` tags | ✅ |
 
 ---
 

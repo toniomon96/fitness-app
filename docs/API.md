@@ -19,6 +19,8 @@ All API endpoints are Vercel serverless functions in `/api/`. They run on Node.j
 |---|---|
 | `POST /api/ask` | No |
 | `POST /api/insights` | No |
+| `POST /api/onboard` | No |
+| `POST /api/generate-program` | No |
 | `GET /api/articles` | No |
 | `POST /api/setup-profile` | No (verifies user exists via admin SDK) |
 | `POST /api/notify-friends` | **Yes** — Bearer JWT |
@@ -32,6 +34,116 @@ Endpoints marked **Yes** require:
 Authorization: Bearer <supabase-access-token>
 ```
 The server verifies the JWT using `supabaseAdmin.auth.getUser(token)`.
+
+---
+
+## POST /api/onboard
+
+Multi-turn AI onboarding conversation. Collects user training goals, history, schedule, equipment, and injuries. When sufficient data is gathered, Claude outputs a structured `UserTrainingProfile`.
+
+**Request**
+
+```http
+POST /api/onboard
+Content-Type: application/json
+```
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "Hi, my name is Alex." },
+    { "role": "assistant", "content": "Hi Alex! What's your primary training goal?" },
+    { "role": "user", "content": "I want to build muscle." }
+  ],
+  "userName": "Alex"
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `messages` | `{role, content}[]` | Yes | Full conversation history; capped at last 12 turns server-side |
+| `userName` | `string` | No | Injected into the initial greeting if `messages` is empty |
+
+**Response 200**
+
+```json
+{
+  "reply": "Great! How many years have you been lifting consistently?",
+  "profileComplete": false
+}
+```
+
+When the profile is complete:
+
+```json
+{
+  "reply": "You're all set! Here's your profile summary...",
+  "profileComplete": true,
+  "profile": {
+    "goals": ["hypertrophy"],
+    "trainingAgeYears": 2,
+    "daysPerWeek": 4,
+    "sessionDurationMinutes": 60,
+    "equipment": ["barbell", "dumbbell"],
+    "injuries": [],
+    "aiSummary": "You're an intermediate lifter with 2 years of experience..."
+  }
+}
+```
+
+**AI signal:** Claude appends `[PROFILE_COMPLETE]` + JSON to its reply internally. The endpoint strips this before returning `reply`, and parses the JSON into `profile`.
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 512`
+
+---
+
+## POST /api/generate-program
+
+Generates a complete 8-week training program as JSON using Claude, tailored to the user's `UserTrainingProfile`. Returns a valid `Program` object that the client saves as a custom program.
+
+**Request**
+
+```http
+POST /api/generate-program
+Content-Type: application/json
+```
+
+```json
+{
+  "goals": ["hypertrophy"],
+  "trainingAgeYears": 2,
+  "daysPerWeek": 4,
+  "sessionDurationMinutes": 60,
+  "equipment": ["barbell", "dumbbell"],
+  "injuries": [],
+  "aiSummary": "..."
+}
+```
+
+**Response 200**
+
+```json
+{
+  "program": {
+    "name": "Intermediate Hypertrophy Push/Pull/Legs",
+    "goal": "hypertrophy",
+    "experienceLevel": "intermediate",
+    "description": "A 4-day PPL program designed for your barbell/dumbbell setup...",
+    "daysPerWeek": 4,
+    "estimatedDurationWeeks": 8,
+    "schedule": [ ... ],
+    "tags": ["ppl", "hypertrophy", "ai-generated"],
+    "isCustom": true,
+    "isAiGenerated": true
+  }
+}
+```
+
+**Server-side validation:** All exercise IDs in the schedule are validated against the known exercise catalogue. If Claude outputs an invalid ID or invalid enum value (goal/experienceLevel), a hardcoded fallback full-body program is returned instead — the endpoint never returns a 4xx/5xx for generation failures.
+
+**Fallback:** Even on Claude API errors, a usable fallback program is returned with `HTTP 200`.
+
+**Model:** `claude-sonnet-4-6` · `max_tokens: 4096`
 
 ---
 
@@ -431,3 +543,5 @@ Every response ends with:
 | [`src/services/pubmedService.ts`](../src/services/pubmedService.ts) | `/api/articles` | Calls API + manages 6h localStorage cache |
 | [`src/lib/db.ts`](../src/lib/db.ts) | Supabase directly | All typed Supabase table operations |
 | [`src/lib/pushSubscription.ts`](../src/lib/pushSubscription.ts) | `/api/notify-friends` | VAPID subscription management + permission checks |
+| [`src/components/onboarding/OnboardingChat.tsx`](../src/components/onboarding/OnboardingChat.tsx) | `/api/onboard` | Chat bubble UI for AI onboarding conversation |
+| [`src/components/onboarding/ProfileSummaryCard.tsx`](../src/components/onboarding/ProfileSummaryCard.tsx) | `/api/generate-program` | Profile review + "Generate My 8-Week Program" trigger |

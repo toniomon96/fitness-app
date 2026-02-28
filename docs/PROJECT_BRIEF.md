@@ -36,6 +36,7 @@ Users can sign up with an email + password, or try the app instantly in **Guest 
 | External Data | PubMed E-utilities API (free, no key required) |
 | State | Context API + useReducer; Supabase as source of truth; localStorage as read-through cache |
 | Deployment | Vercel (SPA + serverless functions + cron jobs) |
+| Native Mobile | Capacitor v8 — iOS + Android packaging (App Store / Play Store) |
 | Testing | Vitest (28 unit tests) |
 | CI/CD | GitHub Actions (lint + tsc + test on every push/PR) |
 
@@ -45,14 +46,14 @@ Users can sign up with an email + password, or try the app instantly in **Guest 
 
 **Guest Mode:** Enter a name and choose a goal — no email required. All data stored locally. Community routes and push notifications prompt an upgrade.
 
-**Full Account:**
+**Full Account (AI-Native Flow):**
 1. Enter email + password (Supabase Auth)
 2. Enter name
-3. Choose goal: **Hypertrophy**, **Fat Loss**, or **General Fitness**
-4. Choose experience level: **Beginner**, **Intermediate**, or **Advanced**
-5. Select an active training program
+3. **AI Onboarding Chat** — a multi-turn conversation with Claude that collects training history, goals, schedule, available equipment, and injury/limitation history. The AI dynamically asks follow-up questions and renders quick-reply chip buttons for common answers. When the AI has gathered sufficient data it outputs a `UserTrainingProfile` with a natural-language `aiSummary`.
+4. **Profile Summary** — the user reviews their AI-generated summary (goal, days/week, equipment) and clicks "Generate My 8-Week Program"
+5. The **Generative Mesocycle Engine** (`POST /api/generate-program`) calls Claude to produce a complete 8-week `Program` JSON tailored to the profile. All exercise IDs are validated server-side; a hardcoded fallback program is used if Claude fails.
 
-The profile is stored in Supabase `profiles` and cached in localStorage. All subsequent data (workouts, learning progress, custom programs) syncs to Supabase and is accessible across devices.
+The training profile is stored in Supabase `training_profiles` (with RLS) and the generated program is saved as a custom program. All subsequent data (workouts, learning progress, custom programs) syncs to Supabase and is accessible across devices.
 
 ---
 
@@ -76,6 +77,7 @@ The profile is stored in Supabase `profiles` and cached in localStorage. All sub
 - Program detail page: description, schedule overview, days per week
 - Set any program as the active program
 - **Custom program builder** (`/programs/builder`): create programs from scratch, name training days, assign exercises, configure sets/reps/rest
+- **AI-generated programs** display an "AI" badge (sparkle icon) on the active program card and program detail header
 
 ### 3. Active Workout
 
@@ -239,10 +241,11 @@ Every response ends with:
 | Table | Contents |
 |---|---|
 | `profiles` | Name, goal, experience level, active program |
+| `training_profiles` | AI-collected training data: goals, trainingAge, daysPerWeek, sessionDuration, equipment, injuries, aiSummary (unique per user) |
 | `workout_sessions` | All completed sessions (exercises as JSONB) |
 | `personal_records` | Best lift per exercise |
 | `learning_progress` | Completed lessons/modules/courses, quiz scores |
-| `custom_programs` | User-built programs |
+| `custom_programs` | User-built and AI-generated programs |
 | `friendships` | Friend graph |
 | `reactions` | Emoji reactions on feed sessions |
 | `challenges` / `challenge_participants` | Community challenges |
@@ -275,7 +278,7 @@ Every response ends with:
 
 Everything below is hardcoded in the app — it does not come from an API or database:
 
-- **50+ exercises** with full metadata (muscles, equipment, instructions)
+- **50+ exercises** with full metadata (muscles, equipment, instructions, **movement pattern** tag: `squat`, `hinge`, `push-horizontal`, `push-vertical`, `pull-horizontal`, `pull-vertical`, `isolation`, `carry`, `cardio`)
 - **Pre-built training programs** (3-day full body, 4-day upper/lower, 5-day PPL, etc.)
 - **Structured courses** with lesson prose, key points, scientific references, and quizzes covering: Strength Training, Nutrition, Recovery, Sleep, Metabolic Health, Cardio, Mobility
 
@@ -312,3 +315,5 @@ Everything below is hardcoded in the app — it does not come from an API or dat
 | E3 | Mobile UX: 5-tab nav, RPE tap-buttons, ConfirmDialog, no `window.confirm()` |
 | E4 | Visual polish: skeleton loaders, SVG recovery ring, gradient cards, quiz animation |
 | E5 | Test coverage: 28 Vitest unit tests; ESLint and TypeScript both clean |
+| Capacitor | iOS + Android native packaging (Capacitor v8): status bar, splash screen, haptics, safe areas, `apiBase` abstraction for native builds |
+| Phase 1 AI | AI Onboarding Agent (multi-turn Claude chat), Generative Mesocycle Engine (8-week program JSON), Exercise `MovementPattern` tags, `training_profiles` Supabase table |

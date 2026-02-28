@@ -16,6 +16,7 @@ import type {
   WorkoutTemplate,
   FeedReaction,
   ReactionEmoji,
+  UserTrainingProfile,
 } from '../types';
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -619,4 +620,41 @@ export async function getFriendFeed(userId: string): Promise<FeedSession[]> {
     totalVolumeKg: s.total_volume_kg ?? 0,
     durationSeconds: s.duration_seconds ?? undefined,
   }));
+}
+
+// ─── AI Training Profiles ─────────────────────────────────────────────────────
+
+export async function upsertTrainingProfile(
+  userId: string,
+  profile: UserTrainingProfile,
+): Promise<void> {
+  const { error } = await supabase.from('training_profiles').upsert({
+    user_id: userId,
+    goals: profile.goals,
+    training_age_years: profile.trainingAgeYears,
+    days_per_week: profile.daysPerWeek,
+    session_duration_minutes: profile.sessionDurationMinutes,
+    equipment: profile.equipment,
+    injuries: profile.injuries,
+    ai_summary: profile.aiSummary,
+    raw_profile: profile,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (error) throw new Error(`[upsertTrainingProfile] ${error.message}`);
+}
+
+export async function saveAiGeneratedProgram(
+  userId: string,
+  program: Program,
+): Promise<string> {
+  const id = crypto.randomUUID();
+  const programWithMeta: Program = {
+    ...program,
+    id,
+    isCustom: true,
+    isAiGenerated: true,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertCustomProgram(programWithMeta, userId);
+  return id;
 }

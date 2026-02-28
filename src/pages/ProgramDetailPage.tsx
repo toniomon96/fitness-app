@@ -7,7 +7,7 @@ import { GoalBadge, LevelBadge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { setUser, resetProgramCursors, getCustomPrograms } from '../utils/localStorage';
-import { Calendar, Clock, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, Sparkles } from 'lucide-react';
 
 export function ProgramDetailPage() {
   const { programId } = useParams<{ programId: string }>();
@@ -47,6 +47,12 @@ export function ProgramDetailPage() {
           <div className="flex flex-wrap gap-2 mb-3">
             <GoalBadge goal={program.goal} />
             <LevelBadge level={program.experienceLevel} />
+            {program.isAiGenerated && (
+              <span className="flex items-center gap-1 text-xs bg-brand-500/10 text-brand-600 dark:text-brand-400 px-2 py-0.5 rounded-full">
+                <Sparkles size={10} />
+                AI-Generated
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             {program.description}

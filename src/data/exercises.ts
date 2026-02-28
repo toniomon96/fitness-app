@@ -16,6 +16,7 @@ export const exercises: Exercise[] = [
       'Press explosively back to the start, locking out at the top.',
     ],
     tips: ['Keep your shoulder blades retracted and depressed throughout.', 'Drive your feet into the floor for leg drive.'],
+    pattern: 'push-horizontal',
   },
   {
     id: 'dumbbell-bench-press',
@@ -31,6 +32,7 @@ export const exercises: Exercise[] = [
       'Press back up to full extension.',
     ],
     tips: ['Greater range of motion than barbell press.', 'Keep your wrists neutral, not bent.'],
+    pattern: 'push-horizontal',
   },
   {
     id: 'incline-dumbbell-press',
@@ -46,6 +48,7 @@ export const exercises: Exercise[] = [
       'Lower with control to the start.',
     ],
     tips: ['Targets the upper chest. Avoid going above 45° or it becomes mainly a shoulder exercise.'],
+    pattern: 'push-horizontal',
   },
   {
     id: 'cable-chest-fly',
@@ -61,6 +64,7 @@ export const exercises: Exercise[] = [
       'Slowly return to the start, feeling a stretch across your chest.',
     ],
     tips: ['Constant tension throughout the movement. Squeeze hard at the peak contraction.'],
+    pattern: 'push-horizontal',
   },
   {
     id: 'push-up',
@@ -75,6 +79,7 @@ export const exercises: Exercise[] = [
       'Push back up to the start.',
     ],
     tips: ['Keep your core tight and hips in line with your shoulders throughout.'],
+    pattern: 'push-horizontal',
   },
 
   // ── BACK ───────────────────────────────────────────────────────────────────
@@ -92,6 +97,7 @@ export const exercises: Exercise[] = [
       'Lower with control to the start.',
     ],
     tips: ['Keep your lower back neutral. Do not round.', 'Lead with your elbows, not your hands.'],
+    pattern: 'pull-horizontal',
   },
   {
     id: 'dumbbell-row',
@@ -107,6 +113,7 @@ export const exercises: Exercise[] = [
       'Lower slowly to the start.',
     ],
     tips: ['Think "elbow to the sky", not "hand to hip".'],
+    pattern: 'pull-horizontal',
   },
   {
     id: 'lat-pulldown',
@@ -122,6 +129,7 @@ export const exercises: Exercise[] = [
       'Control the bar back up to full arm extension.',
     ],
     tips: ['Lean back slightly at the bottom. Avoid excessive swinging.'],
+    pattern: 'pull-vertical',
   },
   {
     id: 'pull-up',
@@ -136,6 +144,7 @@ export const exercises: Exercise[] = [
       'Pause at the top, then lower with control.',
     ],
     tips: ['Avoid kipping (swinging). Slow negatives build strength fast.'],
+    pattern: 'pull-vertical',
   },
   {
     id: 'seated-cable-row',
@@ -151,6 +160,7 @@ export const exercises: Exercise[] = [
       'Reach forward to full extension with control.',
     ],
     tips: ['Do not round your back at the start. Stay upright throughout.'],
+    pattern: 'pull-horizontal',
   },
   {
     id: 'face-pull',
@@ -166,6 +176,7 @@ export const exercises: Exercise[] = [
       'Return slowly to the start.',
     ],
     tips: ['Essential for shoulder health. Use light weight and high reps.'],
+    pattern: 'pull-horizontal',
   },
 
   // ── SHOULDERS ──────────────────────────────────────────────────────────────
@@ -182,6 +193,7 @@ export const exercises: Exercise[] = [
       'Lower with control to the starting position.',
     ],
     tips: ['Squeeze your glutes to protect your lower back. Keep your core braced.'],
+    pattern: 'push-vertical',
   },
   {
     id: 'dumbbell-lateral-raise',
@@ -196,6 +208,7 @@ export const exercises: Exercise[] = [
       'Pause briefly at the top, then lower slowly.',
     ],
     tips: ['Lead with your elbows, not your hands. Use lighter weight than you think.'],
+    pattern: 'isolation',
   },
   {
     id: 'dumbbell-shoulder-press',
@@ -210,6 +223,7 @@ export const exercises: Exercise[] = [
       'Lower back to shoulder height with control.',
     ],
     tips: ['Slightly angle the dumbbells inward at the top for a natural arc.'],
+    pattern: 'push-vertical',
   },
 
   // ── ARMS ───────────────────────────────────────────────────────────────────
@@ -226,6 +240,7 @@ export const exercises: Exercise[] = [
       'Squeeze your biceps at the top, then lower slowly.',
     ],
     tips: ['Avoid swinging your torso. Control the negative.'],
+    pattern: 'isolation',
   },
   {
     id: 'hammer-curl',
@@ -240,6 +255,7 @@ export const exercises: Exercise[] = [
       'Lower with control.',
     ],
     tips: ['Hits the brachialis and brachioradialis as well as the biceps.'],
+    pattern: 'isolation',
   },
   {
     id: 'tricep-pushdown',
@@ -255,6 +271,7 @@ export const exercises: Exercise[] = [
       'Slowly return to the start.',
     ],
     tips: ['Keep your elbows tucked and stationary throughout the movement.'],
+    pattern: 'isolation',
   },
   {
     id: 'skull-crusher',
@@ -269,6 +286,7 @@ export const exercises: Exercise[] = [
       'Extend back to the top without moving your upper arms.',
     ],
     tips: ['Keep your upper arms vertical. Go slow on the way down.'],
+    pattern: 'isolation',
   },
   {
     id: 'overhead-tricep-extension',
@@ -283,6 +301,7 @@ export const exercises: Exercise[] = [
       'Extend back to the top.',
     ],
     tips: ['Full overhead position maximally stretches the long head of the tricep.'],
+    pattern: 'isolation',
   },
 
   // ── QUADS / LEGS ───────────────────────────────────────────────────────────
@@ -300,6 +319,7 @@ export const exercises: Exercise[] = [
       'Drive up through your heels back to standing.',
     ],
     tips: ['Keep your chest up and knees tracking over your toes.', 'Brace your core before descending.'],
+    pattern: 'squat',
   },
   {
     id: 'goblet-squat',
@@ -315,6 +335,7 @@ export const exercises: Exercise[] = [
       'Drive back up to standing.',
     ],
     tips: ['Great for beginners to learn squat mechanics. Keep your chest tall throughout.'],
+    pattern: 'squat',
   },
   {
     id: 'leg-press',
@@ -329,6 +350,7 @@ export const exercises: Exercise[] = [
       'Press back up to full extension without locking out hard.',
     ],
     tips: ['Higher foot placement emphasizes glutes/hamstrings; lower placement emphasizes quads.'],
+    pattern: 'squat',
   },
   {
     id: 'leg-extension',
@@ -343,6 +365,7 @@ export const exercises: Exercise[] = [
       'Lower with control.',
     ],
     tips: ['Isolation exercise. Use as a finisher after compound movements.'],
+    pattern: 'isolation',
   },
   {
     id: 'walking-lunge',
@@ -357,6 +380,7 @@ export const exercises: Exercise[] = [
       'Drive off your front foot to step through into the next lunge.',
     ],
     tips: ['Keep your front knee over your ankle, not your toes.'],
+    pattern: 'squat',
   },
   {
     id: 'bulgarian-split-squat',
@@ -371,6 +395,7 @@ export const exercises: Exercise[] = [
       'Drive back up through your front heel.',
     ],
     tips: ['One of the best single-leg exercises. Expect quad soreness!'],
+    pattern: 'squat',
   },
 
   // ── HAMSTRINGS / GLUTES ────────────────────────────────────────────────────
@@ -388,6 +413,7 @@ export const exercises: Exercise[] = [
       'Drive your hips forward to return to standing.',
     ],
     tips: ['Keep the bar in contact with your legs throughout. Maintain a neutral spine.'],
+    pattern: 'hinge',
   },
   {
     id: 'deadlift',
@@ -403,6 +429,7 @@ export const exercises: Exercise[] = [
       'Lock out at the top by squeezing your glutes.',
     ],
     tips: ['Think "push the floor away" not "pull the bar up". Keep your lats engaged.'],
+    pattern: 'hinge',
   },
   {
     id: 'hip-thrust',
@@ -418,6 +445,7 @@ export const exercises: Exercise[] = [
       'Squeeze your glutes hard at the top, then lower.',
     ],
     tips: ['The best glute isolation exercise. Use a barbell pad for comfort.'],
+    pattern: 'hinge',
   },
   {
     id: 'glute-bridge',
@@ -432,6 +460,7 @@ export const exercises: Exercise[] = [
       'Pause at the top, then lower.',
     ],
     tips: ['Beginner-friendly version of hip thrust. Can add a dumbbell on hips for resistance.'],
+    pattern: 'hinge',
   },
   {
     id: 'leg-curl',
@@ -446,6 +475,7 @@ export const exercises: Exercise[] = [
       'Pause at peak contraction, then lower slowly.',
     ],
     tips: ['Plantar flex your feet (toes pointed) to maximize hamstring activation.'],
+    pattern: 'isolation',
   },
 
   // ── CALVES & CORE ──────────────────────────────────────────────────────────
@@ -462,6 +492,7 @@ export const exercises: Exercise[] = [
       'Pause at the top, then lower fully for a calf stretch at the bottom.',
     ],
     tips: ['Full range of motion is key — go all the way up and all the way down.'],
+    pattern: 'isolation',
   },
   {
     id: 'plank',
@@ -476,6 +507,7 @@ export const exercises: Exercise[] = [
       'Hold for the target duration, breathing steadily.',
     ],
     tips: ['Do not let your hips sag or rise. Think "long body".'],
+    pattern: 'isolation',
   },
   {
     id: 'hanging-leg-raise',
@@ -490,6 +522,7 @@ export const exercises: Exercise[] = [
       'Lower slowly, do not swing.',
     ],
     tips: ['Posterior pelvic tilt at the top for full ab activation.'],
+    pattern: 'isolation',
   },
   {
     id: 'ab-wheel-rollout',
@@ -504,6 +537,7 @@ export const exercises: Exercise[] = [
       'Pull back using your core (not arms) to return to start.',
     ],
     tips: ['One of the most demanding core exercises. Start with small range of motion.'],
+    pattern: 'isolation',
   },
 
   // ── CARDIO ─────────────────────────────────────────────────────────────────
@@ -521,6 +555,7 @@ export const exercises: Exercise[] = [
       'Let it swing back and repeat.',
     ],
     tips: ['It is a hip hinge, not a squat. Power comes from your hips, not your arms.'],
+    pattern: 'hinge',
   },
   {
     id: 'box-jump',
@@ -536,6 +571,7 @@ export const exercises: Exercise[] = [
       'Step down carefully and reset.',
     ],
     tips: ['Start with a lower box and build up. Step down, do not jump down.'],
+    pattern: 'squat',
   },
   {
     id: 'mountain-climbers',
@@ -550,6 +586,7 @@ export const exercises: Exercise[] = [
       'Keep your hips level and core tight throughout.',
     ],
     tips: ['Speed it up for a cardio challenge; slow it down for core work.'],
+    pattern: 'cardio',
   },
 ];
 

@@ -19,6 +19,17 @@ export type MuscleGroup =
 
 export type ExerciseCategory = 'strength' | 'cardio' | 'mobility';
 
+export type MovementPattern =
+  | 'squat'
+  | 'hinge'
+  | 'push-horizontal'
+  | 'push-vertical'
+  | 'pull-horizontal'
+  | 'pull-vertical'
+  | 'isolation'
+  | 'carry'
+  | 'cardio';
+
 export type Equipment =
   | 'barbell'
   | 'dumbbell'
@@ -53,6 +64,18 @@ export interface User {
   isGuest?: boolean;
 }
 
+// ─── AI Training Profile ──────────────────────────────────────────────────────
+
+export interface UserTrainingProfile {
+  goals: Goal[];
+  trainingAgeYears: number;
+  daysPerWeek: number;
+  sessionDurationMinutes: number;
+  equipment: string[];
+  injuries: string[];
+  aiSummary: string;
+}
+
 // ─── Exercise Library ─────────────────────────────────────────────────────────
 
 export interface Exercise {
@@ -64,6 +87,7 @@ export interface Exercise {
   equipment: Equipment[];
   instructions: string[];
   tips: string[];
+  pattern?: MovementPattern;
 }
 
 // ─── Program Structure ────────────────────────────────────────────────────────
@@ -99,6 +123,7 @@ export interface Program {
   schedule: TrainingDay[];
   tags: string[];
   isCustom?: boolean;
+  isAiGenerated?: boolean;
   createdAt?: string;
 }
 
