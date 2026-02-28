@@ -31,6 +31,7 @@ export interface InsightResponse {
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 
 import { supabase } from '../lib/supabase';
+import { apiBase } from '../lib/api';
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -38,7 +39,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
   }
-  const res = await fetch(path, {
+  const res = await fetch(`${apiBase}${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),

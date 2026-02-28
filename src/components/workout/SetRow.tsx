@@ -1,5 +1,6 @@
 import type { LoggedSet } from '../../types';
 import { Check, Trash2 } from 'lucide-react';
+import { triggerHaptic } from '../../lib/capacitor';
 
 interface SetRowProps {
   set: LoggedSet;
@@ -19,6 +20,7 @@ export function SetRow({
   onStartRest,
 }: SetRowProps) {
   function handleComplete() {
+    triggerHaptic('light'); // tactile feedback on native; no-op on web
     const nowCompleted = !set.completed;
     onUpdate({ completed: nowCompleted });
     if (nowCompleted && restSeconds > 0) {

@@ -1,5 +1,6 @@
 import type { HealthArticle, LearningCategory } from '../types';
 import { getArticleCache, setArticleCache } from '../utils/localStorage';
+import { apiBase } from '../lib/api';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -17,7 +18,7 @@ export async function fetchArticlesByCategory(
     if (age < CACHE_TTL_MS) return cached.slice(0, limit);
   }
 
-  const res = await fetch(`/api/articles?category=${category}&limit=${limit}`);
+  const res = await fetch(`${apiBase}/api/articles?category=${category}&limit=${limit}`);
   if (!res.ok) {
     const data = (await res.json().catch(() => ({ error: 'Request failed' }))) as {
       error?: string;

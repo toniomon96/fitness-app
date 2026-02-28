@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { User, LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { apiBase } from '../lib/api';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -180,7 +181,7 @@ export function ProfilePage() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch('/api/export-data', {
+      const res = await fetch(`${apiBase}/api/export-data`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
@@ -211,7 +212,7 @@ export function ProfilePage() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch('/api/delete-account', {
+      const res = await fetch(`${apiBase}/api/delete-account`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

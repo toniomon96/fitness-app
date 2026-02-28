@@ -8,6 +8,7 @@ import { formatDuration } from '../../utils/dateUtils';
 import { getExerciseById } from '../../data/exercises';
 import { generatePRCard } from '../../utils/shareCard';
 import { Trophy, Timer, Zap, Star, Share2 } from 'lucide-react';
+import { triggerHapticNotification } from '../../lib/capacitor';
 
 interface WorkoutCompleteModalProps {
   open: boolean;
@@ -22,6 +23,8 @@ function useConfetti(active: boolean) {
 
   useEffect(() => {
     if (!active) return;
+
+    triggerHapticNotification('success'); // native PR celebration haptic; no-op on web
 
     const canvas = document.createElement('canvas');
     canvas.style.cssText =

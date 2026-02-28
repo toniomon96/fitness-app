@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { isNative } from './capacitor';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -10,6 +11,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export type PushPermission = 'granted' | 'denied' | 'default' | 'unsupported';
 
 export async function getPushPermission(): Promise<PushPermission> {
+  // Web Push (VAPID + service worker) is not supported inside Capacitor WebViews.
+  // Push notifications for native are handled separately in a future phase.
+  if (isNative) return 'unsupported';
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
     return 'unsupported';
   }

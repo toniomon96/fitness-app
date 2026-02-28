@@ -8,6 +8,7 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { setUser, resetProgramCursors } from '../../utils/localStorage';
 import { programs } from '../../data/programs';
+import { apiBase } from '../../lib/api';
 import { recommendProgram } from '../../utils/programUtils';
 import { useApp } from '../../store/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -90,7 +91,7 @@ export function OnboardingForm() {
 
       // Use server-side endpoint so the profile insert works even when Supabase
       // email confirmation is enabled (no client session available yet).
-      const profileRes = await fetch('/api/setup-profile', {
+      const profileRes = await fetch(`${apiBase}/api/setup-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

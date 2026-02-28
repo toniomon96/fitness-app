@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useApp } from '../store/AppContext';
+import { apiBase } from '../lib/api';
 import type { WorkoutSession, LoggedExercise, LoggedSet, Program } from '../types';
 import {
   setActiveSession,
@@ -187,7 +188,7 @@ export function useWorkoutSession() {
 
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session) {
-            fetch('/api/notify-friends', {
+            fetch(`${apiBase}/api/notify-friends`, {
               method: 'POST',
               headers: { Authorization: `Bearer ${session.access_token}` },
             }).catch(() => {});
