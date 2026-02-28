@@ -9,7 +9,12 @@ const DIGEST_PROMPT = `You are a supportive fitness coach. Based on a user's wor
 
 Be encouraging, specific, and concise. Do not add any other text, headers, or disclaimers.`;
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(200).json({ sent: 0, reason: 'Supabase not configured' });
   }
@@ -63,17 +68,6 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
   if (activeUserIds.length === 0) return res.status(200).json({ sent: 0 });
 
-  // Fetch profiles
-  const { data: profiles } = await supabaseAdmin
-    .from('profiles')
-    .select('id, name')
-    .in('id', activeUserIds);
-
-  const nameMap: Record<string, string> = Object.fromEntries(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (profiles ?? []).map((p: any) => [p.id, p.name]),
-  );
-
   let sent = 0;
 
   await Promise.allSettled(
@@ -84,7 +78,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           ? 'no data for last week'
           : `${lastWeek.toFixed(0)} kg last week → ${thisWeek.toFixed(0)} kg this week`;
 
-      const userMessage = `User: ${nameMap[userId] ?? 'Athlete'}\nSessions this week: ${count}\nVolume: ${trend}`;
+      const userMessage = `Sessions this week: ${count}\nVolume: ${trend}`;
 
       try {
         const msg = await client.messages.create({

@@ -14,11 +14,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ─── CORS helper ─────────────────────────────────────────────────────────────
 
-function setCorsHeaders(res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-}
+import { setCorsHeaders, ALLOWED_ORIGIN } from './_cors.js';
 
 // ─── Valid enum values ────────────────────────────────────────────────────────
 
@@ -26,7 +22,7 @@ const VALID_GOALS = new Set(['hypertrophy', 'fat-loss', 'general-fitness']);
 const VALID_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+  setCorsHeaders(res, ALLOWED_ORIGIN);
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -93,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true });
     }
     console.error('[/api/setup-profile]', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 
   return res.status(200).json({ ok: true });

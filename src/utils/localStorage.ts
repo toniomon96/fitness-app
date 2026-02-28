@@ -42,8 +42,20 @@ function safeRead<T>(key: string, fallback: T): T {
 function safeWrite(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    console.warn(`localStorage write failed for key: ${key}`);
+  } catch (e) {
+    if (
+      e instanceof DOMException &&
+      (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+    ) {
+      // Free up space by pruning the largest non-critical caches
+      localStorage.removeItem('omnexus_article_cache');
+      localStorage.removeItem('omnexus_insight_sessions');
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        console.error(`[localStorage] Quota exceeded — could not save "${key}"`);
+      }
+    }
   }
 }
 

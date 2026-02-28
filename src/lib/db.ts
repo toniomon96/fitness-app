@@ -154,7 +154,7 @@ export async function fetchCustomPrograms(userId: string): Promise<Program[]> {
     .order('created_at', { ascending: true });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data ?? []).map((row: any) => row.data as Program);
+  return (data ?? []).filter((row: any) => row.data != null).map((row: any) => row.data as Program);
 }
 
 export async function upsertCustomProgram(
@@ -439,7 +439,8 @@ export async function addNutritionLog(
 }
 
 export async function deleteNutritionLog(id: string): Promise<void> {
-  await supabase.from('nutrition_logs').delete().eq('id', id);
+  const { error } = await supabase.from('nutrition_logs').delete().eq('id', id);
+  if (error) throw new Error(`[deleteNutritionLog] ${error.message}`);
 }
 
 // ─── Community: Activity Feed ─────────────────────────────────────────────────
@@ -493,7 +494,8 @@ export async function addMeasurement(
 }
 
 export async function deleteMeasurement(id: string): Promise<void> {
-  await supabase.from('measurements').delete().eq('id', id);
+  const { error } = await supabase.from('measurements').delete().eq('id', id);
+  if (error) throw new Error(`[deleteMeasurement] ${error.message}`);
 }
 
 // ─── Workout Templates ────────────────────────────────────────────────────────

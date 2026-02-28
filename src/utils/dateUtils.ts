@@ -33,7 +33,7 @@ export function calculateStreak(sessionDates: string[]): number {
   for (const dateStr of unique) {
     const d = new Date(dateStr);
     d.setHours(0, 0, 0, 0);
-    const diffDays = Math.round(
+    const diffDays = Math.floor(
       (cursor.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
     );
     if (diffDays === 0 || diffDays === 1) {

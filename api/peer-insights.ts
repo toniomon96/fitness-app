@@ -1,12 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-
-function setCorsHeaders(res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-}
+import { setCorsHeaders, ALLOWED_ORIGIN } from './_cors.js';
 
 const SYSTEM_PROMPT = `You are a fitness coach providing encouraging peer comparison insights.
 
@@ -23,7 +18,7 @@ Output plain text only (no markdown, no bullet points).`;
 const MIN_PEERS = 3;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+  setCorsHeaders(res, ALLOWED_ORIGIN);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -54,12 +49,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let narrative = '';
 
   try {
-    // Get all users with matching goal+level from user settings
-    // We use workout_sessions joined via user_id to get peers with actual activity
-    const { data: peerProfiles } = await supabaseAdmin
+    // Get users with matching goal+level from training_profiles, filtered at DB level
+    let peersQuery = supabaseAdmin
       .from('training_profiles')
       .select('user_id')
       .neq('user_id', userId);
+
+    if (goal) {
+      peersQuery = peersQuery.contains('goals', [goal]);
+    }
+
+    const { data: peerProfiles } = await peersQuery;
 
     const peerIds = (peerProfiles ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

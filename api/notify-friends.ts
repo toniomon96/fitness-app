@@ -1,8 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { sendPushToUsers } from './_sendPush.js';
+import { setCorsHeaders, ALLOWED_ORIGIN } from './_cors.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res, ALLOWED_ORIGIN);
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).end();
+
   if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(200).json({ sent: 0 });
   }
@@ -10,7 +15,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     process.env.VITE_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
-  if (req.method !== 'POST') return res.status(405).end();
 
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) return res.status(401).end();

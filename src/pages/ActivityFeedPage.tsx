@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/AppContext';
+import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabase';
 import { getFriendFeed, getSessionReactions, addReaction, removeReaction } from '../lib/db';
 import type { FeedSession, FeedReaction, ReactionEmoji } from '../types';
@@ -12,6 +13,7 @@ import { Users } from 'lucide-react';
 
 export function ActivityFeedPage() {
   const { state } = useApp();
+  const { toast } = useToast();
   const userId = state.user?.id ?? '';
 
   const [feed, setFeed] = useState<FeedSession[]>([]);
@@ -71,18 +73,30 @@ export function ActivityFeedPage() {
 
   async function handleReact(sessionId: string, emoji: ReactionEmoji) {
     if (!userId) return;
+    const snapshot = reactions;
     // Optimistic: remove any existing reaction from this user for this session, then add
     setReactions((prev) => [
       ...prev.filter((r) => !(r.sessionId === sessionId && r.userId === userId)),
       { id: `${sessionId}-${userId}`, sessionId, userId, emoji, createdAt: new Date().toISOString() },
     ]);
-    await addReaction(sessionId, userId, emoji);
+    try {
+      await addReaction(sessionId, userId, emoji);
+    } catch {
+      setReactions(snapshot);
+      toast('Could not add reaction — try again', 'error');
+    }
   }
 
   async function handleUnreact(sessionId: string) {
     if (!userId) return;
+    const snapshot = reactions;
     setReactions((prev) => prev.filter((r) => !(r.sessionId === sessionId && r.userId === userId)));
-    await removeReaction(sessionId, userId);
+    try {
+      await removeReaction(sessionId, userId);
+    } catch {
+      setReactions(snapshot);
+      toast('Could not remove reaction — try again', 'error');
+    }
   }
 
   return (
