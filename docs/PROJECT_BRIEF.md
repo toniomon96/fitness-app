@@ -7,7 +7,9 @@
 
 ## What Is Omnexus?
 
-Omnexus is a **mobile-first health and fitness web app** built for people who want to train smarter, not just harder. It combines structured workout tracking with AI-powered coaching, evidence-based education, and live research from peer-reviewed journals. The entire app runs in the browser — there is no user account system, no server-side database, and no login. All data is stored locally in the user's browser (`localStorage`).
+Omnexus is a **mobile-first health and fitness web app** built for people who want to train smarter, not just harder. It combines structured workout tracking, AI-powered coaching, evidence-based education, live research from peer-reviewed journals, social/community features, and body metric tracking — all backed by Supabase and deployed on Vercel.
+
+Users can sign up with an email + password, or try the app instantly in **Guest Mode** (no account required). Authenticated users get cloud sync, community features, and push notifications on top of everything guests can access.
 
 ---
 
@@ -20,134 +22,252 @@ Omnexus is a **mobile-first health and fitness web app** built for people who wa
 
 ---
 
-## Tech Stack (Summary)
+## Tech Stack
 
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4
-- **Routing:** React Router v7 (SPA, client-side only)
-- **State:** Context API + useReducer, persisted to localStorage
-- **AI:** Anthropic Claude (`claude-sonnet-4-6`) via Vercel serverless functions
-- **External data:** PubMed E-utilities API (free, no key required)
-- **Deployment:** Vercel (serverless functions in `/api/`)
-- **No backend, no database, no authentication**
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript 5.7, Vite 6 |
+| Routing | React Router v7 (SPA, client-side) |
+| Styling | Tailwind CSS v4 |
+| Icons | Lucide React |
+| Auth & Database | Supabase (Auth, PostgreSQL, Realtime, RLS) |
+| AI | Anthropic Claude (`claude-sonnet-4-6`) via Vercel serverless functions |
+| Push Notifications | Web Push API + VAPID via `web-push` npm package |
+| External Data | PubMed E-utilities API (free, no key required) |
+| State | Context API + useReducer; Supabase as source of truth; localStorage as read-through cache |
+| Deployment | Vercel (SPA + serverless functions + cron jobs) |
+| Testing | Vitest (28 unit tests) |
+| CI/CD | GitHub Actions (lint + tsc + test on every push/PR) |
 
 ---
 
 ## User Onboarding
 
-When a user first opens the app they go through a short onboarding flow:
-1. Enter their name
-2. Choose a goal: **Hypertrophy**, **Fat Loss**, or **General Fitness**
-3. Choose experience level: **Beginner**, **Intermediate**, or **Advanced**
-4. Select an active training program from the pre-built list
+**Guest Mode:** Enter a name and choose a goal — no email required. All data stored locally. Community routes and push notifications prompt an upgrade.
 
-This profile is saved to localStorage and used to personalize content throughout the app.
+**Full Account:**
+1. Enter email + password (Supabase Auth)
+2. Enter name
+3. Choose goal: **Hypertrophy**, **Fat Loss**, or **General Fitness**
+4. Choose experience level: **Beginner**, **Intermediate**, or **Advanced**
+5. Select an active training program
+
+The profile is stored in Supabase `profiles` and cached in localStorage. All subsequent data (workouts, learning progress, custom programs) syncs to Supabase and is accessible across devices.
 
 ---
 
 ## Current Features
 
 ### 1. Dashboard (Home)
-- Personalized welcome banner with user's name and goal
+
+- Personalized welcome with user name and goal
 - Resume banner if a workout is in progress
-- Workout streak display (consecutive days trained)
-- Current program card (name, week, days completed this week)
-- Next workout card (day name, exercise list preview, start button)
-- **Personalized course recommendations** — top 3 courses scored by goal match + difficulty match, with progress bars for in-progress courses
+- Workout streak display (7-day dot grid with weekday labels)
+- Active program card (name, week, progress)
+- TodayCard — unified next workout + next lesson card (one-tap start)
+- Quick-action grid: Quick Log, Plates, Measure, Community, Nutrition
+- Weekly recap card (sessions/volume/time, trend bars, share button)
+- Muscle heat map (SVG front/back body diagram colored by frequency)
+- Personalized course recommendations (scored by goal + difficulty)
 
 ### 2. Training Programs
+
 - Browse pre-built programs filtered by goal and experience level
 - Program detail page: description, schedule overview, days per week
-- Each program has a weekly schedule with named training days (Push, Pull, Legs, Upper, Lower, Full Body, Rest, Cardio)
-- Users can set any program as their active program
+- Set any program as the active program
+- **Custom program builder** (`/programs/builder`): create programs from scratch, name training days, assign exercises, configure sets/reps/rest
 
 ### 3. Active Workout
-- Start a workout from the Dashboard or Program Detail page
-- Log sets with weight and reps for each exercise
-- Mark sets as complete; personal records are auto-detected and highlighted
+
+- Start from Dashboard or Program Detail page
+- Log sets with weight and reps per exercise
+- **RPE entry** (optional): tap-button row (6–10) shown below each incomplete set
+- Mark sets complete; PRs auto-detected using the Epley 1RM formula and highlighted
 - Add exercises from the library mid-workout
 - Rest timer with configurable duration
-- End workout — calculates total volume (kg), saves session to history
-- Workout complete modal with session summary
+- Discard workout prompts a ConfirmDialog (no browser `confirm()`)
+- End workout → calculates total volume (kg), saves to Supabase + localStorage
+- **PR celebration**: canvas confetti + animated gold PR banner in the complete modal
 
 ### 4. Exercise Library
+
 - 50+ exercises with search and muscle group filtering
-- Each exercise: name, category, primary/secondary muscles, equipment, step-by-step instructions, coaching tips
+- Exercise detail: name, category, primary/secondary muscles, equipment, instructions
+- **Progression chart**: SVG line chart showing 1RM estimate over time (up to 12 sessions)
+- **AI progression suggestion** button that asks Claude for a progressive overload recommendation
+- `ExerciseCard` wrapped with `React.memo` for fast search rendering
 
 ### 5. History
-- List of all completed workout sessions
+
+- List of all completed workout sessions (memoized for performance)
 - Each session: date, program, duration, total volume, exercises logged
-- Volume chart showing weekly training volume trend
+- Heatmap calendar showing training frequency
+- Volume chart showing weekly trends
+- Skeleton loaders on first render
 
 ### 6. Learn (Education)
-- Course catalog with cover emoji, title, category, difficulty, estimated time
-- Courses are filtered/sorted by the user's goal and experience level
+
+- Course catalog: cover emoji, title, category, difficulty, estimated time
+- Courses scored and sorted by the user's goal and experience level
 - Course detail: module list with lesson count and completion status
-- Lesson reader: Markdown prose content, key points summary, scientific references with links
-- Quizzes at the end of each module: multiple choice, immediate feedback, explanation per answer
-- Progress tracking: completed lessons/modules/courses stored in localStorage
+- Lesson reader: Markdown prose, key points, scientific references
+- Quizzes: multiple choice with 200ms animated reveal, explanations per answer
+- Progress tracking synced to Supabase (debounced 2 seconds)
 - Badge shown on completed courses
 
 ### 7. Ask Omnexus (AI Q&A)
+
 - Free-text question input (max 1000 chars)
 - 5 suggested starter questions
-- Sends question + user context (goal, experience level) to Claude via `/api/ask`
-- Claude responds with evidence-based answer including inline citations (`[Author et al., Year — Journal]`)
-- Markdown-rendered answer (bold headings, bullet lists, numbered lists)
-- Every answer ends with a medical disclaimer
-- Last 5 questions and answers shown in a collapsible history list
-- Link to pre-fill a question on the Insights page
+- Question + user context (goal, experience) sent to Claude via `/api/ask`
+- **Multi-turn conversation**: maintains history for follow-up questions
+- Context limit indicator appears after 4 exchanges with "Start fresh" button
+- Follow-up chip suggestions after each answer
+- Markdown-rendered answer with inline citations
+- Medical disclaimer on every response
+- Last 5 Q&A sessions shown in collapsible history
 
 ### 8. AI Insights (Workout Analysis)
-- One-click workout analysis: reads last 28 days of sessions (max 20), builds a plain-text summary, sends to Claude via `/api/insights`
-- Claude returns a structured analysis: Training Overview, Observations (bullet list), Recommendations (numbered list)
-- Markdown rendered result
-- Quick-question shortcuts that pre-fill a question in the Ask page
-- **Personalized article feed** below the analysis — defaults to the category matching the user's goal
+
+- One-click analysis: reads last 28 days (max 20 sessions), builds a plain-text summary, sends to Claude
+- Returns structured analysis: Training Overview, Observations, Recommendations
+- Quick-question shortcuts that pre-fill the Ask page
+- Personalized PubMed article feed below the analysis
 
 ### 9. Research Feed (PubMed Articles)
-- Live articles fetched from PubMed E-utilities, proxied through `/api/articles`
-- Category tabs: Strength, Nutrition, Recovery, Sleep, Cardio
-- Each card: article title, first author + journal, abstract excerpt (truncated to 400 chars), publication date, direct PubMed link
-- Results cached in localStorage per category for 6 hours to avoid hammering PubMed
-- Error state with retry button
-- Default category is set from the user's goal (hypertrophy → Strength, fat-loss → Nutrition, general-fitness → Strength)
+
+- Live articles from PubMed, proxied through `/api/articles`
+- 7 category tabs: Strength, Nutrition, Recovery, Sleep, Metabolic Health, Cardio, Mobility
+- Each card: title, author + journal, abstract excerpt, date, direct PubMed link
+- 6-hour client-side cache per category
+- Default category driven by user's goal
+
+### 10. Community
+
+- **Activity Feed** (`/feed`): real-time friend workout feed via Supabase Realtime; emoji reactions (💪🔥👏⚡)
+- **Friends** (`/friends`): search users, send/accept/remove friend requests; toast feedback on all actions
+- **Leaderboard** (`/leaderboard`): weekly volume rankings among friends (memoized rows)
+- **Challenges** (`/challenges`): browse + create + join challenges (volume, streak, sessions types)
+- All community routes require a real Supabase account (guests see an upgrade prompt)
+
+### 11. Nutrition Tracking
+
+- Date navigator (previous/next day)
+- Macro progress bars (calories, protein, carbs, fat)
+- Add food modal + quick-add common meals
+- Goals modal (default goals per fitness goal, stored in localStorage)
+- Entry list with swipe-to-delete and toast confirmation
+- Guests see an upgrade prompt
+
+### 12. Measurements
+
+- Log body metrics (weight, body fat %, arm circumference, etc.)
+- Per-metric history with trend chart
+- ConfirmDialog on delete
+
+### 13. Notifications
+
+- Web Push via VAPID (opt-in, toggle in ProfilePage)
+- Friend workout alerts: fires when a friend completes a workout
+- Daily motivational reminder: Vercel cron at 9am UTC
+- Weekly digest: volume summary every Monday 8am UTC
+- `public/sw.js` handles push events and notification clicks
+
+### 14. Shareable Cards
+
+- Canvas-generated 1080×1080 PNG cards
+- PR card: exercise name, weight/reps, date
+- Weekly recap card: sessions, volume, streak
+- Web Share API (mobile native share); fallback to download
+
+### 15. Guest Mode
+
+- `GuestSetupPage` (`/guest`) — name + goal, no email
+- `GuestOrAuthGuard` — allows access to all non-community routes
+- `GuestBanner` — persistent prompt to create an account
+- Community routes show a full-screen upgrade prompt
+- `isGuest: true` on User type; localStorage key `omnexus_guest`
+
+### 16. GDPR & Privacy
+
+- Cookie consent banner (persistent; accept/decline stored in localStorage)
+- Privacy Policy page (`/privacy`)
+- Export my data: `/api/export-data` returns full JSON download
+- Delete account: `/api/delete-account` wipes all Supabase rows + auth user
 
 ---
 
 ## Navigation
 
-Five-item bottom navigation bar:
+**5-tab bottom navigation bar:**
 **Home · Learn · Insights · Library · History**
 
-Programs are accessible from the Dashboard (Next Workout card) and from within Learn. There is no standalone Programs tab in the nav.
+Community (`/feed`) and Nutrition (`/nutrition`) are accessible via quick-action buttons on the Dashboard. This keeps the nav usable on 375px viewports without truncation.
+
+---
+
+## Feedback System
+
+All write actions show a toast notification via `ToastContext`:
+- **Success** — green, 3 seconds (e.g. "Profile saved", "Meal logged", "Request sent")
+- **Error** — red, 3 seconds (e.g. "Sync failed — check connection")
+- **Info** — slate, 3 seconds
+
+Supabase write helpers throw `Error('[fnName] ${message}')` on failure so errors always bubble to the UI.
 
 ---
 
 ## AI System Prompt (Shared Persona)
 
-Both `/api/ask` and `/api/insights` use the same base persona:
+Both `/api/ask` and `/api/insights` use:
 
-> You are Omnexus AI, a health and fitness education assistant. You provide evidence-based, science-backed information about training, nutrition, recovery, sleep, and performance.
-> Always cite peer-reviewed research. Explain the mechanism behind recommendations. Acknowledge uncertainty. Never diagnose or prescribe.
+```
+You are Omnexus AI, a health and fitness education assistant.
+Always cite peer-reviewed research. Explain the mechanism behind recommendations.
+Acknowledge uncertainty. Never diagnose or prescribe.
+```
 
 Every response ends with:
 > ⚠️ This is educational information only, not medical advice.
 
 ---
 
-## Data Stored in localStorage
+## Data Storage
 
-| Key | What it holds |
+### Supabase (source of truth for authenticated users)
+
+| Table | Contents |
 |---|---|
-| `fit_user` | Name, goal, experience level, active program ID, theme |
-| `fit_history` | All workout sessions + personal records |
-| `fit_active_session` | In-progress workout (null when idle) |
+| `profiles` | Name, goal, experience level, active program |
+| `workout_sessions` | All completed sessions (exercises as JSONB) |
+| `personal_records` | Best lift per exercise |
+| `learning_progress` | Completed lessons/modules/courses, quiz scores |
+| `custom_programs` | User-built programs |
+| `friendships` | Friend graph |
+| `reactions` | Emoji reactions on feed sessions |
+| `challenges` / `challenge_participants` | Community challenges |
+| `push_subscriptions` | VAPID endpoints |
+| `nutrition_logs` | Daily food entries |
+| `measurements` | Body metric entries |
+
+### localStorage (cache + guest data)
+
+| Key | Contents |
+|---|---|
+| `fit_user` | User profile |
+| `fit_history` | Workout sessions + PRs |
+| `fit_active_session` | In-progress workout |
 | `fit_theme` | `"dark"` or `"light"` |
-| `fit_program_week_cursor` | Week number per program |
-| `fit_program_day_cursor` | Day index per program |
-| `omnexus_learning_progress` | Completed lessons/modules/courses, quiz scores |
-| `omnexus_insight_sessions` | Last 50 Ask Omnexus Q&A sessions |
-| `omnexus_article_cache` | PubMed articles per category (6 h TTL) |
+| `fit_program_week_cursor` | Week progress per program |
+| `fit_program_day_cursor` | Day progress per program |
+| `omnexus_learning_progress` | Completed lessons, quiz scores |
+| `omnexus_insight_sessions` | Ask Omnexus Q&A history (last 50) |
+| `omnexus_article_cache` | PubMed articles per category (6h TTL) |
+| `omnexus_custom_programs` | User-built programs (cache) |
+| `omnexus_nutrition_goals` | Daily macro targets |
+| `omnexus_guest` | Guest mode flag |
+| `omnexus_cookie_consent` | `"accepted"` or `"declined"` |
+| `omnexus_migrated_v1` | One-time migration completion flag |
 
 ---
 
@@ -156,50 +276,39 @@ Every response ends with:
 Everything below is hardcoded in the app — it does not come from an API or database:
 
 - **50+ exercises** with full metadata (muscles, equipment, instructions)
-- **Pre-built training programs** (e.g. 3-day full body, 4-day upper/lower, 5-day PPL)
+- **Pre-built training programs** (3-day full body, 4-day upper/lower, 5-day PPL, etc.)
 - **Structured courses** with lesson prose, key points, scientific references, and quizzes covering: Strength Training, Nutrition, Recovery, Sleep, Metabolic Health, Cardio, Mobility
-
----
-
-## Known Limitations / Current Gaps
-
-- **No user accounts** — data is tied to one browser/device. Clearing browser data wipes everything.
-- **No cloud sync** — cannot use the app across multiple devices.
-- **No social features** — no sharing, no community, no leaderboards.
-- **No nutrition tracking** — the app does not log food, calories, or macros.
-- **No body measurements** — no weight tracking, body fat %, or progress photos.
-- **No wearable integration** — no connection to Apple Health, Google Fit, Garmin, Whoop, etc.
-- **No notifications** — no reminders to train, no rest day alerts.
-- **No video demos** — exercises have text instructions only, no embedded video.
-- **AI articles have no key takeaways** — the `keyTakeaways` field on articles is reserved but empty; currently only the abstract is shown.
-- **No program builder** — users cannot create custom programs; they choose from the pre-built list only.
-- **No exercise progression tracking** — there is no graph or table showing strength progress on a specific exercise over time (e.g. squat 1RM over 12 weeks).
-- **No RPE/RIR input** — sets are logged by weight and reps only; no perceived exertion tracking.
-- **No rest day or deload scheduling** — programs do not adapt based on fatigue or missed sessions.
-- **Article feed is read-only** — users cannot save, bookmark, or annotate articles.
-- **Courses are static** — course content never changes; there is no admin CMS or dynamic content system.
-- **No offline support** — the app requires a network connection for AI features and PubMed; there is no service worker or PWA manifest.
 
 ---
 
 ## Design Principles
 
-- Mobile-first, card-based UI
-- Dark and light mode (user-toggleable, defaults to system preference)
-- Brand colour: a single accent colour (`brand-500`) used for interactive elements
-- Minimal animations — only loading spinners and smooth transitions
+- Mobile-first, card-based UI with dark/light mode (defaults to system preference)
+- Brand colour: `brand-500` used for all interactive/active elements
+- Gradient cards (`bg-gradient-to-br from-slate-800/80 to-slate-900/60`) for premium feel
+- Skeleton loaders instead of blank pages — pages never flash empty
+- Micro-animations: quiz reveal delay, SVG ring animation, toast slide-in
+- ConfirmDialog for all destructive actions (no `window.confirm()`)
 - Safety-first AI — every AI response carries a medical disclaimer
 
 ---
 
-## What Has Been Built (Phase Summary)
+## Build Phase Summary
 
 | Phase | Delivered |
 |---|---|
-| 1 | App rebrand to Omnexus, 5-item bottom nav, dark/light theme |
-| 2 | Full learning system: courses, lessons, quizzes, progress tracking |
-| 3 | Vercel serverless setup, environment variable config |
-| 4 | Ask Omnexus: Claude Q&A with citation rendering and session history |
-| 5 | AI Insights: workout analysis with Claude, markdown rendering |
-| 6 | Health article feed: PubMed proxy, caching, category filtering |
-| 7 | Personalization: course recommendations scored by goal + difficulty, goal-aware article defaults |
+| 1–7 | Branding, learning system, Claude Q&A, AI Insights, PubMed feed, personalization |
+| 8 | RPE input, exercise progression chart, custom program builder, CI pipeline |
+| Prod 2 | Supabase Auth (email + password, multi-device profile management) |
+| Prod 3 | Cloud sync (Supabase source of truth, one-time migration from localStorage) |
+| Prod 5 | Community (friends, leaderboard, challenges, real-time activity feed + reactions) |
+| Prod 6 | GDPR (cookie consent, privacy policy, data export, account deletion) |
+| Expansion A | PR celebration (confetti), weekly recap card, muscle heat map, enhanced streak |
+| Expansion B | Guest mode, shareable cards (canvas PNG), TodayCard, plate calculator |
+| Expansion C | Push notifications (VAPID, service worker, daily cron, friend alerts) |
+| Expansion D | Nutrition tracking (macro logging, goals, date navigator) |
+| E1 | Toast notification system + Supabase write error propagation |
+| E2 | Performance: debounced learning sync, React.memo, memoized list components |
+| E3 | Mobile UX: 5-tab nav, RPE tap-buttons, ConfirmDialog, no `window.confirm()` |
+| E4 | Visual polish: skeleton loaders, SVG recovery ring, gradient cards, quiz animation |
+| E5 | Test coverage: 28 Vitest unit tests; ESLint and TypeScript both clean |

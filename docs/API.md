@@ -15,22 +15,29 @@ All API endpoints are Vercel serverless functions in `/api/`. They run on Node.j
 
 ## Authentication
 
-Three endpoints require a **Supabase Bearer JWT** (the user's `access_token` from `supabase.auth.getSession()`). The server verifies the token using the `SUPABASE_SERVICE_ROLE_KEY`.
-
-| Endpoint | Auth required |
+| Endpoint | Auth Required |
 |---|---|
 | `POST /api/ask` | No |
 | `POST /api/insights` | No |
 | `GET /api/articles` | No |
 | `POST /api/setup-profile` | No (verifies user exists via admin SDK) |
+| `POST /api/notify-friends` | **Yes** — Bearer JWT |
 | `GET /api/export-data` | **Yes** — Bearer JWT |
 | `DELETE /api/delete-account` | **Yes** — Bearer JWT |
+| `GET /api/daily-reminder` | Vercel Cron (internal) |
+| `GET /api/weekly-digest` | Vercel Cron (internal) |
+
+Endpoints marked **Yes** require:
+```http
+Authorization: Bearer <supabase-access-token>
+```
+The server verifies the JWT using `supabaseAdmin.auth.getUser(token)`.
 
 ---
 
 ## POST /api/ask
 
-Sends a fitness or health question to Claude and returns an evidence-based answer.
+Sends a fitness or health question to Claude and returns an evidence-based answer. Supports multi-turn conversation via optional `conversationHistory`.
 
 **Request**
 
@@ -45,15 +52,20 @@ Content-Type: application/json
   "userContext": {
     "goal": "hypertrophy",
     "experienceLevel": "intermediate"
-  }
+  },
+  "conversationHistory": [
+    { "role": "user", "content": "Previous question" },
+    { "role": "assistant", "content": "Previous answer" }
+  ]
 }
 ```
 
-| Field | Type | Required |
-|---|---|---|
-| `question` | `string` | Yes (max 1000 chars) |
-| `userContext.goal` | `"hypertrophy" \| "fat-loss" \| "general-fitness"` | No |
-| `userContext.experienceLevel` | `"beginner" \| "intermediate" \| "advanced"` | No |
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `question` | `string` | Yes | Max 1000 chars |
+| `userContext.goal` | `"hypertrophy" \| "fat-loss" \| "general-fitness"` | No | Personalizes the response |
+| `userContext.experienceLevel` | `"beginner" \| "intermediate" \| "advanced"` | No | Personalizes the response |
+| `conversationHistory` | `{role, content}[]` | No | Up to last 4 exchanges; enables follow-up questions |
 
 **Response 200**
 
@@ -67,7 +79,7 @@ Content-Type: application/json
 |---|---|
 | `400` | Missing/empty question or question > 1000 chars |
 | `405` | Non-POST request |
-| `500` | Claude API failure |
+| `500` | Claude API failure or missing `ANTHROPIC_API_KEY` |
 
 **Model:** `claude-sonnet-4-6` · `max_tokens: 1024`
 
@@ -92,11 +104,11 @@ Content-Type: application/json
 }
 ```
 
-| Field | Type | Required |
-|---|---|---|
-| `userGoal` | `string` | No (defaults to `"general fitness"`) |
-| `userExperience` | `string` | No (defaults to `"beginner"`) |
-| `workoutSummary` | `string` | Yes — built by `insightsService.ts` |
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `userGoal` | `string` | No | Defaults to `"general fitness"` |
+| `userExperience` | `string` | No | Defaults to `"beginner"` |
+| `workoutSummary` | `string` | Yes | Max 10,000 chars. Built by `insightsService.ts` |
 
 The `workoutSummary` is generated client-side: filters to last 28 days (max 20 sessions), calculates total/avg volume, lists each session with date, volume, duration, and top exercises.
 
@@ -110,9 +122,9 @@ The `workoutSummary` is generated client-side: filters to last 28 days (max 20 s
 
 | Status | Cause |
 |---|---|
-| `400` | Missing `workoutSummary` |
+| `400` | Missing `workoutSummary` or summary > 10,000 chars |
 | `405` | Non-POST request |
-| `500` | Claude API failure |
+| `500` | Claude API failure or missing `ANTHROPIC_API_KEY` |
 
 **Model:** `claude-sonnet-4-6` · `max_tokens: 1024`
 
@@ -178,9 +190,9 @@ Caching is handled **client-side** in `localStorage` with a 6-hour TTL per categ
 
 ## POST /api/setup-profile
 
-Creates the user's profile row in the `profiles` table using the Supabase Admin SDK, bypassing Row Level Security. Called immediately after `supabase.auth.signUp()` from the onboarding flow.
+Creates the user's profile row in `profiles` using the Supabase Admin SDK, bypassing Row Level Security. Called immediately after `supabase.auth.signUp()` during onboarding.
 
-This endpoint is needed because when Supabase email confirmation is enabled, no client session exists after `signUp()` — so `auth.uid()` is null and direct client inserts would fail the RLS check.
+This endpoint exists because when email confirmation is enabled, no client session exists after `signUp()` — so `auth.uid()` is null and direct client inserts would fail the RLS check.
 
 **Request**
 
@@ -207,7 +219,7 @@ Content-Type: application/json
 | `experienceLevel` | `string` | Yes |
 | `activeProgramId` | `string` | No |
 
-The server verifies `userId` exists in `auth.users` via `supabaseAdmin.auth.admin.getUserById()` before inserting. If the profile already exists (duplicate key `23505`), returns `200` silently.
+The server verifies `userId` exists in `auth.users` before inserting. Duplicate key (`23505`) returns `200` silently.
 
 **Response 200**
 
@@ -226,9 +238,85 @@ The server verifies `userId` exists in `auth.users` via `supabaseAdmin.auth.admi
 
 ---
 
+## POST /api/notify-friends
+
+Sends a Web Push notification to all accepted friends of the authenticated user when they complete a workout. Called fire-and-forget from `useWorkoutSession.completeWorkout()`.
+
+**Request**
+
+```http
+POST /api/notify-friends
+Authorization: Bearer <supabase-access-token>
+Content-Type: application/json
+```
+
+```json
+{
+  "userName": "Alex",
+  "sessionSummary": "Completed Push Day — 4,200 kg volume"
+}
+```
+
+| Field | Type | Required |
+|---|---|---|
+| `userName` | `string` | Yes |
+| `sessionSummary` | `string` | No |
+
+The server fetches the user's accepted friends, looks up their `push_subscriptions` rows, and delivers via `web-push`. Stale/expired endpoints (410 Gone) are cleaned from the table automatically.
+
+**Response 200**
+
+```json
+{ "sent": 3 }
+```
+
+**Errors**
+
+| Status | Cause |
+|---|---|
+| `401` | Missing/invalid Bearer token |
+| `405` | Non-POST request |
+| `500` | Push delivery failure or missing VAPID keys |
+
+---
+
+## GET /api/daily-reminder
+
+**Vercel Cron** — runs at **9am UTC daily**. Sends a motivational push notification to all users with an active push subscription.
+
+Not called by the client. Scheduled in `vercel.json`:
+```json
+{ "path": "/api/daily-reminder", "schedule": "0 9 * * *" }
+```
+
+**Response 200**
+
+```json
+{ "sent": 142 }
+```
+
+---
+
+## GET /api/weekly-digest
+
+**Vercel Cron** — runs at **8am UTC every Monday**. Sends each subscribed user a summary comparing their current week's training volume to the previous week.
+
+Not called by the client. Scheduled in `vercel.json`:
+```json
+{ "path": "/api/weekly-digest", "schedule": "0 8 * * 1" }
+```
+
+**Response 200**
+
+```json
+{ "sent": 89 }
+```
+
+---
+
 ## GET /api/export-data
 
-Returns a JSON download containing all of the authenticated user's data. GDPR Article 20 (data portability).
+Returns a JSON download of all the authenticated user's data. GDPR Article 20 (data portability).
 
 **Request**
 
@@ -272,13 +360,16 @@ Permanently deletes the authenticated user's account and all associated data. GD
 **Deletion order** (respects foreign-key constraints):
 1. `challenge_participants`
 2. `friendships` (both `requester_id` and `addressee_id`)
-3. `personal_records`
-4. `workout_sessions`
-5. `learning_progress`
-6. `custom_programs`
-7. `challenges` (created by user)
-8. `profiles`
-9. `auth.users` via `supabaseAdmin.auth.admin.deleteUser()`
+3. `push_subscriptions`
+4. `personal_records`
+5. `workout_sessions`
+6. `nutrition_logs`
+7. `measurements`
+8. `learning_progress`
+9. `custom_programs`
+10. `challenges` (created by user)
+11. `profiles`
+12. `auth.users` via `supabaseAdmin.auth.admin.deleteUser()`
 
 **Request**
 
@@ -335,7 +426,8 @@ Every response ends with:
 
 | File | Calls | Responsibility |
 |---|---|---|
-| [`src/services/claudeService.ts`](../src/services/claudeService.ts) | `/api/ask`, `/api/insights` | Typed `fetch()` wrappers |
+| [`src/services/claudeService.ts`](../src/services/claudeService.ts) | `/api/ask`, `/api/insights` | Typed `fetch()` wrappers; passes conversation history |
 | [`src/services/insightsService.ts`](../src/services/insightsService.ts) | — | Builds `workoutSummary` string from `WorkoutSession[]` |
-| [`src/services/pubmedService.ts`](../src/services/pubmedService.ts) | `/api/articles` | Calls API + manages 6 h localStorage cache |
+| [`src/services/pubmedService.ts`](../src/services/pubmedService.ts) | `/api/articles` | Calls API + manages 6h localStorage cache |
 | [`src/lib/db.ts`](../src/lib/db.ts) | Supabase directly | All typed Supabase table operations |
+| [`src/lib/pushSubscription.ts`](../src/lib/pushSubscription.ts) | `/api/notify-friends` | VAPID subscription management + permission checks |

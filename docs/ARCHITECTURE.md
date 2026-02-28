@@ -2,55 +2,56 @@
 
 ## Overview
 
-Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Realtime) and deployed on **Vercel** (static frontend + serverless API functions). The browser talks to Supabase directly for data and to Vercel functions for AI/PubMed features that require server-side API keys.
+Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Realtime) and deployed on **Vercel** (static frontend + serverless API functions + cron jobs). The browser talks to Supabase directly for data and to Vercel functions for AI/PubMed features that require server-side API keys.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                              Browser                                 │
-│                                                                      │
-│  React 19 SPA  ←──────────────────────────────────────────────────  │
-│       │                                                              │
-│       │  @supabase/supabase-js (anon key)                           │
-│       ├──────────────────────────────────────────────────────────►  │
-│       │                                                   Supabase   │
-│       │  fetch() /api/* with Bearer JWT                             │
-│       │                                                              │
-└───────┼──────────────────────────────────────────────────────────────┘
-        │ HTTPS
-┌───────┼──────────────────────────────────────────────────────────────┐
-│       │                    Vercel Edge                               │
-│       │                                                              │
-│  ┌────▼──────┐  ┌──────────────┐  ┌───────────┐  ┌──────────────┐  │
-│  │ /api/ask  │  │/api/insights │  │/api/articles│  │/api/setup-  │  │
-│  │           │  │              │  │             │  │ profile      │  │
-│  └────┬──────┘  └──────┬───────┘  └──────┬─────┘  └──────┬───────┘  │
-│       │                │                 │                │          │
-│  ┌────▼──────────────────▼┐         ┌────▼────┐    ┌──────▼───────┐  │
-│  │   Anthropic Claude     │         │ PubMed  │    │   Supabase   │  │
-│  │   claude-sonnet-4-6    │         │  NCBI   │    │  Admin SDK   │  │
-│  └───────────────────────┘         └─────────┘    └──────────────┘  │
-│                                                                      │
-│  ┌────────────────────┐   ┌──────────────────────┐                  │
-│  │ /api/export-data   │   │ /api/delete-account  │                  │
-│  │ (GET, Bearer JWT)  │   │ (DELETE, Bearer JWT) │                  │
-│  └────────┬───────────┘   └──────────┬───────────┘                  │
-│           └──────────────────────────┘                               │
-│                          Supabase Admin SDK                          │
+┌──────────────────────────────────────────────────────────────────────┐
+│                              Browser                                  │
+│                                                                       │
+│  React 19 SPA                                                         │
+│  ├── AppContext (useReducer — global state)                           │
+│  ├── AuthContext (Supabase onAuthStateChange)                         │
+│  ├── ToastContext (in-app success/error notifications)                │
+│  ├── localStorage (read-through cache + guest data)                  │
+│  └── public/sw.js (service worker — Web Push handler)               │
+│                                                                       │
+│  @supabase/supabase-js (anon key) ──────────────────────►            │
+│  fetch() /api/* with Bearer JWT ────────────────────────►            │
 └──────────────────────────────────────────────────────────────────────┘
-                                  │
-┌─────────────────────────────────▼──────────────────────────────────┐
-│                            Supabase                                  │
-│                                                                      │
-│   Auth (email+password)     PostgreSQL (RLS enabled)                 │
-│   ├── supabase.auth.*       ├── profiles                            │
-│   └── onAuthStateChange     ├── workout_sessions                    │
-│                             ├── personal_records                    │
-│   Realtime                  ├── learning_progress                   │
-│   ├── workout_sessions      ├── custom_programs                     │
-│   └── challenge_participants├── friendships                         │
-│                             ├── challenges                           │
-│                             └── challenge_participants              │
-└─────────────────────────────────────────────────────────────────────┘
+                    │ HTTPS
+┌───────────────────┼──────────────────────────────────────────────────┐
+│                   │              Vercel Edge                          │
+│                                                                       │
+│  /api/ask          → Anthropic Claude (claude-sonnet-4-6)            │
+│  /api/insights     → Anthropic Claude (claude-sonnet-4-6)            │
+│  /api/articles     → PubMed E-utilities (NCBI)                       │
+│  /api/setup-profile → Supabase Admin SDK                             │
+│  /api/notify-friends → web-push (VAPID) → push_subscriptions         │
+│  /api/export-data   → Supabase Admin SDK                             │
+│  /api/delete-account → Supabase Admin SDK                            │
+│                                                                       │
+│  Cron jobs (vercel.json):                                             │
+│  /api/daily-reminder  [0 9 * * *]  → push all subscribers            │
+│  /api/weekly-digest   [0 8 * * 1]  → push volume summary to all      │
+└──────────────────────────────────────────────────────────────────────┘
+                    │
+┌───────────────────▼──────────────────────────────────────────────────┐
+│                          Supabase                                     │
+│                                                                       │
+│  Auth (email+password)       PostgreSQL (RLS enabled)                 │
+│  ├── supabase.auth.*         ├── profiles                            │
+│  └── onAuthStateChange       ├── workout_sessions                    │
+│                              ├── personal_records                    │
+│  Realtime                    ├── learning_progress                   │
+│  ├── workout_sessions INSERT ├── custom_programs                     │
+│  └── challenge_participants  ├── friendships                         │
+│      UPDATE                  ├── challenges                           │
+│                              ├── challenge_participants              │
+│                              ├── reactions                           │
+│                              ├── push_subscriptions                  │
+│                              ├── nutrition_logs                      │
+│                              └── measurements                        │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -63,12 +64,17 @@ New user:
                →  if email confirmation ON: show "check email" message
                →  if email confirmation OFF: dispatch SET_USER → navigate to /
 
+Guest user:
+  /guest  →  GuestSetupPage (name + goal)  →  localStorage omnexus_guest = true
+          →  navigate to / with GuestOrAuthGuard allowing access
+          →  AuthOnly routes (/feed, /friends, etc.) show upgrade prompt
+
 Returning user:
-  /login  →  supabase.auth.signInWithPassword()  →  fetch profiles  →  dispatch SET_USER  →  /
+  /login  →  supabase.auth.signInWithPassword()  →  fetch profile  →  dispatch SET_USER  →  /
 
 Cross-device login:
   session restored by onAuthStateChange  →  AuthGuard.hydrate()
-  → fetch profile from Supabase → setUser(localStorage) → dispatch SET_USER
+  → fetch profile from Supabase → dispatch SET_USER
   → fetch history + learning + customPrograms → dispatch SET_HISTORY / SET_LEARNING_PROGRESS
   → setCustomPrograms(localStorage)
 
@@ -86,16 +92,21 @@ App init (AppProvider):
 
 onAuthStateChange → session present:
   AuthGuard.hydrate() fires once per session (hydratedRef prevents re-runs on navigation)
-  ├── runMigrationIfNeeded()   one-time: old localStorage data → Supabase
-  ├── db.fetchHistory()        → dispatch SET_HISTORY
+  ├── runMigrationIfNeeded()     one-time: old localStorage data → Supabase
+  ├── db.fetchHistory()          → dispatch SET_HISTORY
   ├── db.fetchLearningProgress() → dispatch SET_LEARNING_PROGRESS
-  └── db.fetchCustomPrograms() → setCustomPrograms(localStorage)
+  └── db.fetchCustomPrograms()   → setCustomPrograms(localStorage)
 
 On every workout complete:
   completeWorkout() → localStorage (instant) + upsertSession() fire-and-forget
+                    + POST /api/notify-friends (fire-and-forget)
 
 On every learning action:
-  AppContext reducer → localStorage (instant) + upsertLearningProgress() (useEffect, fire-and-forget)
+  AppContext reducer → localStorage (instant)
+  + upsertLearningProgress() debounced 2s (prevents excessive writes during quizzes)
+
+All Supabase write helpers throw Error('[fnName] message') on failure.
+Callers catch and display via useToast().
 ```
 
 ---
@@ -107,8 +118,8 @@ On every learning action:
 ```
 User types question
        │
-AskPage.tsx
-       │  askOmnexus()
+AskPage.tsx — maintains conversationHistory[] (last 4 exchanges)
+       │  askOmnexus({ question, userContext, conversationHistory })
 claudeService.ts ──→ POST /api/ask ──→ Anthropic API
                                               │
                                         claude-sonnet-4-6
@@ -116,6 +127,8 @@ claudeService.ts ──→ POST /api/ask ──→ Anthropic API
                                        ←── answer (markdown)
        │
 MarkdownText.tsx renders answer
+Shows follow-up chip suggestions
+Shows context limit indicator at 4+ exchanges
        │
 appendInsightSession() → localStorage [omnexus_insight_sessions]
 ```
@@ -148,7 +161,7 @@ ArticleFeed mounts
 pubmedService.ts
   fetchArticlesByCategory()
   ├── check localStorage [omnexus_article_cache]
-  │   └── if fresh (< 6 h) → return cached articles
+  │   └── if fresh (< 6h) → return cached articles
   └── if stale/empty → GET /api/articles?category=&limit=5
                               │
                          api/articles.ts
@@ -164,13 +177,34 @@ pubmedService.ts
 ```
 ActivityFeedPage mounts
        │
-getFriendFeed(userId) → initial load
+getFriendFeed(userId) → initial load (skeleton shown while loading)
        │
 supabase.channel('feed_realtime')
   .on('postgres_changes', INSERT, 'workout_sessions')
   → getFriendFeed() reload on new insert
        │
-ActivityItem.tsx renders each session
+ActivityItem.tsx renders each session with emoji reactions
+onReact / onUnreact → optimistic update → addReaction / removeReaction
+```
+
+### Push Notifications
+
+```
+User enables notifications (ProfilePage)
+       │
+pushSubscription.ts
+  getPushPermission() → browser Notification.requestPermission()
+  subscribeToPush()   → navigator.serviceWorker.ready.pushManager.subscribe()
+  → saves PushSubscription to Supabase push_subscriptions table
+
+On workout complete:
+  useWorkoutSession.completeWorkout()
+  → POST /api/notify-friends (fire-and-forget)
+  → server fetches friends' push_subscriptions → web-push.sendNotification()
+
+public/sw.js handles:
+  push event → self.registration.showNotification()
+  notificationclick → clients.openWindow(targetUrl)
 ```
 
 ### GDPR: Data Export
@@ -192,15 +226,16 @@ api/export-data.ts
 ### GDPR: Account Deletion
 
 ```
-ProfilePage → "Delete Account" → confirm
+ProfilePage → "Delete Account" → ConfirmDialog
        │
 DELETE /api/delete-account  Authorization: Bearer <token>
        │
 api/delete-account.ts
   verify JWT
-  delete: challenge_participants, friendships, personal_records,
-          workout_sessions, learning_progress, custom_programs,
-          challenges (created_by), profiles
+  delete in order: challenge_participants, friendships, push_subscriptions,
+                   personal_records, workout_sessions, nutrition_logs,
+                   measurements, learning_progress, custom_programs,
+                   challenges (created_by), profiles
   supabaseAdmin.auth.admin.deleteUser(userId)
        │
   ←── 200 ok
@@ -217,7 +252,7 @@ Global state is managed with **Context API + `useReducer`** in [`src/store/AppCo
 ```
 AppContext (AppProvider wraps entire app)
 │
-├── state.user              User profile (null until authenticated)
+├── state.user              User profile (null until authenticated or guest)
 ├── state.history           WorkoutSession[] + PersonalRecord[]
 ├── state.learningProgress  completedLessons/modules/courses, quizScores
 ├── state.activeSession     In-progress workout (null when idle)
@@ -230,6 +265,11 @@ Dispatch actions:
   TOGGLE_THEME | SET_THEME
   SET_LEARNING_PROGRESS
   COMPLETE_LESSON | COMPLETE_MODULE | COMPLETE_COURSE | RECORD_QUIZ_ATTEMPT
+
+ToastContext (ToastProvider wraps RouterProvider)
+├── toast(message, variant, duration) → adds auto-dismissing notification
+└── dismiss(id) → removes immediately
+    Variants: 'success' | 'error' | 'info'
 ```
 
 ---
@@ -237,11 +277,13 @@ Dispatch actions:
 ## Routing
 
 ```
-/ (RootLayout — renders CookieConsent globally)
-├── /onboarding          OnboardingGuard → OnboardingPage     (public; redirect → / if session)
-├── /login               LoginGuard → LoginPage               (public; redirect → / if session)
+/ (RootLayout)
+├── /onboarding          OnboardingGuard → OnboardingPage     (public)
+├── /login               LoginGuard → LoginPage               (public)
+├── /guest               GuestSetupPage                       (public)
 ├── /privacy             PrivacyPolicyPage                    (public)
-└── AuthGuard (requires session + state.user)
+│
+└── GuestOrAuthGuard (guest localStorage flag or Supabase session)
     ├── /                DashboardPage
     ├── /profile         ProfilePage
     ├── /programs        ProgramsPage
@@ -256,13 +298,19 @@ Dispatch actions:
     ├── /learn/:courseId/:moduleId  LessonPage
     ├── /insights        InsightsPage
     ├── /ask             AskPage
-    ├── /feed            ActivityFeedPage   (Community)
-    ├── /friends         FriendsPage        (Community)
-    ├── /leaderboard     LeaderboardPage    (Community)
-    └── /challenges      ChallengesPage     (Community)
+    ├── /nutrition       NutritionPage
+    ├── /measurements    MeasurementsPage
+    │
+    └── AuthOnlyGuard (Supabase session required — guests see upgrade prompt)
+        ├── /feed        ActivityFeedPage   (Community)
+        ├── /friends     FriendsPage        (Community)
+        ├── /leaderboard LeaderboardPage    (Community)
+        └── /challenges  ChallengesPage     (Community)
 ```
 
-Bottom navigation: **Home · Learn · Insights · Library · History · Community**
+**Bottom navigation: Home · Learn · Insights · Library · History (5 tabs)**
+
+Community (`/feed`) and Nutrition (`/nutrition`) are accessible via Dashboard quick-action grid.
 
 ---
 
@@ -273,30 +321,35 @@ App
 └── ErrorBoundary
     └── AuthProvider (Supabase onAuthStateChange)
         └── AppProvider (global state + useReducer)
-            └── RouterProvider
-                └── RootLayout (renders <CookieConsent /> globally)
-                    ├── OnboardingGuard → OnboardingPage
-                    ├── LoginGuard → LoginPage
-                    ├── PrivacyPolicyPage
-                    └── AuthGuard (session check + Supabase hydration)
-                        └── AppShell
-                            ├── TopBar
-                            ├── <page content>   (Outlet)
-                            └── BottomNav (6 tabs, evenly distributed)
+            └── ToastProvider (in-app notifications)
+                └── RouterProvider
+                    ├── ToastContainer (fixed overlay, above BottomNav)
+                    └── RootLayout
+                        ├── OnboardingGuard → OnboardingPage
+                        ├── LoginGuard → LoginPage
+                        ├── GuestSetupPage
+                        ├── PrivacyPolicyPage
+                        └── GuestOrAuthGuard → AppShell
+                                              ├── TopBar
+                                              ├── <page content> (Outlet)
+                                              └── BottomNav (5 tabs)
 ```
 
-Key shared UI primitives (all in `src/components/ui/`):
+**UI Primitives** (`src/components/ui/`):
 
 | Component | Purpose |
 |---|---|
-| `Button` | Primary / secondary / ghost / success variants |
-| `Card` | Surface container with optional padding |
+| `Button` | Primary / secondary / ghost / success / danger variants |
+| `Card` | Surface container; `gradient` prop for premium dark bg |
 | `Badge` | Pill labels |
 | `Input` | Controlled text input with label + error |
 | `Modal` | Portal-based overlay |
+| `ConfirmDialog` | Reusable confirm/cancel modal (replaces `window.confirm`) |
+| `Skeleton` | Animated pulse placeholder (text / card / avatar / rect variants) |
+| `Toast` + `ToastContainer` | Auto-dismissing notification overlay |
 | `EmptyState` | Zero-state placeholder |
 | `MarkdownText` | Renders AI markdown (bold, bullets, numbered lists) |
-| `CookieConsent` | Fixed bottom banner, persists accept/decline to `localStorage` |
+| `CookieConsent` | Fixed bottom banner; persists accept/decline to localStorage |
 
 ---
 
@@ -310,7 +363,8 @@ User (localStorage + Supabase profiles)
 ├── name, theme
 ├── goal: "hypertrophy" | "fat-loss" | "general-fitness"
 ├── experienceLevel: "beginner" | "intermediate" | "advanced"
-└── activeProgramId: string | undefined
+├── activeProgramId: string | undefined
+└── isGuest?: boolean   (true for localStorage-only guest accounts)
 
 WorkoutSession (Supabase workout_sessions)
 ├── id: uuid, programId, trainingDayIndex
@@ -322,14 +376,24 @@ LoggedExercise
 ├── exerciseId
 └── sets: LoggedSet[]
     ├── setNumber, weight, reps, completed
-    ├── isPersonalRecord
-    ├── rpe?: number        (1–10, optional)
-    └── timestamp
+    ├── isPersonalRecord?: boolean
+    ├── rpe?: number        (1–10, optional; shown as tap-button row in UI)
+    └── timestamp: string
 
 PersonalRecord (Supabase personal_records)
 ├── exerciseId, weight, reps
 ├── achievedAt, sessionId
 └── unique per (user_id, exercise_id)
+
+NutritionLog (Supabase nutrition_logs)
+├── id, userId, loggedAt (date)
+├── mealName?, calories?, protein_g?, carbs_g?, fat_g?
+└── notes?
+
+Measurement (Supabase measurements)
+├── id, userId, metric (e.g. "weight_kg", "body_fat_pct")
+├── value: number
+└── recordedAt: string
 ```
 
 ### Learning System
@@ -351,16 +415,20 @@ Friendship (Supabase friendships)
 ├── status: "pending" | "accepted" | "blocked"
 └── created_at
 
+FeedSession (view over workout_sessions + profiles)
+├── sessionId, userId, userName
+├── programId, trainingDayIndex, startedAt
+└── totalVolumeKg, exerciseCount
+
+FeedReaction (Supabase reactions)
+├── id, sessionId, userId
+└── emoji: "💪" | "🔥" | "👏" | "⚡"
+
 Challenge (Supabase challenges)
 ├── id, created_by, name, description
 ├── type: "volume" | "streak" | "sessions"
 ├── targetValue, startDate, endDate
 └── is_public
-
-ChallengeParticipant (Supabase challenge_participants)
-├── challenge_id, user_id
-├── progress: number
-└── joined_at
 ```
 
 ---
@@ -369,7 +437,7 @@ ChallengeParticipant (Supabase challenge_participants)
 
 Run these in the Supabase SQL editor in order.
 
-### Phase 2 — Profiles
+### Profiles
 
 ```sql
 create table profiles (
@@ -389,7 +457,7 @@ create policy "Public profiles visible to authenticated users" on profiles
   for select using (is_public = true and auth.role() = 'authenticated');
 ```
 
-### Phase 3 — Cloud Sync
+### Cloud Sync
 
 ```sql
 create table workout_sessions (
@@ -445,7 +513,7 @@ create policy "Users manage own progress" on learning_progress
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
-### Phase 5 — Community
+### Community
 
 ```sql
 create table friendships (
@@ -461,6 +529,20 @@ create policy "Users see own friendships" on friendships
   using (auth.uid() = requester_id or auth.uid() = addressee_id);
 create policy "Users manage requests they sent" on friendships
   with check (auth.uid() = requester_id);
+
+create table reactions (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid references workout_sessions not null,
+  user_id uuid references profiles not null,
+  emoji text not null,
+  created_at timestamptz default now(),
+  unique (session_id, user_id)
+);
+alter table reactions enable row level security;
+create policy "Reactions visible to authenticated users" on reactions
+  for select using (auth.role() = 'authenticated');
+create policy "Users manage own reactions" on reactions
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create table challenges (
   id uuid primary key default gen_random_uuid(),
@@ -489,6 +571,54 @@ create table challenge_participants (
 alter table challenge_participants enable row level security;
 create policy "Participants visible" on challenge_participants for select using (true);
 create policy "Users manage own participation" on challenge_participants
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+### Push Notifications
+
+```sql
+create table push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles not null,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz default now()
+);
+alter table push_subscriptions enable row level security;
+create policy "Users manage own push subs" on push_subscriptions
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+### Nutrition & Measurements
+
+```sql
+create table nutrition_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles not null,
+  logged_at date not null,
+  meal_name text,
+  calories int,
+  protein_g numeric,
+  carbs_g numeric,
+  fat_g numeric,
+  notes text,
+  created_at timestamptz default now()
+);
+alter table nutrition_logs enable row level security;
+create policy "Users manage own nutrition logs" on nutrition_logs
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table measurements (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles not null,
+  metric text not null,
+  value numeric not null,
+  recorded_at date not null,
+  created_at timestamptz default now()
+);
+alter table measurements enable row level security;
+create policy "Users manage own measurements" on measurements
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
@@ -528,10 +658,18 @@ general-fitness → strength-training
 | 6 | Health Articles (PubMed feed) | ✅ |
 | 7 | Personalization (recommendations) | ✅ |
 | 8 | Training Depth (RPE, progression chart, program builder, CI) | ✅ |
-| Phase 2 (prod) | Supabase Auth (email+password, profile management) | ✅ |
-| Phase 3 (prod) | Cloud Data Sync (Supabase source of truth, migration) | ✅ |
-| Phase 5 (prod) | Community (friends, leaderboard, challenges, feed) | ✅ |
-| Phase 6 (prod) | GDPR (cookie consent, privacy policy, export, deletion) | ✅ |
+| Prod 2 | Supabase Auth (email+password, profile management) | ✅ |
+| Prod 3 | Cloud Data Sync (Supabase source of truth, migration) | ✅ |
+| Prod 5 | Community (friends, leaderboard, challenges, real-time feed) | ✅ |
+| Prod 6 | GDPR (cookie consent, privacy policy, export, deletion) | ✅ |
+| Expansion | Consumer-ready: PRs, streaks, heatmap, weekly recap, guest mode, share cards | ✅ |
+| Expansion | Push Notifications (VAPID, service worker, daily cron, friend alerts) | ✅ |
+| Expansion | Nutrition Tracking (macro logging, goals, date navigator) | ✅ |
+| E1 | Toast system + Supabase write error propagation | ✅ |
+| E2 | Performance: debounced learning sync, React.memo, memoized lists | ✅ |
+| E3 | Mobile UX: 5-tab nav, RPE tap-buttons, ConfirmDialog | ✅ |
+| E4 | Visual polish: Skeleton loaders, SVG ring, gradient cards, quiz animation | ✅ |
+| E5 | Test coverage: db.test, volumeUtils, programUtils; lint fixes | ✅ |
 
 ---
 
@@ -546,8 +684,12 @@ general-fitness → strength-training
     { "src": "^/src/(.*)", "dest": "/src/$1" },
     { "src": "^/node_modules/(.*)", "dest": "/node_modules/$1" },
     { "src": "/(.*)",      "dest": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/daily-reminder", "schedule": "0 9 * * *" },
+    { "path": "/api/weekly-digest",  "schedule": "0 8 * * 1" }
   ]
 }
 ```
 
-The first four routes prevent Vite's internal module requests from being swallowed by the SPA fallback during `vercel dev`. In production, static assets are served directly by Vercel's CDN.
+The first four routes prevent Vite's internal module requests from being swallowed by the SPA fallback during `vercel dev`. In production, static assets are served directly by Vercel's CDN. Cron jobs require a Vercel Pro plan or higher.
