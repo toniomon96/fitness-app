@@ -68,7 +68,7 @@ export function ExerciseDetailPage() {
 
     void fetchRelated();
     return () => { cancelled = true; };
-  }, [exercise?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exercise?.id]);
 
   function handleLessonClick(rec: ContentRecommendation) {
     if (!rec.courseId) return;

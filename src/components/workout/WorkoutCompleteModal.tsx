@@ -145,7 +145,7 @@ export function WorkoutCompleteModal({
 
     void fetchAdaptation();
     return () => { cancelled = true; };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Pick the PR with the highest weight to feature on the share card
   const featuredPR = hasPRs

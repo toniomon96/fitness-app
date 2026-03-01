@@ -34,7 +34,6 @@ export function OnboardingChat({ userName, onComplete }: Props) {
   // Kick off with the opening message on mount
   useEffect(() => {
     sendMessage([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Scroll to bottom whenever messages change

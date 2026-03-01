@@ -88,7 +88,7 @@ export function LearnPage() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   function handleResultClick(rec: ContentRecommendation) {
     if (rec.type === 'exercise') {

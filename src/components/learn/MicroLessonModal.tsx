@@ -46,7 +46,7 @@ export function MicroLessonModal({ topic, onClose }: MicroLessonModalProps) {
 
     void fetchLesson();
     return () => { cancelled = true; };
-  }, [topic]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [topic]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 overflow-hidden">
