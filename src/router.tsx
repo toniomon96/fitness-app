@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet, useNavigate } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useApp } from './store/AppContext'
 import { supabase } from './lib/supabase'
@@ -7,37 +7,43 @@ import { setUser, setCustomPrograms, getGuestProfile, getTheme } from './utils/l
 import * as db from './lib/db'
 import { runMigrationIfNeeded } from './lib/dataMigration'
 import type { User } from './types'
+import { CookieConsent } from './components/ui/CookieConsent'
+import { GuestBanner } from './components/ui/GuestBanner'
+
+// ─── Critical-path pages — kept eager (auth flow, tiny footprint) ─────────────
+
 import { OnboardingPage } from './pages/OnboardingPage'
 import { LoginPage } from './pages/LoginPage'
 import { GuestSetupPage } from './pages/GuestSetupPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { ProgramsPage } from './pages/ProgramsPage'
-import { ProgramDetailPage } from './pages/ProgramDetailPage'
-import { ExerciseLibraryPage } from './pages/ExerciseLibraryPage'
-import { ExerciseDetailPage } from './pages/ExerciseDetailPage'
-import { ActiveWorkoutPage } from './pages/ActiveWorkoutPage'
-import { HistoryPage } from './pages/HistoryPage'
-import { LearnPage } from './pages/LearnPage'
-import { CourseDetailPage } from './pages/CourseDetailPage'
-import { LessonPage } from './pages/LessonPage'
-import { InsightsPage } from './pages/InsightsPage'
-import { AskPage } from './pages/AskPage'
-import { ProgramBuilderPage } from './pages/ProgramBuilderPage'
-import { ProfilePage } from './pages/ProfilePage'
-import { ActivityFeedPage } from './pages/ActivityFeedPage'
-import { FriendsPage } from './pages/FriendsPage'
-import { LeaderboardPage } from './pages/LeaderboardPage'
-import { ChallengesPage } from './pages/ChallengesPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
-import { NutritionPage } from './pages/NutritionPage'
-import { MeasurementsPage } from './pages/MeasurementsPage'
-import { QuickLogPage } from './pages/QuickLogPage'
-import { PlateCalculatorPage } from './pages/PlateCalculatorPage'
-import { PreWorkoutBriefingPage } from './pages/PreWorkoutBriefingPage'
-import { CookieConsent } from './components/ui/CookieConsent'
-import { GuestBanner } from './components/ui/GuestBanner'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+
+// ─── Feature pages — lazy-loaded to reduce initial bundle size ────────────────
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })))
+const ProgramsPage = lazy(() => import('./pages/ProgramsPage').then(m => ({ default: m.ProgramsPage })))
+const ProgramDetailPage = lazy(() => import('./pages/ProgramDetailPage').then(m => ({ default: m.ProgramDetailPage })))
+const ExerciseLibraryPage = lazy(() => import('./pages/ExerciseLibraryPage').then(m => ({ default: m.ExerciseLibraryPage })))
+const ExerciseDetailPage = lazy(() => import('./pages/ExerciseDetailPage').then(m => ({ default: m.ExerciseDetailPage })))
+const ActiveWorkoutPage = lazy(() => import('./pages/ActiveWorkoutPage').then(m => ({ default: m.ActiveWorkoutPage })))
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })))
+const LearnPage = lazy(() => import('./pages/LearnPage').then(m => ({ default: m.LearnPage })))
+const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage').then(m => ({ default: m.CourseDetailPage })))
+const LessonPage = lazy(() => import('./pages/LessonPage').then(m => ({ default: m.LessonPage })))
+const InsightsPage = lazy(() => import('./pages/InsightsPage').then(m => ({ default: m.InsightsPage })))
+const AskPage = lazy(() => import('./pages/AskPage').then(m => ({ default: m.AskPage })))
+const ProgramBuilderPage = lazy(() => import('./pages/ProgramBuilderPage').then(m => ({ default: m.ProgramBuilderPage })))
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const ActivityFeedPage = lazy(() => import('./pages/ActivityFeedPage').then(m => ({ default: m.ActivityFeedPage })))
+const FriendsPage = lazy(() => import('./pages/FriendsPage').then(m => ({ default: m.FriendsPage })))
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })))
+const ChallengesPage = lazy(() => import('./pages/ChallengesPage').then(m => ({ default: m.ChallengesPage })))
+const NutritionPage = lazy(() => import('./pages/NutritionPage').then(m => ({ default: m.NutritionPage })))
+const MeasurementsPage = lazy(() => import('./pages/MeasurementsPage').then(m => ({ default: m.MeasurementsPage })))
+const QuickLogPage = lazy(() => import('./pages/QuickLogPage').then(m => ({ default: m.QuickLogPage })))
+const PlateCalculatorPage = lazy(() => import('./pages/PlateCalculatorPage').then(m => ({ default: m.PlateCalculatorPage })))
+const PreWorkoutBriefingPage = lazy(() => import('./pages/PreWorkoutBriefingPage').then(m => ({ default: m.PreWorkoutBriefingPage })))
 
 function RootLayout() {
   return (
@@ -155,7 +161,9 @@ function GuestOrAuthGuard() {
         <>
           <GuestBanner />
           <div className="pt-9">
-            <Outlet />
+            <Suspense fallback={<LoadingScreen />}>
+              <Outlet />
+            </Suspense>
           </div>
         </>
       )
@@ -164,7 +172,11 @@ function GuestOrAuthGuard() {
   }
 
   if (!state.user) return <LoadingScreen />
-  return <Outlet />
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <Outlet />
+    </Suspense>
+  )
 }
 
 /**
@@ -201,7 +213,11 @@ function AuthOnlyGuard() {
   }
 
   if (!state.user) return <LoadingScreen />
-  return <Outlet />
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <Outlet />
+    </Suspense>
+  )
 }
 
 function OnboardingGuard() {

@@ -249,8 +249,9 @@ export function NutritionPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!user?.id) return;
     try {
-      await db.deleteNutritionLog(id);
+      await db.deleteNutritionLog(id, user.id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
       toast('Entry removed', 'success');
     } catch {

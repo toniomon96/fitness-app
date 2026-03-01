@@ -105,8 +105,9 @@ export function MeasurementsPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!state.user?.id) return;
     try {
-      await db.deleteMeasurement(id);
+      await db.deleteMeasurement(id, state.user.id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
       toast('Entry deleted', 'success');
     } catch {

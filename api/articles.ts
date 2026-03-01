@@ -136,6 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .filter((a) => a.summary.length > 0);
 
+    // Cache at CDN edge for 6h; serve stale for up to 24h during background revalidation.
+    // PubMed results for a fixed query + date window are stable intraday.
+    res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
     return res.status(200).json({ articles });
   } catch (err: unknown) {
     console.error('[/api/articles]', err);

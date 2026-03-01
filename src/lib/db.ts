@@ -438,8 +438,12 @@ export async function addNutritionLog(
   return data ? mapNutritionLog(data) : null;
 }
 
-export async function deleteNutritionLog(id: string): Promise<void> {
-  const { error } = await supabase.from('nutrition_logs').delete().eq('id', id);
+export async function deleteNutritionLog(id: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('nutrition_logs')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
   if (error) throw new Error(`[deleteNutritionLog] ${error.message}`);
 }
 
@@ -493,8 +497,12 @@ export async function addMeasurement(
   return row ? mapMeasurement(row) : null;
 }
 
-export async function deleteMeasurement(id: string): Promise<void> {
-  const { error } = await supabase.from('measurements').delete().eq('id', id);
+export async function deleteMeasurement(id: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('measurements')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
   if (error) throw new Error(`[deleteMeasurement] ${error.message}`);
 }
 

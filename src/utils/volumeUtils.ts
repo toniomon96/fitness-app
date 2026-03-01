@@ -28,22 +28,24 @@ export function detectPersonalRecords(
   session: WorkoutSession,
   history: WorkoutHistory,
 ): PersonalRecord[] {
+  // Precompute best estimated 1RM per exercise across all history in a single pass — O(S × E).
+  // Avoids the previous O(E² × S) pattern of re-scanning history for every exercise in the session.
+  const best1RMMap = new Map<string, number>();
+  for (const s of history.sessions) {
+    for (const ex of s.exercises) {
+      let best = best1RMMap.get(ex.exerciseId) ?? 0;
+      for (const set of ex.sets) {
+        if (!set.completed) continue;
+        best = Math.max(best, estimate1RM(set.weight, set.reps));
+      }
+      best1RMMap.set(ex.exerciseId, best);
+    }
+  }
+
   const newPRs: PersonalRecord[] = [];
 
   for (const loggedEx of session.exercises) {
-    const pastSessions = history.sessions.filter((s) =>
-      s.exercises.some((e) => e.exerciseId === loggedEx.exerciseId),
-    );
-
-    const bestPast1RM = pastSessions.reduce((best, s) => {
-      const ex = s.exercises.find((e) => e.exerciseId === loggedEx.exerciseId);
-      if (!ex) return best;
-      const sessionBest = ex.sets.reduce((b, set) => {
-        if (!set.completed) return b;
-        return Math.max(b, estimate1RM(set.weight, set.reps));
-      }, 0);
-      return Math.max(best, sessionBest);
-    }, 0);
+    const bestPast1RM = best1RMMap.get(loggedEx.exerciseId) ?? 0;
 
     let bestSet = { weight: 0, reps: 0, oneRM: 0 };
     for (const set of loggedEx.sets) {
