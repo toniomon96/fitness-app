@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Mail, RefreshCw } from 'lucide-react';
 import type { UserTrainingProfile, Program, ExperienceLevel } from '../../types';
 import { OnboardingChat } from './OnboardingChat';
 import { ProfileSummaryCard } from './ProfileSummaryCard';
@@ -31,6 +31,11 @@ export function OnboardingForm() {
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Email confirmation pending — shown instead of normal steps
+  const [emailConfirmPending, setEmailConfirmPending] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
   function back() {
     setStep((s) => Math.max(s - 1, 0));
   }
@@ -55,14 +60,33 @@ export function OnboardingForm() {
     setStep(3);
   }
 
+  async function handleResendConfirmation() {
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      setResendSuccess(true);
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   async function handleProgramReady(program: Program) {
     if (!profile) return;
     setSubmitError('');
     setLoading(true);
 
     try {
-      // 1. Create Supabase account
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      // 1. Create Supabase account (emailRedirectTo ensures confirmation link lands on our callback page)
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
 
       if (signUpError) {
         setSubmitError(signUpError.message);
@@ -76,8 +100,7 @@ export function OnboardingForm() {
 
       const userId = data.user.id;
 
-      // 2. Server-side profile setup (handles email confirmation enabled)
-      // Map the AI profile goal to a single Goal for the legacy User interface
+      // 2. Map the AI profile goal to a single Goal for the legacy User interface
       const primaryGoal = (profile.goals[0] ?? 'general-fitness') as 'hypertrophy' | 'fat-loss' | 'general-fitness';
       const experienceLevel: ExperienceLevel = profile.trainingAgeYears === 0
         ? 'beginner'
@@ -85,7 +108,7 @@ export function OnboardingForm() {
           ? 'intermediate'
           : 'advanced';
 
-      // Save AI-generated program locally first (works regardless of email confirmation status)
+      // 3. Save AI-generated program locally first (works regardless of email confirmation status)
       const programId = crypto.randomUUID();
       const programWithMeta: Program = {
         ...program,
@@ -99,6 +122,7 @@ export function OnboardingForm() {
       // The dataMigration will sync it on first login.
       upsertCustomProgram(programWithMeta, userId).catch(() => { /* synced later */ });
 
+      // 4. Server-side profile setup
       const profileRes = await fetch(`${apiBase}/api/setup-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,19 +142,17 @@ export function OnboardingForm() {
         return;
       }
 
-      // Email confirmation is ON — session is null
+      // 5. Email confirmation is ON — no session yet. Show the check-inbox screen.
       if (!data.session) {
-        setSubmitError('✉️ Check your email and click the confirmation link, then sign in.');
-        setStep(0);
+        setEmailConfirmPending(true);
         return;
       }
 
-      // 3. Save AI training profile to Supabase (best-effort)
+      // 6. Session available (email confirmation OFF). Save training profile + enter app.
       await upsertTrainingProfile(userId, profile).catch(() => {
         // Non-fatal — training_profiles table may not exist yet in development
       });
 
-      // 4. Update client state
       const user = {
         id: userId,
         name: name.trim(),
@@ -150,6 +172,56 @@ export function OnboardingForm() {
       setLoading(false);
     }
   }
+
+  // ─── Email confirmation pending screen ────────────────────────────────────────
+
+  if (emailConfirmPending) {
+    return (
+      <div className="flex flex-col min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-brand-950 px-6 py-12 items-center justify-center">
+        <div className="max-w-sm w-full text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-brand-500/15 border border-brand-500/30 flex items-center justify-center mx-auto">
+            <Mail size={36} className="text-brand-400" />
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-bold text-white">Check your inbox</h1>
+            <p className="mt-3 text-slate-400 text-sm leading-relaxed">
+              We sent a confirmation link to{' '}
+              <span className="text-slate-200 font-medium">{email}</span>.
+              Click it to activate your account, then sign in here.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 px-4 py-4 text-left space-y-2">
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Didn't get it?</p>
+            <p className="text-slate-400 text-sm">Check your spam folder, or resend the email.</p>
+            {resendSuccess && (
+              <p className="text-green-400 text-sm font-medium">Email resent! Check your inbox.</p>
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              className="w-full mt-1 text-slate-300 border border-slate-700"
+            >
+              <RefreshCw size={15} className={resendLoading ? 'animate-spin' : ''} />
+              {resendLoading ? 'Sending…' : 'Resend confirmation email'}
+            </Button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="text-sm text-brand-400 hover:text-brand-300 font-medium"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Normal onboarding steps ──────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-brand-950 px-6 py-8">

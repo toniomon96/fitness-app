@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/AppContext';
 import { setUser, getTheme } from '../utils/localStorage';
@@ -18,6 +18,11 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Email not confirmed flow
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -27,6 +32,8 @@ export function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setUnconfirmedEmail('');
+    setResendSuccess(false);
     setLoading(true);
 
     try {
@@ -34,6 +41,11 @@ export function LoginPage() {
         await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
+        // Detect "email not confirmed" — offer to resend the confirmation link
+        const msg = signInError.message.toLowerCase();
+        if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+          setUnconfirmedEmail(email);
+        }
         setError(signInError.message);
         return;
       }
@@ -74,12 +86,29 @@ export function LoginPage() {
     }
   }
 
+  async function handleResendConfirmation() {
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      await supabase.auth.resend({
+        type: 'signup',
+        email: unconfirmedEmail,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      setResendSuccess(true);
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setForgotError('');
     setForgotLoading(true);
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
       if (resetError) {
         setForgotError(resetError.message);
       } else {
@@ -174,9 +203,30 @@ export function LoginPage() {
         )}
 
         {error && (
-          <p className="text-sm text-red-400 rounded-lg bg-red-900/20 border border-red-800 px-3 py-2">
-            {error}
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-red-400 rounded-lg bg-red-900/20 border border-red-800 px-3 py-2">
+              {error}
+            </p>
+            {/* Email not confirmed — offer to resend */}
+            {unconfirmedEmail && (
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3 space-y-1.5">
+                <p className="text-xs text-slate-400">Haven't confirmed your email yet?</p>
+                {resendSuccess ? (
+                  <p className="text-xs text-green-400 font-medium">Confirmation email resent — check your inbox.</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resendLoading}
+                    className="flex items-center gap-1.5 text-xs text-brand-400 hover:text-brand-300 font-medium disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={resendLoading ? 'animate-spin' : ''} />
+                    {resendLoading ? 'Sending…' : 'Resend confirmation email'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         <Button

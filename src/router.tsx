@@ -36,6 +36,8 @@ import { PlateCalculatorPage } from './pages/PlateCalculatorPage'
 import { PreWorkoutBriefingPage } from './pages/PreWorkoutBriefingPage'
 import { CookieConsent } from './components/ui/CookieConsent'
 import { GuestBanner } from './components/ui/GuestBanner'
+import { AuthCallbackPage } from './pages/AuthCallbackPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
 function RootLayout() {
   return (
@@ -236,6 +238,8 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginGuard /> },
       { path: '/guest', element: <GuestGuard /> },
       { path: '/privacy', element: <PrivacyPolicyPage /> },
+      { path: '/auth/callback', element: <AuthCallbackPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       {
         // Accessible to guests and authenticated users
         element: <GuestOrAuthGuard />,
