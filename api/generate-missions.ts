@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `Duration: ${durationWeeks ?? 8} weeks`,
   ].join('\n');
 
-  let missions: unknown[] = [];
+  let missions: unknown[];
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

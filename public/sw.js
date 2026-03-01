@@ -1,7 +1,7 @@
 /* Omnexus Service Worker — handles Web Push notifications */
 
 self.addEventListener('push', (event) => {
-  let data = {};
+  let data;
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
   event.waitUntil(
     self.registration.showNotification(data.title || 'Omnexus', {

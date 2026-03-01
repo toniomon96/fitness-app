@@ -45,8 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  let peerCount = 0;
-  let narrative = '';
+  let peerCount: number;
+  let narrative: string;
 
   try {
     // Get users with matching goal+level from training_profiles, filtered at DB level
