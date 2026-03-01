@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +11,7 @@ import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { setUser, resetProgramCursors, getCustomPrograms } from '../utils/localStorage';
 import { generateMissions } from '../services/adaptService';
-import { Calendar, Clock, CheckCircle2, Sparkles } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, Sparkles, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 
 export function ProgramDetailPage() {
   const { programId } = useParams<{ programId: string }>();
@@ -32,6 +33,7 @@ export function ProgramDetailPage() {
   }
 
   const isActive = state.user?.activeProgramId === program.id;
+  const [roadmapOpen, setRoadmapOpen] = useState(true);
 
   function handleActivate() {
     if (!state.user || !program) return;
@@ -98,6 +100,86 @@ export function ProgramDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Training Philosophy */}
+        {program.trainingPhilosophy && (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/50 px-4 py-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={14} className="text-brand-400" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">
+                Training Philosophy
+              </p>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {program.trainingPhilosophy}
+            </p>
+          </div>
+        )}
+
+        {/* 8-Week Roadmap */}
+        {program.weeklyProgressionNotes && program.weeklyProgressionNotes.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/50 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRoadmapOpen((o) => !o)}
+              className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <TrendingUp size={15} className="text-brand-400" />
+                <span className="text-sm font-semibold text-slate-800 dark:text-white">
+                  8-Week Roadmap
+                </span>
+              </div>
+              {roadmapOpen
+                ? <ChevronUp size={16} className="text-slate-400" />
+                : <ChevronDown size={16} className="text-slate-400" />
+              }
+            </button>
+            {roadmapOpen && (
+              <div className="px-4 pb-4 space-y-2">
+                {program.weeklyProgressionNotes.map((note, i) => {
+                  const weekNum = i + 1;
+                  const isDeload = /deload/i.test(note);
+                  const isPeak = weekNum === 7;
+                  return (
+                    <div
+                      key={i}
+                      className={[
+                        'flex gap-3 rounded-xl px-3 py-2.5',
+                        isDeload
+                          ? 'bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/30'
+                          : isPeak
+                            ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-700/30'
+                            : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/40',
+                      ].join(' ')}
+                    >
+                      <span className={[
+                        'shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5',
+                        isDeload
+                          ? 'bg-amber-200 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300'
+                          : isPeak
+                            ? 'bg-brand-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+                      ].join(' ')}>
+                        {weekNum}
+                      </span>
+                      <p className={[
+                        'text-sm leading-relaxed',
+                        isDeload
+                          ? 'text-amber-800 dark:text-amber-200'
+                          : isPeak
+                            ? 'text-brand-800 dark:text-brand-200'
+                            : 'text-slate-600 dark:text-slate-300',
+                      ].join(' ')}>
+                        {note}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Block Missions */}
         {authUser && (

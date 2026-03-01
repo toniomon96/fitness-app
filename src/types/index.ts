@@ -74,6 +74,12 @@ export interface UserTrainingProfile {
   equipment: string[];
   injuries: string[];
   aiSummary: string;
+  /** Muscle groups the user most wants to develop, e.g. ['chest', 'legs'] */
+  priorityMuscles?: string[];
+  /** Preferred training split structure */
+  programStyle?: 'full-body' | 'upper-lower' | 'push-pull-legs' | 'any';
+  /** Whether the user wants cardio/conditioning built into the program */
+  includeCardio?: boolean;
 }
 
 // ─── Exercise Library ─────────────────────────────────────────────────────────
@@ -125,6 +131,10 @@ export interface Program {
   isCustom?: boolean;
   isAiGenerated?: boolean;
   createdAt?: string;
+  /** 8-entry array, one coaching note per week of the program */
+  weeklyProgressionNotes?: string[];
+  /** 2-3 sentences explaining the periodization logic and what the athlete should expect */
+  trainingPhilosophy?: string;
 }
 
 // ─── Active Workout Session ───────────────────────────────────────────────────
