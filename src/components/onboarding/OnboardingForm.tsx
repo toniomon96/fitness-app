@@ -40,6 +40,14 @@ export function OnboardingForm() {
     setStep((s) => Math.max(s - 1, 0));
   }
 
+  // Sign out any existing session before navigating to /login.
+  // Without this, LoginGuard sees the session and redirects back to / →
+  // GuestOrAuthGuard can't find a profile → /onboarding → infinite loop.
+  async function handleGoToSignIn() {
+    await supabase.auth.signOut();
+    navigate('/login');
+  }
+
   function nextFromAccount() {
     setEmailError('');
     setPasswordError('');
@@ -211,7 +219,7 @@ export function OnboardingForm() {
 
           <button
             type="button"
-            onClick={() => navigate('/login')}
+            onClick={handleGoToSignIn}
             className="text-sm text-brand-400 hover:text-brand-300 font-medium"
           >
             Back to sign in
@@ -281,7 +289,7 @@ export function OnboardingForm() {
               Already have an account?{' '}
               <button
                 type="button"
-                onClick={() => navigate('/login')}
+                onClick={handleGoToSignIn}
                 className="text-brand-400 hover:text-brand-300 font-medium"
               >
                 Sign in

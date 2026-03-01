@@ -10,6 +10,11 @@ import type { User } from './types'
 import { CookieConsent } from './components/ui/CookieConsent'
 import { GuestBanner } from './components/ui/GuestBanner'
 
+// Module-level set — survives component unmount/remount cycles.
+// Prevents repeated 406 profile queries for users who have a Supabase session
+// but no profiles row (e.g. mid-onboarding, broken account).
+const sessionsWithNoProfile = new Set<string>()
+
 // ─── Critical-path pages — kept eager (auth flow, tiny footprint) ─────────────
 
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -88,6 +93,13 @@ function GuestOrAuthGuard() {
     // Supabase session hydration
     if (!session || authLoading || hydratedRef.current) return
 
+    // If we already know this session has no profile row, skip the 406 query
+    // and go straight to onboarding. The module-level Set survives remounts.
+    if (sessionsWithNoProfile.has(session.user.id)) {
+      navigate('/onboarding', { replace: true })
+      return
+    }
+
     async function hydrate() {
       if (!session) return
       setSyncing(true)
@@ -102,7 +114,8 @@ function GuestOrAuthGuard() {
             .single()
 
           if (!profile) {
-            // Mark hydrated so we don't re-run after OnboardingGuard bounces back to /
+            // Remember this session has no profile so remounts skip the 406 query
+            sessionsWithNoProfile.add(session.user.id)
             hydratedRef.current = true
             navigate('/onboarding', { replace: true })
             return
