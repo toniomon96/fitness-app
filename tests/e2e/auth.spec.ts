@@ -3,74 +3,124 @@ import { signIn, signOut, TEST_USER } from './helpers/auth';
 
 test.describe('Authentication', () => {
   test('shows login page at /login', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
-    await expect(page.getByLabel('Email')).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
+    test.info().annotations.push({ type: 'feature', description: 'Auth' });
+
+    await test.step('navigate to login', () => page.goto('/login'));
+
+    await test.step('verify form fields are visible', async () => {
+      await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+      await expect(page.getByLabel('Email')).toBeVisible();
+      await expect(page.getByLabel('Password')).toBeVisible();
+    });
   });
 
   test('shows error for wrong credentials', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('Email').fill('wrong@example.com');
-    await page.getByLabel('Password').fill('wrongpassword');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByText(/invalid|incorrect|not found/i)).toBeVisible({ timeout: 10_000 });
+    test.info().annotations.push({ type: 'feature', description: 'Auth' });
+    test.info().annotations.push({ type: 'severity', description: 'critical' });
+
+    await test.step('navigate to login', () => page.goto('/login'));
+
+    await test.step('submit wrong credentials', async () => {
+      await page.getByLabel('Email').fill('wrong@example.com');
+      await page.getByLabel('Password').fill('wrongpassword');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+    });
+
+    await test.step('verify error message is shown', async () => {
+      await expect(page.getByText(/invalid|incorrect|not found/i)).toBeVisible({ timeout: 10_000 });
+    });
   });
 
   test('redirects unauthenticated users from / to /login', async ({ page }) => {
-    // Clear any existing session
-    await signOut(page);
-    await page.goto('/');
-    await page.waitForURL(/\/(login|onboarding|guest)/);
+    test.info().annotations.push({ type: 'feature', description: 'Auth' });
+    test.info().annotations.push({ type: 'severity', description: 'critical' });
+
+    await test.step('clear any existing session', () => signOut(page));
+    await test.step('navigate to protected route /', () => page.goto('/'));
+    await test.step('verify redirect to public route', () =>
+      page.waitForURL(/\/(login|onboarding|guest)/),
+    );
   });
 
   test('signs in and lands on dashboard', async ({ page }) => {
-    await signIn(page);
-    await expect(page).toHaveURL('/');
-    // Dashboard should show the user's name or a greeting
-    await expect(page.getByText(/good (morning|afternoon|evening)|today's workout|your program/i)).toBeVisible({ timeout: 10_000 });
+    test.info().annotations.push({ type: 'feature', description: 'Auth' });
+    test.info().annotations.push({ type: 'severity', description: 'critical' });
+
+    await test.step('sign in with valid credentials', () => signIn(page));
+
+    await test.step('verify dashboard is shown', async () => {
+      await expect(page).toHaveURL('/');
+      await expect(
+        page.getByText(/good (morning|afternoon|evening)|today's workout|your program/i),
+      ).toBeVisible({ timeout: 10_000 });
+    });
   });
 
   test('sign out clears session and redirects to login', async ({ page }) => {
-    await signIn(page);
-    // Navigate to profile page to find sign out
-    await page.goto('/profile');
-    await page.getByRole('button', { name: /sign out|log out/i }).click();
-    await page.waitForURL(/\/(login|onboarding|guest)/);
-    // Attempting to go back to dashboard should redirect
-    await page.goto('/');
-    await page.waitForURL(/\/(login|onboarding|guest)/);
+    test.info().annotations.push({ type: 'feature', description: 'Auth' });
+
+    await test.step('sign in', () => signIn(page));
+
+    await test.step('navigate to profile and sign out', async () => {
+      await page.goto('/profile');
+      await page.getByRole('button', { name: /sign out|log out/i }).click();
+    });
+
+    await test.step('verify redirected to public route', () =>
+      page.waitForURL(/\/(login|onboarding|guest)/),
+    );
+
+    await test.step('verify accessing dashboard redirects again', async () => {
+      await page.goto('/');
+      await page.waitForURL(/\/(login|onboarding|guest)/);
+    });
   });
 });
 
 test.describe('Guest mode', () => {
   test('shows guest setup page at /guest', async ({ page }) => {
-    await page.goto('/guest');
-    await expect(page.getByText(/build muscle|lose fat|stay fit/i).first()).toBeVisible();
+    test.info().annotations.push({ type: 'feature', description: 'Guest' });
+
+    await test.step('navigate to /guest', () => page.goto('/guest'));
+
+    await test.step('verify goal options are visible', async () => {
+      await expect(page.getByText(/build muscle|lose fat|stay fit/i).first()).toBeVisible();
+    });
   });
 
   test('guest user lands on dashboard after setup', async ({ page }) => {
-    await page.goto('/guest');
-    // Select a goal
-    await page.getByText('Build Muscle').click();
-    // Continue to experience level step
-    await page.getByRole('button', { name: /continue/i }).click();
-    // Select experience level
-    await page.getByText('Beginner').click();
-    await page.getByRole('button', { name: /start|get started|continue/i }).click();
-    await page.waitForURL('/');
+    test.info().annotations.push({ type: 'feature', description: 'Guest' });
+    test.info().annotations.push({ type: 'severity', description: 'critical' });
+
+    await test.step('navigate to /guest', () => page.goto('/guest'));
+    await test.step('select Build Muscle goal', () => page.getByText('Build Muscle').click());
+    await test.step('proceed to experience level step', () =>
+      page.getByRole('button', { name: /continue/i }).click(),
+    );
+    await test.step('select Beginner level', () => page.getByText('Beginner').click());
+    await test.step('complete setup', () =>
+      page.getByRole('button', { name: /start|get started|continue/i }).click(),
+    );
+    await test.step('verify dashboard is shown', () => page.waitForURL('/'));
   });
 
   test('guest user data persists on refresh', async ({ page }) => {
-    await page.goto('/guest');
-    await page.getByText('Lose Fat').click();
-    await page.getByRole('button', { name: /continue/i }).click();
-    await page.getByText('Intermediate').click();
-    await page.getByRole('button', { name: /start|get started|continue/i }).click();
-    await page.waitForURL('/');
-    // Refresh
-    await page.reload();
-    // Should still be on dashboard, not redirected to login
-    await expect(page).toHaveURL('/');
+    test.info().annotations.push({ type: 'feature', description: 'Guest' });
+    test.info().annotations.push({ type: 'severity', description: 'high' });
+
+    await test.step('complete guest setup', async () => {
+      await page.goto('/guest');
+      await page.getByText('Lose Fat').click();
+      await page.getByRole('button', { name: /continue/i }).click();
+      await page.getByText('Intermediate').click();
+      await page.getByRole('button', { name: /start|get started|continue/i }).click();
+      await page.waitForURL('/');
+    });
+
+    await test.step('reload the page', () => page.reload());
+
+    await test.step('verify still on dashboard (not redirected to login)', async () => {
+      await expect(page).toHaveURL('/');
+    });
   });
 });

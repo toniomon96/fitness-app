@@ -57,10 +57,25 @@ jobs:
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
-      - name: Upload test report on failure
+      # Publish test results as a native GitHub Actions check — visible directly
+      # on the PR/commit page without needing to download anything.
+      # Runs whether tests passed or failed so you always get a summary.
+      - name: Publish test summary
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: 'test-results/junit.xml'
+          check_name: 'E2E Test Results'
+          fail_on_failure: true
+
+      # Upload the full HTML report + traces + videos as a downloadable artifact.
+      # Only on failure — keeps storage clean on green runs.
+      - name: Upload full report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
