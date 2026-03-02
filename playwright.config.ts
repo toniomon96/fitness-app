@@ -20,7 +20,7 @@ export default defineConfig({
       ],
 
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
     // Capture a full trace on first retry — lets you replay every action
     trace: 'on-first-retry',
     // Always capture a screenshot on failure
@@ -43,11 +43,19 @@ export default defineConfig({
     },
   ],
 
-  // Start the dev server automatically before tests
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // Start the dev server automatically when running against localhost.
+  // Uses `vercel dev` (not `npm run dev`) so that /api/ serverless functions
+  // are available during tests. If E2E_BASE_URL points to a remote deployment
+  // (e.g. a Vercel preview URL in CI), no local server is started.
+  webServer: (() => {
+    const base = process.env.E2E_BASE_URL ?? '';
+    const isRemote = base.startsWith('https://') || (base.startsWith('http://') && !base.includes('localhost'));
+    if (isRemote) return undefined;
+    return {
+      command: 'vercel dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    };
+  })(),
 });
