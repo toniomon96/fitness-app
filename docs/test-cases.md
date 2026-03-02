@@ -143,6 +143,25 @@ Severity levels:
 
 ---
 
+### challenges.spec.ts — Feature: Challenges (Sprint 6)
+
+> **Note:** Auth-required tests use `signIn()` which requires `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` in `.env.test`.
+
+| Test | Severity | What it verifies |
+|------|----------|-----------------|
+| guest sees upgrade prompt at /challenges | critical | AuthOnly guard redirects guests |
+| page loads and shows Community heading | — | /challenges renders for authenticated users |
+| Create Challenge button toggles the create form | — | Toggle shows/hides the create form |
+| create form includes Team mode toggle | — | Sprint 6 cooperative toggle is present |
+| Team mode toggle flips aria-checked | — | Toggle switch is interactive + ARIA correct |
+| Create button is disabled when name is empty | — | Form validation prevents empty submissions |
+| Create button enables when name is filled | — | Button enables when name input has value |
+| existing challenges show "Show rankings" toggle | — | Leaderboard chevron renders (skipped if no challenges) |
+| joined challenges appear under "Your Challenges" section | — | Mine/browse split renders correctly |
+| pending invitations section shown when invitations exist | — | Invitation banner + Join/Decline buttons render |
+
+---
+
 ## How to add a new test
 
 1. Find the relevant `*.spec.ts` file (or create a new one for a new feature area)

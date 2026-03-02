@@ -13,6 +13,7 @@ import {
 import { calculateTotalVolume, detectPersonalRecords } from '../utils/volumeUtils';
 import { advanceProgramCursor } from '../utils/programUtils';
 import { upsertSession, upsertPersonalRecords, getBlockMissions, updateMissionProgress } from '../lib/db';
+import { trackWorkoutCompleted } from '../lib/analytics';
 import { supabase } from '../lib/supabase';
 
 // ─── Block mission progress helper ────────────────────────────────────────────
@@ -244,6 +245,15 @@ export function useWorkoutSession() {
 
       dispatch({ type: 'APPEND_SESSION', payload: completed });
       dispatch({ type: 'CLEAR_ACTIVE_SESSION' });
+
+      trackWorkoutCompleted({
+        durationSeconds: completed.durationSeconds ?? 0,
+        totalVolumeKg: completed.totalVolumeKg ?? 0,
+        exerciseCount: completed.exercises.length,
+        setCount: completed.exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0),
+        programId: completed.programId,
+        isGuest: state.user?.isGuest ?? false,
+      });
 
       // Sync to Supabase and notify friends (fire-and-forget)
       if (state.user && !state.user.isGuest) {

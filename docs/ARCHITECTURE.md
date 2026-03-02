@@ -52,10 +52,11 @@ Omnexus is a **mobile-first SPA** backed by **Supabase** (auth + PostgreSQL + Re
 │                              ├── personal_records                    │
 │  Realtime                    ├── learning_progress                   │
 │  ├── workout_sessions INSERT ├── custom_programs                     │
-│  └── challenge_participants  ├── training_profiles  ← NEW            │
-│      UPDATE                  ├── friendships                         │
-│                              ├── challenges                           │
-│                              ├── challenge_participants              │
+│  ├── challenge_participants  ├── training_profiles                   │
+│  │   UPDATE                  ├── friendships                         │
+│  └── challenge_invitations   ├── challenges  (+ is_cooperative)      │
+│      INSERT (to_user_id)     ├── challenge_participants              │
+│                              ├── challenge_invitations  ← Sprint 6   │
 │                              ├── reactions                           │
 │                              ├── push_subscriptions                  │
 │                              ├── nutrition_logs                      │
@@ -139,22 +140,27 @@ Callers catch and display via useToast().
 
 ## Request Flows
 
-### AI Q&A (`/ask` page)
+### AI Q&A with RAG (`/ask` page)
 
 ```
 User types question
        │
 AskPage.tsx — maintains conversationHistory[] (last 4 exchanges)
        │  askOmnexus({ question, userContext, conversationHistory })
-claudeService.ts ──→ POST /api/ask ──→ Anthropic API
-                                              │
-                                        claude-sonnet-4-6
-                                              │
-                                       ←── answer (markdown)
+claudeService.ts ──→ POST /api/ask
+                            │
+                    1. OpenAI text-embedding-3-small (embed question)
+                    2. supabase.rpc('match_content', embedding)     ┐ parallel
+                       supabase.rpc('match_exercises', embedding)   ┘
+                    3. Build CONTEXT SOURCES block from top hits (≤4)
+                    4. Anthropic claude-sonnet-4-6
+                            │
+                       ←── { answer, citations[] }
        │
 MarkdownText.tsx renders answer
-Shows follow-up chip suggestions
-Shows context limit indicator at 4+ exchanges
+"Sources used" card lists citation title + type
+Follow-up chip suggestions
+Context limit indicator at 4+ exchanges
        │
 appendInsightSession() → localStorage [omnexus_insight_sessions]
 ```
@@ -510,7 +516,18 @@ Challenge (Supabase challenges)
 ├── id, created_by, name, description
 ├── type: "volume" | "streak" | "sessions"
 ├── targetValue, startDate, endDate
-└── is_public
+├── is_public
+└── isCooperative: boolean  ← Sprint 6 (DB col: is_cooperative)
+
+ChallengeParticipant (derived from challenge_participants)  ← Sprint 6
+├── userId, name, progress
+└── isCurrentUser: boolean
+
+ChallengeInvitation (Supabase challenge_invitations)  ← Sprint 6
+├── id, challengeId, challengeName
+├── fromUserId, fromUserName, toUserId
+├── status: "pending" | "accepted" | "declined"
+└── createdAt
 ```
 
 ---
@@ -661,6 +678,7 @@ create table challenges (
   start_date date not null,
   end_date date not null,
   is_public bool default true,
+  is_cooperative bool not null default false,  -- Sprint 6
   created_at timestamptz default now()
 );
 alter table challenges enable row level security;
@@ -679,6 +697,31 @@ alter table challenge_participants enable row level security;
 create policy "Participants visible" on challenge_participants for select using (true);
 create policy "Users manage own participation" on challenge_participants
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+### Sprint 6 — Challenge Invitations
+
+```sql
+-- 0-A: add cooperative column (run first)
+ALTER TABLE challenges
+  ADD COLUMN is_cooperative boolean NOT NULL DEFAULT false;
+
+-- 0-B: create challenge_invitations table + RLS
+CREATE TABLE challenge_invitations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  challenge_id uuid NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+  from_user_id uuid NOT NULL REFERENCES profiles(id),
+  to_user_id uuid NOT NULL REFERENCES profiles(id),
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (challenge_id, to_user_id)
+);
+ALTER TABLE challenge_invitations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "inviter can insert"   ON challenge_invitations FOR INSERT  WITH CHECK (auth.uid() = from_user_id);
+CREATE POLICY "parties can view"     ON challenge_invitations FOR SELECT  USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+CREATE POLICY "recipient can update" ON challenge_invitations FOR UPDATE  USING (auth.uid() = to_user_id) WITH CHECK (auth.uid() = to_user_id);
+CREATE POLICY "inviter can delete"   ON challenge_invitations FOR DELETE  USING (auth.uid() = from_user_id AND status = 'pending');
 ```
 
 ### Push Notifications
@@ -895,6 +938,11 @@ general-fitness → strength-training
 | Phase 1 AI | AI Onboarding Agent + Generative Mesocycle Engine + Exercise `MovementPattern` tags | ✅ |
 | Phase 2 Learning | Supabase pgvector embeddings, semantic content retrieval, dynamic micro-lesson generation | ✅ |
 | Phase 3 Intelligence | Adaptation Engine (post-workout Next Session tab + InsightsPage card), Block Missions (program-scoped Claude goals + auto progress tracking), AI Challenges (personal + shared weekly cron), Peer Insights (aggregate cross-user benchmarking) | ✅ |
+| Phase 6 Workout Quality | Extended UserTrainingProfile (priorityMuscles, programStyle, includeCardio), Extended Program (weeklyProgressionNotes, trainingPhilosophy), api/generate-program rewrite (periodization, volume landmarks, movement patterns, injury rules, max_tokens 8000), 8 new exercises → 51 total, ProfileSummaryCard animated generating states | ✅ |
+| Phase 7 Security | Optional activeProgramId (TS fix), Upstash rate limiting (20 req/10 min/IP), CORS production warning, userContext whitelist in /api/ask, setup-profile FK graceful handling, fetchHistory error propagation, Playwright E2E test suite | ✅ |
+| Sprint 4 | Nutrition Quick Log (NutritionPage date navigator, macro logs, meals), Streak polish | ✅ |
+| Sprint 5 | Source-Grounded AI Coach: OpenAI pgvector RAG in /api/ask (embed → match_content/match_exercises → CONTEXT SOURCES block), Citation display in AskPage | ✅ |
+| Sprint 6 | Social/Cooperative Competition: per-challenge leaderboard (lazy-loaded, gold/silver/bronze ranks), cooperative team mode (purple team progress bar, contributor caption), friend challenge invitations (FriendPicker, Realtime INSERT channel, accept/decline banner) | ✅ |
 
 ---
 

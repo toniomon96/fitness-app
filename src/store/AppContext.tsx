@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { upsertLearningProgress } from '../lib/db';
+import { identify } from '../lib/analytics';
 import type { User, WorkoutSession, WorkoutHistory, LearningProgress, QuizAttempt } from '../types';
 import {
   getUser,
@@ -169,6 +170,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       root.classList.remove('dark');
     }
   }, [state.theme]);
+
+  // Identify user for analytics on sign-in / sign-out
+  useEffect(() => {
+    identify(state.user ? state.user.id : 'guest');
+  }, [state.user?.id]);
 
   // Sync learning progress to Supabase — debounced 2s to avoid per-answer writes
   const learningInitRef = useRef(false);

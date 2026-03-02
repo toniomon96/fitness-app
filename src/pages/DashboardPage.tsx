@@ -20,6 +20,7 @@ import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { CourseRecommendations } from '../components/learn/CourseRecommendations';
 import { WeeklyRecapCard } from '../components/dashboard/WeeklyRecapCard';
 import { MuscleHeatMap } from '../components/dashboard/MuscleHeatMap';
+import { HealthWidget } from '../components/dashboard/HealthWidget';
 
 export function DashboardPage() {
   const { state } = useApp();
@@ -124,6 +125,9 @@ export function DashboardPage() {
 
         {/* Muscle heat map */}
         <MuscleHeatMap sessions={state.history.sessions} />
+
+        {/* Wearable health data (native only — no-op on web) */}
+        <HealthWidget />
 
         {/* Deload week banner — shown after 4+ weeks on same program */}
         {program && week >= 4 && (

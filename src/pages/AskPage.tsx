@@ -13,6 +13,7 @@ import {
   getInsightSessions,
 } from '../utils/localStorage';
 import type { InsightSession } from '../types';
+import { trackAskSubmitted } from '../lib/analytics';
 import { v4 as uuidv4 } from 'uuid';
 import {
   MessageCircle,
@@ -99,6 +100,7 @@ export function AskPage() {
 
       setCurrentAnswer(answer);
       setCurrentCitations(citations ?? []);
+      trackAskSubmitted({ hasRagContext: (citations?.length ?? 0) > 0, isFollowUp: conversationHistory.length > 0 });
 
       const newHistory: ConversationMessage[] = [
         ...conversationHistory,

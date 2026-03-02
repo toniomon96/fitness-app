@@ -21,6 +21,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Trophy, Plus, X, ChevronDown, Sparkles, Mail } from 'lucide-react';
+import { trackChallengeJoined, trackChallengeCreated, trackInvitationResponded } from '../lib/analytics';
 
 interface CreateForm {
   name: string;
@@ -105,6 +106,10 @@ export function ChallengesPage() {
 
   async function handleJoin(id: string) {
     await joinChallenge(id, userId);
+    const c = challenges.find((ch) => ch.id === id);
+    if (c) {
+      trackChallengeJoined({ challengeId: id, challengeType: c.type, isCooperative: c.isCooperative, isViaInvitation: false });
+    }
     setChallenges((prev) =>
       prev.map((c) =>
         c.id === id ? { ...c, isJoined: true, participantCount: c.participantCount + 1, userProgress: 0 } : c,
@@ -128,6 +133,7 @@ export function ChallengesPage() {
         },
         userId,
       );
+      trackChallengeCreated({ challengeType: form.type, isCooperative: form.isCooperative, hasTarget: !!form.targetValue });
       setShowCreate(false);
       setForm({ name: '', description: '', type: 'volume', targetValue: '', startDate: today(), endDate: nextMonth(), isCooperative: false });
       await load();
@@ -140,6 +146,9 @@ export function ChallengesPage() {
     try {
       await respondChallengeInvitation(invitationId, 'accepted');
       await joinChallenge(challengeId, userId);
+      trackInvitationResponded({ response: 'accepted' });
+      const c = challenges.find((ch) => ch.id === challengeId);
+      if (c) trackChallengeJoined({ challengeId, challengeType: c.type, isCooperative: c.isCooperative, isViaInvitation: true });
       setPendingInvitations((prev) => prev.filter((i) => i.id !== invitationId));
       await load();
       toast('Joined challenge!', 'success');
@@ -151,6 +160,7 @@ export function ChallengesPage() {
   async function handleDeclineInvitation(invitationId: string) {
     try {
       await respondChallengeInvitation(invitationId, 'declined');
+      trackInvitationResponded({ response: 'declined' });
       setPendingInvitations((prev) => prev.filter((i) => i.id !== invitationId));
     } catch {
       toast('Failed to decline invitation', 'error');
