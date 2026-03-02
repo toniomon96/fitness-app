@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/fixtures';
 import { enterAsGuest } from './helpers/auth';
 
 test.describe('Bottom navigation', () => {
@@ -13,9 +13,9 @@ test.describe('Bottom navigation', () => {
   });
 
   test('Learn tab navigates to /learn', async ({ page }) => {
-    await page.getByRole('link', { name: /learn/i }).click();
+    await page.getByRole('link', { name: /^learn$/i }).click();
     await expect(page).toHaveURL('/learn');
-    await expect(page.getByRole('heading', { name: /learn/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^learn$/i })).toBeVisible();
   });
 
   test('Insights tab navigates to /insights', async ({ page }) => {
@@ -41,8 +41,7 @@ test.describe('TopBar back button', () => {
 
   test('back button on program detail returns to /programs', async ({ page }) => {
     await page.goto('/programs');
-    // Click the first program
-    await page.getByRole('link', { name: /.+/ }).first().click();
+    await page.locator('[data-testid="program-card"]').first().click();
     await page.waitForURL(/\/programs\/.+/);
     await page.getByRole('button', { name: /back/i }).click();
     await expect(page).toHaveURL('/programs');
@@ -50,7 +49,7 @@ test.describe('TopBar back button', () => {
 
   test('back button on exercise detail returns to /library', async ({ page }) => {
     await page.goto('/library');
-    await page.getByRole('link', { name: /.+/ }).first().click();
+    await page.locator('[data-testid="exercise-card"]').first().click();
     await page.waitForURL(/\/library\/.+/);
     await page.getByRole('button', { name: /back/i }).click();
     await expect(page).toHaveURL('/library');

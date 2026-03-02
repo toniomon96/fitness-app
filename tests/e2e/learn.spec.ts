@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/fixtures';
 import { enterAsGuest } from './helpers/auth';
 
 test.describe('Learn', () => {
@@ -8,14 +8,14 @@ test.describe('Learn', () => {
 
   test('shows learn page with courses', async ({ page }) => {
     await page.goto('/learn');
-    await expect(page.getByRole('heading', { name: /learn/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^learn$/i })).toBeVisible();
     // Should show at least one course card
-    await expect(page.getByRole('link', { name: /.+/ }).first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid="course-card"]').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('can open a course', async ({ page }) => {
     await page.goto('/learn');
-    await page.getByRole('link', { name: /.+/ }).first().click();
+    await page.locator('[data-testid="course-card"]').first().click();
     await page.waitForURL(/\/learn\/.+/);
     await expect(page.getByRole('heading').first()).toBeVisible();
   });

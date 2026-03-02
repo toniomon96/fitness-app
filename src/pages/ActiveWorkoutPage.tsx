@@ -110,6 +110,7 @@ export function ActiveWorkoutPage() {
               variant="ghost"
               size="sm"
               onClick={handleDiscard}
+              aria-label="Discard workout"
               className="text-slate-400"
             >
               <X size={16} />

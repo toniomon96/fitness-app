@@ -14,7 +14,7 @@ export const TEST_USER = {
 export async function signIn(page: Page, email = TEST_USER.email, password = TEST_USER.password) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   // Wait for dashboard to confirm successful login
   await page.waitForURL('/');
@@ -22,11 +22,14 @@ export async function signIn(page: Page, email = TEST_USER.email, password = TES
 
 /** Clear localStorage and Supabase session to start fresh. */
 export async function signOut(page: Page) {
+  // Navigate first so localStorage is accessible (about:blank blocks it).
+  await page.goto('/login');
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
+    // Re-accept cookie consent so it doesn't block subsequent interactions.
+    localStorage.setItem('omnexus_cookie_consent', 'accepted');
   });
-  await page.goto('/login');
 }
 
 /** Enter the app as a guest (no Supabase account). */

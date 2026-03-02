@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/fixtures';
 import { enterAsGuest } from './helpers/auth';
 
 test.describe('Exercise Library', () => {
@@ -9,8 +9,8 @@ test.describe('Exercise Library', () => {
   test('shows exercise list at /library', async ({ page }) => {
     await page.goto('/library');
     await expect(page.getByRole('heading', { name: /library/i })).toBeVisible();
-    // At least one exercise should be listed
-    await expect(page.getByRole('link', { name: /.+/ }).first()).toBeVisible({ timeout: 5_000 });
+    // At least one exercise card should be listed
+    await expect(page.locator('[data-testid="exercise-card"]').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('search filters exercises', async ({ page }) => {
@@ -23,7 +23,7 @@ test.describe('Exercise Library', () => {
 
   test('exercise detail page shows instructions', async ({ page }) => {
     await page.goto('/library');
-    await page.getByRole('link', { name: /.+/ }).first().click();
+    await page.locator('[data-testid="exercise-card"]').first().click();
     await page.waitForURL(/\/library\/.+/);
     // Should show some exercise info
     await expect(page.getByRole('heading').first()).toBeVisible();

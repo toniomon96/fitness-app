@@ -1,5 +1,9 @@
-import { test, expect } from '@playwright/test';
-import { signIn, enterAsGuest } from './helpers/auth';
+import { test, expect } from './helpers/fixtures';
+import { signIn, enterAsGuest, TEST_USER } from './helpers/auth';
+
+const hasRealCredentials =
+  !!process.env.E2E_TEST_EMAIL &&
+  process.env.E2E_TEST_EMAIL !== TEST_USER.email;
 
 // ─── Guest upgrade prompt ──────────────────────────────────────────────────────
 
@@ -15,7 +19,7 @@ test.describe('Challenges — guest upgrade wall', () => {
 
     await test.step('verify upgrade prompt is shown (not challenge list)', async () => {
       await expect(
-        page.getByText(/create an account|sign up|join omnexus/i),
+        page.getByRole('heading', { name: /community requires an account/i }),
       ).toBeVisible({ timeout: 8_000 });
     });
   });
@@ -25,6 +29,7 @@ test.describe('Challenges — guest upgrade wall', () => {
 
 test.describe('Challenges — authenticated', () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(!hasRealCredentials, 'Requires real E2E_TEST_EMAIL / E2E_TEST_PASSWORD credentials');
     await signIn(page);
     await page.goto('/challenges');
     // Wait for the page to finish loading (spinner disappears)
@@ -143,6 +148,7 @@ test.describe('Challenges — authenticated', () => {
 
 test.describe('Challenges — invitation banner', () => {
   test('pending invitations section is shown when invitations exist', async ({ page }) => {
+    test.skip(!hasRealCredentials, 'Requires real E2E_TEST_EMAIL / E2E_TEST_PASSWORD credentials');
     test.info().annotations.push({ type: 'feature', description: 'Challenges' });
 
     await signIn(page);

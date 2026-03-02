@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/fixtures';
 import { enterAsGuest } from './helpers/auth';
 
 test.describe('Workout flow', () => {
@@ -39,7 +39,7 @@ test.describe('Workout flow', () => {
 
     await test.step('verify at least one exercise is visible', async () => {
       await expect(
-        page.locator('[data-testid="exercise-row"], .exercise-card, [class*="exercise"]').first(),
+        page.locator('[data-testid="exercise-block"]').first(),
       ).toBeVisible({ timeout: 5_000 });
     });
   });
@@ -57,17 +57,15 @@ test.describe('Workout flow', () => {
     });
 
     await test.step('click discard button', async () => {
-      await page.getByRole('button', { name: /discard|cancel|quit/i }).click();
+      await page.getByRole('button', { name: /discard workout/i }).click();
     });
 
     await test.step('verify confirmation dialog appears', async () => {
-      await expect(
-        page.getByRole('dialog').or(page.getByText(/are you sure|discard/i)),
-      ).toBeVisible({ timeout: 3_000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 3_000 });
     });
 
     await test.step('confirm discard', async () => {
-      await page.getByRole('button', { name: /discard|confirm|yes/i }).last().click();
+      await page.getByRole('button', { name: /^discard$/i }).click();
     });
 
     await test.step('verify no longer on active workout page', () =>

@@ -415,7 +415,6 @@ export async function getChallengeLeaderboard(
     .select('id, name')
     .in('id', userIds);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nameMap: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (profiles ?? []).map((p: any) => [p.id as string, p.name as string]),
@@ -476,12 +475,10 @@ export async function getPendingInvitations(userId: string): Promise<ChallengeIn
     supabase.from('profiles').select('id, name').in('id', fromIds),
   ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const challengeNameMap: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (challenges ?? []).map((c: any) => [c.id as string, c.name as string]),
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const profileNameMap: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (profiles ?? []).map((p: any) => [p.id as string, p.name as string]),

@@ -33,7 +33,7 @@ export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: E
   }
 
   return (
-    <Card hover onClick={handleClick} padding="sm">
+    <Card hover data-testid="exercise-card" onClick={handleClick} padding="sm">
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-xl">
           {equipIcons[exercise.equipment[0] ?? ''] ?? '💪'}

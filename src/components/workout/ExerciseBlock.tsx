@@ -29,7 +29,7 @@ export function ExerciseBlock({
   const completedCount = loggedExercise.sets.filter((s) => s.completed).length;
 
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div data-testid="exercise-block" className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
       {/* Exercise header */}
       <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-start justify-between">

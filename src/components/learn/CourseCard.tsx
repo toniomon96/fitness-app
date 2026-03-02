@@ -36,7 +36,7 @@ export function CourseCard({ course }: CourseCardProps) {
   const isComplete = isCourseComplete(course.id);
 
   return (
-    <Card hover onClick={() => navigate(`/learn/${course.id}`)}>
+    <Card hover data-testid="course-card" onClick={() => navigate(`/learn/${course.id}`)}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <span className="text-3xl leading-none shrink-0 mt-0.5">

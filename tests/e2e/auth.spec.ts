@@ -1,5 +1,11 @@
-import { test, expect } from '@playwright/test';
-import { signIn, signOut } from './helpers/auth';
+import { test, expect } from './helpers/fixtures';
+import { signIn, signOut, TEST_USER } from './helpers/auth';
+
+/** True when real test credentials have been configured (not placeholder values). */
+const hasRealCredentials =
+  !!process.env.E2E_TEST_EMAIL &&
+  process.env.E2E_TEST_EMAIL !== 'e2e-test@your-domain.com' &&
+  process.env.E2E_TEST_EMAIL !== TEST_USER.email;
 
 test.describe('Authentication', () => {
   test('shows login page at /login', async ({ page }) => {
@@ -8,9 +14,9 @@ test.describe('Authentication', () => {
     await test.step('navigate to login', () => page.goto('/login'));
 
     await test.step('verify form fields are visible', async () => {
-      await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
       await expect(page.getByLabel('Email')).toBeVisible();
-      await expect(page.getByLabel('Password')).toBeVisible();
+      await expect(page.locator('#password')).toBeVisible();
     });
   });
 
@@ -22,7 +28,7 @@ test.describe('Authentication', () => {
 
     await test.step('submit wrong credentials', async () => {
       await page.getByLabel('Email').fill('wrong@example.com');
-      await page.getByLabel('Password').fill('wrongpassword');
+      await page.locator('#password').fill('wrongpassword');
       await page.getByRole('button', { name: 'Sign in' }).click();
     });
 
@@ -43,6 +49,7 @@ test.describe('Authentication', () => {
   });
 
   test('signs in and lands on dashboard', async ({ page }) => {
+    test.skip(!hasRealCredentials, 'Requires real E2E_TEST_EMAIL / E2E_TEST_PASSWORD credentials');
     test.info().annotations.push({ type: 'feature', description: 'Auth' });
     test.info().annotations.push({ type: 'severity', description: 'critical' });
 
@@ -57,6 +64,7 @@ test.describe('Authentication', () => {
   });
 
   test('sign out clears session and redirects to login', async ({ page }) => {
+    test.skip(!hasRealCredentials, 'Requires real E2E_TEST_EMAIL / E2E_TEST_PASSWORD credentials');
     test.info().annotations.push({ type: 'feature', description: 'Auth' });
 
     await test.step('sign in', () => signIn(page));

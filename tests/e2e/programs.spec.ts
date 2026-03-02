@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/fixtures';
 import { enterAsGuest } from './helpers/auth';
 
 test.describe('Programs', () => {
@@ -8,14 +8,14 @@ test.describe('Programs', () => {
 
   test('shows programs list', async ({ page }) => {
     await page.goto('/programs');
-    await expect(page.getByRole('heading', { name: /programs/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^programs$/i })).toBeVisible();
     // At least one program card should exist
-    await expect(page.locator('[data-testid="program-card"], a[href^="/programs/"]').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid="program-card"]').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('opens program detail page', async ({ page }) => {
     await page.goto('/programs');
-    await page.getByRole('link', { name: /.+/ }).first().click();
+    await page.locator('[data-testid="program-card"]').first().click();
     await page.waitForURL(/\/programs\/.+/);
     // Should show activate button or "active program" badge
     await expect(page.getByRole('button', { name: /activate/i }).or(page.getByText(/active program/i))).toBeVisible({ timeout: 5_000 });
@@ -23,25 +23,25 @@ test.describe('Programs', () => {
 
   test('can activate a program', async ({ page }) => {
     await page.goto('/programs');
-    // Find a program that isn't active and click it
-    const programLinks = page.getByRole('link', { name: /.+/ });
-    await programLinks.first().click();
+    await page.locator('[data-testid="program-card"]').first().click();
     await page.waitForURL(/\/programs\/.+/);
 
     const activateBtn = page.getByRole('button', { name: /activate program/i });
+    const activeBadge = page.getByText(/this is your active program/i);
+    // Wait for the page to fully render one of the two states
+    await expect(activateBtn.or(activeBadge)).toBeVisible({ timeout: 5_000 });
+
     if (await activateBtn.isVisible()) {
       await activateBtn.click();
-      // Should navigate back to dashboard after activation
       await page.waitForURL('/');
     } else {
-      // Already active — verify the badge is shown
-      await expect(page.getByText(/this is your active program/i)).toBeVisible();
+      await expect(activeBadge).toBeVisible();
     }
   });
 
   test('program detail shows weekly schedule', async ({ page }) => {
     await page.goto('/programs');
-    await page.getByRole('link', { name: /.+/ }).first().click();
+    await page.locator('[data-testid="program-card"]').first().click();
     await page.waitForURL(/\/programs\/.+/);
     await expect(page.getByRole('heading', { name: /weekly schedule/i })).toBeVisible();
   });

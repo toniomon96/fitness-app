@@ -20,7 +20,7 @@ export default defineConfig({
       ],
 
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:4173',
     // Capture a full trace on first retry — lets you replay every action
     trace: 'on-first-retry',
     // Always capture a screenshot on failure
@@ -43,19 +43,21 @@ export default defineConfig({
     },
   ],
 
-  // Start the dev server automatically when running against localhost.
-  // Uses `vercel dev` (not `npm run dev`) so that /api/ serverless functions
-  // are available during tests. If E2E_BASE_URL points to a remote deployment
-  // (e.g. a Vercel preview URL in CI), no local server is started.
+  // Serve the production build locally for E2E tests using `vite preview`.
+  // This avoids issues with vercel dev's rewrite rules intercepting Vite's
+  // internal module routes (/@vite/client, /@react-refresh, etc.).
+  // `npm run test:e2e` builds the app first, then this server serves dist/.
+  // If E2E_BASE_URL points to a remote deployment (CI Vercel preview), no
+  // local server is started.
   webServer: (() => {
     const base = process.env.E2E_BASE_URL ?? '';
     const isRemote = base.startsWith('https://') || (base.startsWith('http://') && !base.includes('localhost'));
     if (isRemote) return undefined;
     return {
-      command: 'vercel dev',
-      url: 'http://localhost:3000',
+      command: 'npx vite preview',
+      url: 'http://localhost:4173',
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 60_000,
     };
   })(),
 });

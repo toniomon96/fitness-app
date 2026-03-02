@@ -15,6 +15,7 @@ export function ProgramCard({ program, isActive }: ProgramCardProps) {
   return (
     <Card
       hover
+      data-testid="program-card"
       onClick={() => navigate(`/programs/${program.id}`)}
       className={isActive ? 'ring-2 ring-brand-500' : ''}
     >
