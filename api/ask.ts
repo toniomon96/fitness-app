@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { setCorsHeaders, ALLOWED_ORIGIN } from './_cors.js';
 import { checkRateLimit } from './_rateLimit.js';
@@ -10,10 +11,18 @@ const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
 const supabaseAdmin =
   process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
     : null;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Citation { title: string; url?: string; type: string; }
 
 // ─── System prompt ─────────────────────────────────────────────────────────────
 
@@ -24,7 +33,8 @@ nutrition, recovery, sleep, and performance.
 GUIDELINES
 - Base every answer on peer-reviewed research, established guidelines (ACSM, WHO, NIH, \
 ISSN), or widely accepted expert consensus.
-- Cite sources inline: [Author et al., Year — Journal Name]. Add a PubMed URL when known.
+- When CONTEXT SOURCES are listed at the start of the user message, cite ONLY from those sources using [Source title] format. Do not cite sources absent from the provided list.
+- When no CONTEXT SOURCES are provided, cite sources inline: [Author et al., Year — Journal Name]. Add a PubMed URL when known.
 - Explain the mechanism — not just what to do, but why it works physiologically.
 - Acknowledge uncertainty or conflicting evidence honestly.
 - Use plain, accessible language. Avoid unnecessary jargon.
@@ -106,6 +116,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `Experience: ${safeLevel ?? 'unspecified'}]`;
     }
 
+    // RAG: embed the question and fetch semantically relevant content from pgvector.
+    let contextBlock = '';
+    const citations: Citation[] = [];
+
+    if (openai && supabaseAdmin) {
+      try {
+        const embedRes = await openai.embeddings.create({
+          model: 'text-embedding-3-small',
+          input: question.trim(),
+        });
+        const embedding = embedRes.data[0].embedding;
+
+        const [contentRes, exerciseRes] = await Promise.all([
+          supabaseAdmin.rpc('match_content', { query_embedding: embedding, match_threshold: 0.45, match_count: 3 }),
+          supabaseAdmin.rpc('match_exercises', { query_embedding: embedding, match_threshold: 0.45, match_count: 2 }),
+        ]);
+
+        const hits: Citation[] = [];
+        for (const row of ((contentRes.data ?? []) as Array<{ metadata: { title?: string }; similarity: number; type: string }>)) {
+          if (row.similarity >= 0.45) hits.push({ title: row.metadata.title ?? 'Lesson', type: row.type });
+        }
+        for (const row of ((exerciseRes.data ?? []) as Array<{ metadata: { name?: string }; similarity: number }>)) {
+          if (row.similarity >= 0.45) hits.push({ title: row.metadata.name ?? 'Exercise', type: 'exercise' });
+        }
+
+        if (hits.length > 0) {
+          citations.push(...hits.slice(0, 4));
+          contextBlock =
+            `CONTEXT SOURCES (cite these by title when relevant):\n` +
+            citations.map((c, i) => `[${i + 1}] "${c.title}" (${c.type})`).join('\n') +
+            '\n\n';
+        }
+      } catch {
+        // Non-fatal — proceed without RAG context
+      }
+    }
+
     // Build messages array with optional conversation history.
     // Validate each item to prevent prompt injection via crafted history.
     type MessageParam = { role: 'user' | 'assistant'; content: string };
@@ -119,7 +166,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               m.content.length <= MAX_HISTORY_CONTENT,
           )
       : [];
-    const messages: MessageParam[] = [...history, { role: 'user', content: userMessage }];
+    const finalUserMessage = contextBlock + userMessage;
+    const messages: MessageParam[] = [...history, { role: 'user', content: finalUserMessage }];
 
     const message = await Promise.race([
       anthropic.messages.create({
@@ -136,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const block = message.content[0];
     if (block.type !== 'text') throw new Error('Unexpected Claude response type');
 
-    return res.status(200).json({ answer: block.text });
+    return res.status(200).json({ answer: block.text, citations });
   } catch (err: unknown) {
     console.error('[/api/ask]', err);
     return res.status(500).json({ error: 'Failed to generate response' });

@@ -14,8 +14,15 @@ export interface AskRequest {
   conversationHistory?: ConversationMessage[];
 }
 
+export interface Citation {
+  title: string;
+  url?: string;
+  type: string;
+}
+
 export interface AskResponse {
   answer: string;
+  citations?: Citation[];
 }
 
 export interface InsightRequest {

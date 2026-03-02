@@ -450,6 +450,31 @@ export async function deleteNutritionLog(id: string, userId: string): Promise<vo
   if (error) throw new Error(`[deleteNutritionLog] ${error.message}`);
 }
 
+export async function fetchRecentNutritionLogs(
+  userId: string,
+  since: string, // YYYY-MM-DD
+): Promise<NutritionLog[]> {
+  const { data } = await supabase
+    .from('nutrition_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('logged_at', since)
+    .order('created_at', { ascending: false });
+  return (data ?? []).map(mapNutritionLog);
+}
+
+export async function fetchNutritionLogDates(
+  userId: string,
+  since: string, // YYYY-MM-DD
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('nutrition_logs')
+    .select('logged_at')
+    .eq('user_id', userId)
+    .gte('logged_at', since);
+  return [...new Set((data ?? []).map((r) => r.logged_at as string))];
+}
+
 // ─── Community: Activity Feed ─────────────────────────────────────────────────
 
 // ─── Measurements ─────────────────────────────────────────────────────────────

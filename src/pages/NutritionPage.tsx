@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import * as db from '../lib/db';
 import type { NutritionLog, NutritionGoals, MealPlan, Meal } from '../types';
+import { calculateStreak } from '../utils/dateUtils';
 import { getMealPlan } from '../services/claudeService';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
@@ -189,6 +190,10 @@ export function NutritionPage() {
   const [mealPlanError, setMealPlanError] = useState('');
   const [expandedMealIdx, setExpandedMealIdx] = useState<number | null>(null);
 
+  // Quick-add and streak state
+  const [recentMeals, setRecentMeals] = useState<NutritionLog[]>([]);
+  const [nutritionStreak, setNutritionStreak] = useState(0);
+
   // Goal edit state
   const [goalDraft, setGoalDraft] = useState(goals);
 
@@ -196,8 +201,28 @@ export function NutritionPage() {
     if (!user || isGuest || !session) return;
     setLoading(true);
     try {
-      const logs = await db.fetchNutritionLogs(user.id, date);
+      const sevenDaysAgo = shiftDate(todayStr(), -7);
+      const sixtyDaysAgo = shiftDate(todayStr(), -60);
+      const [logs, recentLogs, logDates] = await Promise.all([
+        db.fetchNutritionLogs(user.id, date),
+        db.fetchRecentNutritionLogs(user.id, sevenDaysAgo),
+        db.fetchNutritionLogDates(user.id, sixtyDaysAgo),
+      ]);
       setEntries(logs);
+
+      // Derive quick-add meals: distinct named entries with at least one macro, most recent first, cap 4
+      const seen = new Set<string>();
+      const quick: NutritionLog[] = [];
+      for (const m of recentLogs) {
+        if (!m.mealName || seen.has(m.mealName)) continue;
+        if (!m.calories && !m.proteinG && !m.carbsG && !m.fatG) continue;
+        seen.add(m.mealName);
+        quick.push(m);
+        if (quick.length === 4) break;
+      }
+      setRecentMeals(quick);
+
+      setNutritionStreak(calculateStreak(logDates));
     } finally {
       setLoading(false);
     }
@@ -215,6 +240,27 @@ export function NutritionPage() {
     }),
     { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
   );
+
+  async function quickLog(meal: NutritionLog) {
+    if (!user || isGuest || !session) return;
+    try {
+      const log = await db.addNutritionLog({
+        userId: user.id,
+        loggedAt: date,
+        mealName: meal.mealName,
+        calories: meal.calories,
+        proteinG: meal.proteinG,
+        carbsG: meal.carbsG,
+        fatG: meal.fatG,
+      });
+      if (log) {
+        setEntries((prev) => [...prev, log]);
+        toast(`${meal.mealName ?? 'Meal'} logged`, 'success');
+      }
+    } catch {
+      toast('Failed to log meal', 'error');
+    }
+  }
 
   async function handleAdd() {
     if (!user || isGuest || !session) return;
@@ -358,9 +404,16 @@ export function NutritionPage() {
         {/* Macro summary */}
         <Card className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Daily Macros
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Daily Macros
+              </p>
+              {nutritionStreak > 0 && (
+                <span className="text-xs font-semibold text-brand-400">
+                  {nutritionStreak >= 3 ? '🔥' : '⚡'} {nutritionStreak}d
+                </span>
+              )}
+            </div>
             <button
               onClick={() => { setGoalDraft(goals); setShowGoals(true); }}
               className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
@@ -401,6 +454,24 @@ export function NutritionPage() {
             </div>
           </div>
         </Card>
+
+        {/* Quick-add recent meals */}
+        {recentMeals.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">Quick-add recent</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {recentMeals.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => quickLog(m)}
+                  className="shrink-0 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:border-brand-500 hover:bg-brand-500/10 transition-colors whitespace-nowrap"
+                >
+                  {m.mealName} · {m.calories ?? '?'} kcal
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Add entry button */}
         <div className="flex gap-2">

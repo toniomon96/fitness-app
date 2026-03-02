@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { useApp } from '../store/AppContext';
 import { askOmnexus } from '../services/claudeService';
-import type { ConversationMessage } from '../services/claudeService';
+import type { ConversationMessage, Citation } from '../services/claudeService';
 import {
   appendInsightSession,
   getInsightSessions,
@@ -67,6 +67,7 @@ export function AskPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [followUps, setFollowUps] = useState<string[]>([]);
+  const [currentCitations, setCurrentCitations] = useState<Citation[]>([]);
 
   const answerRef = useRef<HTMLDivElement>(null);
 
@@ -85,9 +86,10 @@ export function AskPage() {
     setCurrentQuestion(q);
     setError(null);
     setFollowUps([]);
+    setCurrentCitations([]);
 
     try {
-      const { answer } = await askOmnexus({
+      const { answer, citations } = await askOmnexus({
         question: q,
         userContext: state.user
           ? { goal: state.user.goal, experienceLevel: state.user.experienceLevel }
@@ -96,6 +98,7 @@ export function AskPage() {
       });
 
       setCurrentAnswer(answer);
+      setCurrentCitations(citations ?? []);
 
       const newHistory: ConversationMessage[] = [
         ...conversationHistory,
@@ -146,6 +149,7 @@ export function AskPage() {
     setCurrentQuestion(null);
     setConversationHistory([]);
     setFollowUps([]);
+    setCurrentCitations([]);
   }
 
   return (
@@ -242,6 +246,28 @@ export function AskPage() {
                 <MarkdownText text={currentAnswer} />
               </div>
             </div>
+            {/* Sources used */}
+            {currentCitations.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Sources used
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {currentCitations.map((c) => (
+                    <div
+                      key={c.title}
+                      className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2"
+                    >
+                      <span className="text-[10px] font-medium text-brand-400 uppercase tracking-wide shrink-0">
+                        {c.type}
+                      </span>
+                      <span className="text-xs text-slate-300 truncate flex-1">{c.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Context limit indicator */}
             {conversationHistory.length >= 4 && !loading && (
               <p className="text-[10px] text-slate-500 text-center mt-1">
