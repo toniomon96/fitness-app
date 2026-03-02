@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn, signOut, TEST_USER } from './helpers/auth';
+import { signIn, signOut } from './helpers/auth';
 
 test.describe('Authentication', () => {
   test('shows login page at /login', async ({ page }) => {
@@ -95,7 +95,7 @@ test.describe('Guest mode', () => {
     await test.step('navigate to /guest', () => page.goto('/guest'));
     await test.step('select Build Muscle goal', () => page.getByText('Build Muscle').click());
     await test.step('proceed to experience level step', () =>
-      page.getByRole('button', { name: /continue/i }).click(),
+      page.getByRole('button', { name: /continue|next/i }).click(),
     );
     await test.step('select Beginner level', () => page.getByText('Beginner').click());
     await test.step('complete setup', () =>
@@ -111,7 +111,7 @@ test.describe('Guest mode', () => {
     await test.step('complete guest setup', async () => {
       await page.goto('/guest');
       await page.getByText('Lose Fat').click();
-      await page.getByRole('button', { name: /continue/i }).click();
+      await page.getByRole('button', { name: /continue|next/i }).click();
       await page.getByText('Intermediate').click();
       await page.getByRole('button', { name: /start|get started|continue/i }).click();
       await page.waitForURL('/');

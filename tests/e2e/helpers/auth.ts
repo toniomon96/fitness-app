@@ -32,9 +32,11 @@ export async function signOut(page: Page) {
 /** Enter the app as a guest (no Supabase account). */
 export async function enterAsGuest(page: Page) {
   await page.goto('/guest');
-  // Guest setup requires selecting a goal and experience level
-  await page.getByRole('button', { name: /build muscle|muscle/i }).first().click();
+  // Step 0: select a goal, then advance to step 1 with "Next"
+  await page.getByRole('button', { name: /build muscle/i }).first().click();
+  await page.getByRole('button', { name: /^next$/i }).click();
+  // Step 1: select experience level, then finish
   await page.getByRole('button', { name: /intermediate/i }).first().click();
-  await page.getByRole('button', { name: /continue|start|get started/i }).first().click();
+  await page.getByRole('button', { name: /start training/i }).click();
   await page.waitForURL('/');
 }

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn, enterAsGuest } from './helpers/auth';
+import { enterAsGuest } from './helpers/auth';
 
 test.describe('Bottom navigation', () => {
   test.beforeEach(async ({ page }) => {
