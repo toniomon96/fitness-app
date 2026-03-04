@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
-import { LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock, Camera, Zap } from 'lucide-react';
+import { LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock, Camera, Zap, HelpCircle, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { apiBase } from '../lib/api';
 import { useApp } from '../store/AppContext';
@@ -356,6 +356,22 @@ export function ProfilePage() {
             </div>
           </Card>
         )}
+
+        {/* Help & Support */}
+        <button type="button" onClick={() => navigate('/help')} className="w-full text-left">
+          <Card>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                <HelpCircle size={18} className="text-slate-500 dark:text-slate-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 dark:text-white">Help & Support</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">FAQs, bug reports, contact</p>
+              </div>
+              <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
+            </div>
+          </Card>
+        </button>
 
         {/* Edit profile */}
         <Card>
