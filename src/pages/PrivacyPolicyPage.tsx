@@ -16,7 +16,7 @@ export function PrivacyPolicyPage() {
         </button>
 
         <h1 className="text-2xl font-bold text-white mb-2">Privacy Policy</h1>
-        <p className="text-sm text-slate-400 mb-8">Last updated: February 2026</p>
+        <p className="text-sm text-slate-400 mb-8">Last updated: March 2026</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           <section>
@@ -36,6 +36,7 @@ export function PrivacyPolicyPage() {
               <li><span className="text-slate-300">Learning progress</span> — completed lessons, modules, courses, and quiz scores.</li>
               <li><span className="text-slate-300">Custom programs</span> — training programs you build using the program builder.</li>
               <li><span className="text-slate-300">Community data</span> — friend connections, challenge participation, and activity feed items you opt in to share.</li>
+              <li><span className="text-slate-300">Subscription data</span> — your plan tier and billing period (managed by Stripe; card details are never stored by Omnexus).</li>
               <li><span className="text-slate-300">Technical data</span> — browser type, device type, and basic usage analytics to improve the service.</li>
             </ul>
           </section>
@@ -71,6 +72,8 @@ export function PrivacyPolicyPage() {
               <li><span className="text-slate-300">Supabase</span> — database, authentication, and file storage (EU data residency available).</li>
               <li><span className="text-slate-300">Vercel</span> — hosting and serverless functions.</li>
               <li><span className="text-slate-300">Anthropic</span> — AI responses for the Ask Omnexus and Insights features (prompts do not include your full workout history).</li>
+              <li><span className="text-slate-300">Stripe</span> — payment processing for Premium subscriptions. Omnexus never stores your card details; all payment data is handled by Stripe.</li>
+              <li><span className="text-slate-300">PostHog</span> — anonymous product analytics (e.g. feature usage counts). No personally identifiable information is sent.</li>
             </ul>
           </section>
 
