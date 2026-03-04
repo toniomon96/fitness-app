@@ -323,19 +323,29 @@ This is only needed if you add magic link or social OAuth login — email/passwo
 
 ## Checklist Before First Store Submission
 
-- [ ] `VITE_API_BASE_URL` set to production Vercel URL
-- [ ] App icon: 1024×1024 PNG generated and added to native projects
+- [x] `VITE_API_BASE_URL` set to production Vercel URL (`https://fitness-app-ten-eta.vercel.app`)
+- [x] App icon: 1024×1024 PNG designed
+- [x] Privacy policy hosted at `https://fitness-app-ten-eta.vercel.app/privacy`
+- [x] Apple Developer Program enrolled
+- [x] Google Play Console enrolled
+- [ ] `npx cap add ios && npx cap add android` run (platform directories generated)
+- [ ] App icon added to native projects via `npx capacitor-assets generate`
 - [ ] Splash screen: 2732×2732 PNG generated
-- [ ] Privacy policy hosted at a public URL
+- [ ] **Do NOT add HealthKit** — wearables deferred to v1.1
+- [ ] iOS: `npm run cap:sync` → Xcode archive → TestFlight upload (requires Mac)
+- [ ] Android: `npm run cap:sync` → signed AAB generated → Play Console upload
 - [ ] App tested on a real iOS device (not just Simulator)
 - [ ] App tested on a real Android device (not just emulator)
 - [ ] All API features work (AI Q&A, insights, articles)
 - [ ] Auth flow tested: sign up → log in → log out
+- [ ] Stripe flow tested: upgrade → webhook fires → Premium badge shows
 - [ ] Version number and build number set in Xcode / `build.gradle`
 - [ ] iOS: signed with Distribution certificate (not Development)
 - [ ] Android: signed with release keystore (not debug keystore)
-- [ ] Android keystore backed up securely
-- [ ] App Store screenshots taken at required sizes
+- [ ] Android keystore (`omnexus.jks`) backed up securely
+- [ ] App Store screenshots taken at required sizes (6.9" + 6.5" iPhone)
 - [ ] Play Store feature graphic (1024×500) created
 - [ ] Content rating questionnaire completed in Play Console
-- [ ] Cron jobs verified working on production Vercel (daily-reminder, weekly-digest, generate-shared-challenge)
+- [ ] Cron jobs verified working on production Vercel
+
+> See `docs/PENDING.md` for the step-by-step action plan.

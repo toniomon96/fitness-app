@@ -80,7 +80,7 @@ In Xcode:
 In Xcode → target → Signing & Capabilities, add:
 - **Push Notifications** (for VAPID notifications)
 - **Background Modes** → Remote notifications
-- **HealthKit** (for Sprint 7 wearables widget)
+- **Do NOT add HealthKit** — wearables are deferred to v1.1. Adding HealthKit without active usage causes App Store rejection.
 
 ### 3. Info.plist additions
 
@@ -90,10 +90,6 @@ In Xcode → target → Signing & Capabilities, add:
 <array>
   <string>remote-notification</string>
 </array>
-
-<!-- HealthKit (Sprint 7) -->
-<key>NSHealthShareUsageDescription</key>
-<string>Omnexus reads your step count and active calories to display them on your Dashboard.</string>
 ```
 
 ### 4. App icon + Launch screen
@@ -172,17 +168,9 @@ In Android Studio:
 
 <!-- Push notifications (Android 13+) -->
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-<!-- Health Connect (Sprint 7) -->
-<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-
-<!-- Health Connect intent filter -->
-<activity android:name=".MainActivity">
-  <intent-filter>
-    <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
-  </intent-filter>
-</activity>
 ```
+
+> **Do NOT add Health Connect permissions** — wearables are deferred to v1.1.
 
 ### 3. Generate signed AAB
 
@@ -211,7 +199,7 @@ Use Android Emulator → Extended Controls → Screenshot.
 3. Production → Releases → Create release → upload `.aab`
 4. Fill store listing with metadata from the shared section
 5. Content rating → fill questionnaire → Health & Fitness app, no violence/sexual content
-6. Privacy policy URL: `https://your-app.vercel.app/privacy`
+6. Privacy policy URL: `https://fitness-app-ten-eta.vercel.app/privacy`
 7. Data safety:
    - Collects: Email, User IDs, Health & Fitness data
    - Shares: No data shared with third parties
