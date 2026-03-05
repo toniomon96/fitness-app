@@ -23,7 +23,7 @@ import {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-interface AppState {
+export interface AppState {
   user: User | null;
   history: WorkoutHistory;
   activeSession: WorkoutSession | null;
@@ -33,7 +33,7 @@ interface AppState {
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
-type Action =
+export type Action =
   | { type: 'SET_USER'; payload: User }
   | { type: 'CLEAR_USER' }
   | { type: 'SET_ACTIVE_SESSION'; payload: WorkoutSession }
@@ -51,7 +51,8 @@ type Action =
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
-function reducer(state: AppState, action: Action): AppState {
+/** @internal Exported for unit testing */
+export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_USER':
       return { ...state, user: action.payload };
