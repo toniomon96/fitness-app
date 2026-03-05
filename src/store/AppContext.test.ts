@@ -191,7 +191,7 @@ describe('AppContext reducer', () => {
   it('RECORD_QUIZ_ATTEMPT saves score', () => {
     const state = reducer(baseState(), {
       type: 'RECORD_QUIZ_ATTEMPT',
-      payload: { moduleId: 'm1', attempt: { score: 80, total: 100, completedAt: '2025-01-01T00:00:00Z' } },
+      payload: { moduleId: 'm1', attempt: { score: 80, correctCount: 8, totalQuestions: 10, attemptedAt: '2025-01-01T00:00:00Z' } },
     });
     expect(state.learningProgress.quizScores['m1']?.score).toBe(80);
   });
@@ -199,11 +199,11 @@ describe('AppContext reducer', () => {
   it('RECORD_QUIZ_ATTEMPT only keeps best score', () => {
     const s1 = reducer(baseState(), {
       type: 'RECORD_QUIZ_ATTEMPT',
-      payload: { moduleId: 'm1', attempt: { score: 90, total: 100, completedAt: '2025-01-01T00:00:00Z' } },
+      payload: { moduleId: 'm1', attempt: { score: 90, correctCount: 9, totalQuestions: 10, attemptedAt: '2025-01-01T00:00:00Z' } },
     });
     const s2 = reducer(s1, {
       type: 'RECORD_QUIZ_ATTEMPT',
-      payload: { moduleId: 'm1', attempt: { score: 70, total: 100, completedAt: '2025-01-02T00:00:00Z' } },
+      payload: { moduleId: 'm1', attempt: { score: 70, correctCount: 7, totalQuestions: 10, attemptedAt: '2025-01-02T00:00:00Z' } },
     });
     expect(s2.learningProgress.quizScores['m1']?.score).toBe(90); // kept the higher
   });
@@ -211,11 +211,11 @@ describe('AppContext reducer', () => {
   it('RECORD_QUIZ_ATTEMPT replaces if new score is higher', () => {
     const s1 = reducer(baseState(), {
       type: 'RECORD_QUIZ_ATTEMPT',
-      payload: { moduleId: 'm1', attempt: { score: 70, total: 100, completedAt: '2025-01-01T00:00:00Z' } },
+      payload: { moduleId: 'm1', attempt: { score: 70, correctCount: 7, totalQuestions: 10, attemptedAt: '2025-01-01T00:00:00Z' } },
     });
     const s2 = reducer(s1, {
       type: 'RECORD_QUIZ_ATTEMPT',
-      payload: { moduleId: 'm1', attempt: { score: 95, total: 100, completedAt: '2025-01-02T00:00:00Z' } },
+      payload: { moduleId: 'm1', attempt: { score: 95, correctCount: 9, totalQuestions: 10, attemptedAt: '2025-01-02T00:00:00Z' } },
     });
     expect(s2.learningProgress.quizScores['m1']?.score).toBe(95);
   });

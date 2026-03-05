@@ -257,7 +257,7 @@ describe('Learning progress storage', () => {
       completedLessons: ['l1', 'l2'],
       completedModules: ['m1'],
       completedCourses: [],
-      quizScores: { m1: { score: 80, total: 100, completedAt: '2025-01-01T00:00:00Z' } },
+      quizScores: { m1: { score: 80, correctCount: 8, totalQuestions: 10, attemptedAt: '2025-01-01T00:00:00Z' } },
       lastActivityAt: '2025-01-01T00:00:00Z',
     };
     setLearningProgress(progress);
