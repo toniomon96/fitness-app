@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Action } from './AppContext';
 
+// ─── Mock modules that require env vars / network ────────────────────────────
+vi.mock('../lib/db', () => ({ upsertLearningProgress: vi.fn() }));
+vi.mock('../lib/analytics', () => ({ identify: vi.fn() }));
+
 // ─── Mock localStorage (Node env) ────────────────────────────────────────────
 
 const store: Record<string, string> = {};
