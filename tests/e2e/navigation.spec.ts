@@ -29,7 +29,7 @@ test.describe('Bottom navigation', () => {
   });
 
   test('Me tab navigates to /profile', async ({ page }) => {
-    await page.getByRole('link', { name: /me/i }).click();
+    await page.getByRole('link', { name: 'Me', exact: true }).click();
     await expect(page).toHaveURL('/profile');
   });
 });
@@ -52,7 +52,6 @@ test.describe('TopBar back button', () => {
     await page.locator('[data-testid="exercise-card"]').first().click();
     await page.waitForURL(/\/library\/.+/);
     await page.getByRole('button', { name: /back/i }).click();
-    await page.waitForURL('/library');
-    await expect(page).toHaveURL('/library');
+    await expect(page).toHaveURL('/library', { timeout: 10_000 });
   });
 });
