@@ -340,9 +340,9 @@ ToastContext (ToastProvider wraps RouterProvider)
         └── /challenges  ChallengesPage     (Community)
 ```
 
-**Bottom navigation: Home · Learn · Insights · Library · History (5 tabs)**
+**Bottom navigation: Home · Train · Community · Learn · Me (5 tabs)**
 
-Community (`/feed`) and Nutrition (`/nutrition`) are accessible via Dashboard quick-action grid.
+Insights (`/insights`), Library (`/library`), History (`/history`), and Nutrition (`/nutrition`) are accessible via Dashboard quick-action grid or the Train hub.
 
 ---
 

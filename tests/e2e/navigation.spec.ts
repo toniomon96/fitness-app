@@ -7,9 +7,19 @@ test.describe('Bottom navigation', () => {
   });
 
   test('Home tab navigates to /', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/learn');
     await page.getByRole('link', { name: /home/i }).click();
     await expect(page).toHaveURL('/');
+  });
+
+  test('Train tab navigates to /train', async ({ page }) => {
+    await page.getByRole('link', { name: /train/i }).click();
+    await expect(page).toHaveURL('/train');
+  });
+
+  test('Community tab navigates to /community', async ({ page }) => {
+    await page.getByRole('link', { name: /community/i }).click();
+    await expect(page).toHaveURL('/community');
   });
 
   test('Learn tab navigates to /learn', async ({ page }) => {
@@ -18,19 +28,9 @@ test.describe('Bottom navigation', () => {
     await expect(page.getByRole('heading', { name: /^learn$/i })).toBeVisible();
   });
 
-  test('Insights tab navigates to /insights', async ({ page }) => {
-    await page.getByRole('link', { name: /insights/i }).click();
-    await expect(page).toHaveURL('/insights');
-  });
-
-  test('Library tab navigates to /library', async ({ page }) => {
-    await page.getByRole('link', { name: /library/i }).click();
-    await expect(page).toHaveURL('/library');
-  });
-
-  test('History tab navigates to /history', async ({ page }) => {
-    await page.getByRole('link', { name: /history/i }).click();
-    await expect(page).toHaveURL('/history');
+  test('Me tab navigates to /profile', async ({ page }) => {
+    await page.getByRole('link', { name: /me/i }).click();
+    await expect(page).toHaveURL('/profile');
   });
 });
 
@@ -52,6 +52,7 @@ test.describe('TopBar back button', () => {
     await page.locator('[data-testid="exercise-card"]').first().click();
     await page.waitForURL(/\/library\/.+/);
     await page.getByRole('button', { name: /back/i }).click();
+    await page.waitForURL('/library');
     await expect(page).toHaveURL('/library');
   });
 });
