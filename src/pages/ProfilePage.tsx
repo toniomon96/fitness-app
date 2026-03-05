@@ -7,7 +7,7 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSubscription } from '../hooks/useSubscription';
-import { setUser, clearGuestProfile } from '../utils/localStorage';
+import { setUser } from '../utils/localStorage';
 import type { Goal, ExperienceLevel } from '../types';
 import { updateAvatarUrl } from '../lib/db';
 import { AppShell } from '../components/layout/AppShell';
@@ -153,7 +153,10 @@ export function ProfilePage() {
 
   async function handleSignOut() {
     if (isGuest) {
-      clearGuestProfile();
+      // Clear all localStorage so no guest data (learning progress, insight
+      // sessions, custom programs, etc.) lingers after exit.
+      localStorage.clear();
+      localStorage.setItem('omnexus_cookie_consent', 'accepted');
       dispatch({ type: 'CLEAR_USER' });
       navigate('/login', { replace: true });
       return;

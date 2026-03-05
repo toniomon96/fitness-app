@@ -111,8 +111,8 @@ describe('getWeekStart', () => {
     const wed = new Date('2025-03-05T12:00:00Z');
     const result = getWeekStart(wed);
     const d = new Date(result);
-    expect(d.getDay()).toBe(1); // Monday
-    expect(d.getDate()).toBe(3); // March 3
+    expect(d.getUTCDay()).toBe(1); // Monday
+    expect(d.getUTCDate()).toBe(3); // March 3
   });
 
   it('returns Monday for a Sunday input', () => {
@@ -120,8 +120,8 @@ describe('getWeekStart', () => {
     const sun = new Date('2025-03-02T12:00:00Z');
     const result = getWeekStart(sun);
     const d = new Date(result);
-    expect(d.getDay()).toBe(1); // Monday
-    expect(d.getDate()).toBe(24); // Feb 24
+    expect(d.getUTCDay()).toBe(1); // Monday
+    expect(d.getUTCDate()).toBe(24); // Feb 24
   });
 
   it('returns the same day for a Monday input', () => {
@@ -129,7 +129,7 @@ describe('getWeekStart', () => {
     const mon = new Date('2025-03-03T12:00:00Z');
     const result = getWeekStart(mon);
     const d = new Date(result);
-    expect(d.getDay()).toBe(1);
-    expect(d.getDate()).toBe(3);
+    expect(d.getUTCDay()).toBe(1);
+    expect(d.getUTCDate()).toBe(3);
   });
 });

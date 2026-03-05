@@ -48,9 +48,9 @@ export function calculateStreak(sessionDates: string[]): number {
 
 export function getWeekStart(date: Date = new Date()): string {
   const d = new Date(date);
-  const day = d.getDay(); // 0 = Sun
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Mon start
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
+  const day = d.getUTCDay(); // 0 = Sun
+  const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1); // Mon start
+  d.setUTCDate(diff);
+  d.setUTCHours(0, 0, 0, 0);
   return d.toISOString();
 }
