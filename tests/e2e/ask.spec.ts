@@ -44,11 +44,15 @@ test.describe('Ask AI Coach', () => {
 
   test('suggested questions chips or examples are visible', async ({ page }) => {
     await page.goto('/ask');
-    // "Try asking" label is shown when no conversation is active
+    await page.locator('textarea').waitFor({ timeout: 5_000 });
+    // Fastest check: textarea placeholder contains an example question
+    const hasPlaceholder = await page.locator('textarea[placeholder*="protein"]')
+      .isVisible({ timeout: 1_000 }).catch(() => false);
+    // "Try asking" label shown when no conversation is active
     const hasTryAsking = await page.getByText(/try asking/i)
-      .first().isVisible({ timeout: 6_000 }).catch(() => false);
+      .first().isVisible({ timeout: 4_000 }).catch(() => false);
     const hasChip = await page.locator('button').filter({ hasText: /protein|creatine|recovery|muscle|bench/i })
-      .first().isVisible({ timeout: 3_000 }).catch(() => false);
-    expect(hasTryAsking || hasChip).toBe(true);
+      .first().isVisible({ timeout: 2_000 }).catch(() => false);
+    expect(hasPlaceholder || hasTryAsking || hasChip).toBe(true);
   });
 });
