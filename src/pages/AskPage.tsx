@@ -225,7 +225,7 @@ export function AskPage() {
         </div>
 
         {/* Suggested questions (shown when idle) */}
-        {!currentAnswer && !loading && (
+        {!currentAnswer && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
               Try asking
