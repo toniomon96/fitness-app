@@ -44,10 +44,11 @@ test.describe('Ask AI Coach', () => {
 
   test('suggested questions chips or examples are visible', async ({ page }) => {
     await page.goto('/ask');
-    // Either suggestion chips or placeholder text indicating example questions
-    const hasSuggestions = await page.getByText(
-      /how|what|bench|recovery|protein|progressive|plateau/i,
-    ).first().isVisible({ timeout: 6_000 }).catch(() => false);
-    expect(hasSuggestions).toBe(true);
+    // "Try asking" label is shown when no conversation is active
+    const hasTryAsking = await page.getByText(/try asking/i)
+      .first().isVisible({ timeout: 6_000 }).catch(() => false);
+    const hasChip = await page.locator('button').filter({ hasText: /protein|creatine|recovery|muscle|bench/i })
+      .first().isVisible({ timeout: 3_000 }).catch(() => false);
+    expect(hasTryAsking || hasChip).toBe(true);
   });
 });

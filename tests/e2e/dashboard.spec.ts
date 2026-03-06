@@ -31,7 +31,7 @@ test.describe('Dashboard — guest', () => {
 
   test('profile button navigates to /profile', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /profile/i }).click();
+    await page.getByRole('link', { name: /profile/i }).click();
     await expect(page).toHaveURL('/profile');
   });
 

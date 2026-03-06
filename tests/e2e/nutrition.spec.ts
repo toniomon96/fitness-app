@@ -15,7 +15,8 @@ test.describe('Nutrition', () => {
 
   test('shows macro targets section', async ({ page }) => {
     await page.goto('/nutrition');
-    // Either macro targets (protein/carbs/fat) or the guest wall
+    // Wait for page to settle before checking content
+    await page.getByRole('heading', { name: /nutrition/i }).first().waitFor({ timeout: 5_000 }).catch(() => {});
     const hasMacros = await page.getByText(/protein|carbs|fat|calories/i).first()
       .isVisible({ timeout: 5_000 }).catch(() => false);
     const hasGuestWall = await page.getByText(/requires an account/i).first()
@@ -35,7 +36,7 @@ test.describe('Nutrition', () => {
 
   test('quick log section is present', async ({ page }) => {
     await page.goto('/nutrition');
-    // Quick log link/section, or the guest wall
+    await page.getByRole('heading', { name: /nutrition/i }).first().waitFor({ timeout: 5_000 }).catch(() => {});
     const hasQuickLog = await page.getByText(/quick log|log meal|add meal/i).first()
       .isVisible({ timeout: 5_000 }).catch(() => false);
     const hasLogLink = await page.getByRole('link', { name: /log/i }).first()
@@ -47,6 +48,7 @@ test.describe('Nutrition', () => {
 
   test('generate meal plan button is present', async ({ page }) => {
     await page.goto('/nutrition');
+    await page.getByRole('heading', { name: /nutrition/i }).first().waitFor({ timeout: 5_000 }).catch(() => {});
     const btn = page.getByRole('button', { name: /generate|meal plan/i });
     // Either the meal plan button, a setup prompt, or the guest wall
     const hasMealPlan = await btn.first().isVisible({ timeout: 3_000 }).catch(() => false);
