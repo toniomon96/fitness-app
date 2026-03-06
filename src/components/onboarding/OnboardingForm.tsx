@@ -104,36 +104,44 @@ export function OnboardingForm() {
         userId = session.user.id;
         sessionAccessToken = session.access_token;
       } else {
-        // 1. Create Supabase account (emailRedirectTo ensures confirmation link lands on our callback page)
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        // 1. Create account via server-side signup endpoint.
+        //    This uses the Supabase admin API and sends the confirmation email via Resend
+        //    so users see a branded email from @omnexus.app rather than Supabase's mailer.
+        const signupRes = await fetch(`${apiBase}/api/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            redirectTo: `${window.location.origin}/auth/callback`,
+          }),
         });
 
-        if (signUpError) {
-          const msg = signUpError.message ?? '';
-          const isExisting = /already registered|already exists|email.*taken/i.test(msg);
+        const signupBody = await signupRes.json().catch(() => ({})) as { userId?: string; emailSent?: boolean; error?: string };
+
+        if (!signupRes.ok) {
+          const msg = signupBody.error ?? 'Account creation failed. Please try again.';
+          const isExisting = signupRes.status === 409 || /already exists|already registered/i.test(msg);
           const errMsg = isExisting
             ? 'An account with this email already exists. Please sign in instead.'
-            : msg || 'Account creation failed. Please try again.';
-          console.error('[OnboardingForm] signUp error:', signUpError);
+            : msg;
+          console.error('[OnboardingForm] /api/signup error:', signupRes.status, signupBody);
           setSubmitError(errMsg);
           setStep(0);
           return;
         }
-        // When email confirmation is ON and the email already exists, Supabase returns
-        // a fake/obfuscated user (no error, but ID won't exist in auth.users).
-        // data.session will also be null in this case — we detect it below.
-        if (!data.user) {
-          console.error('[OnboardingForm] signUp returned no user and no error — likely duplicate email with confirmation ON');
+
+        if (!signupBody.userId) {
+          console.error('[OnboardingForm] /api/signup returned no userId');
           setSubmitError('Account creation failed. Please try again.');
           setStep(0);
           return;
         }
 
-        userId = data.user.id;
-        sessionAccessToken = data.session?.access_token ?? null;
+        userId = signupBody.userId;
+        // After admin.createUser with email_confirm: false, there's no session yet —
+        // the user must click the confirmation link first.
+        sessionAccessToken = null;
       }
 
       // 2. Map the AI profile goal to a single Goal for the legacy User interface
