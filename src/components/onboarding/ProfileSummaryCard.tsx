@@ -3,6 +3,7 @@ import { Sparkles, Dumbbell, Calendar, Wrench, AlertCircle, Target, LayoutGrid }
 import type { UserTrainingProfile, Program } from '../../types';
 import { apiBase } from '../../lib/api';
 import { Button } from '../ui/Button';
+import { formatLabel } from '../../utils/formatUtils';
 
 interface Props {
   profile: UserTrainingProfile;
@@ -101,15 +102,15 @@ export function ProfileSummaryCard({ profile, onProgramReady }: Props) {
       <div className="grid grid-cols-2 gap-3">
         <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-3">
           <Dumbbell size={16} className="text-brand-400 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide">Goal</p>
-            <p className="text-sm font-medium text-slate-900 dark:text-white leading-tight">{goalLabels}</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-white leading-tight truncate">{goalLabels}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-3">
           <Calendar size={16} className="text-brand-400 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide">Schedule</p>
             <p className="text-sm font-medium text-slate-900 dark:text-white leading-tight">
               {profile.daysPerWeek}×/week · {profile.sessionDurationMinutes} min
@@ -119,12 +120,12 @@ export function ProfileSummaryCard({ profile, onProgramReady }: Props) {
 
         <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-3">
           <Wrench size={16} className="text-brand-400 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide">Equipment</p>
             <p className="text-sm font-medium text-slate-900 dark:text-white leading-tight truncate">
               {profile.equipment.length > 0
-                ? profile.equipment.slice(0, 2).join(', ')
-                : 'Full gym'}
+                ? profile.equipment.slice(0, 2).map(formatLabel).join(', ')
+                : 'Full Gym'}
               {profile.equipment.length > 2 && ` +${profile.equipment.length - 2} more`}
             </p>
           </div>
@@ -132,7 +133,7 @@ export function ProfileSummaryCard({ profile, onProgramReady }: Props) {
 
         <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-3">
           <Dumbbell size={16} className="text-brand-400 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide">Experience</p>
             <p className="text-sm font-medium text-slate-900 dark:text-white leading-tight">
               {profile.trainingAgeYears === 0

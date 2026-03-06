@@ -100,7 +100,9 @@ function GuestOrAuthGuard() {
 
     // If we already know this session has no profile row, skip the 406 query
     // and go straight to onboarding. The module-level Set survives remounts.
-    if (sessionsWithNoProfile.has(session.user.id)) {
+    // BUT: skip this redirect if state.user is already set — the user just
+    // completed onboarding and the dispatch has already populated the profile.
+    if (sessionsWithNoProfile.has(session.user.id) && !state.user) {
       navigate('/onboarding', { replace: true })
       return
     }
@@ -125,6 +127,9 @@ function GuestOrAuthGuard() {
             navigate('/onboarding', { replace: true })
             return
           }
+
+          // Profile found — clear stale cache entry if present
+          sessionsWithNoProfile.delete(session.user.id)
 
           user = {
             id: profile.id,

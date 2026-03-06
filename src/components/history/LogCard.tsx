@@ -1,18 +1,27 @@
 import { useState } from 'react';
-import type { WorkoutSession } from '../../types';
+import type { WorkoutSession, LoggedSet } from '../../types';
 import { programs } from '../../data/programs';
 import { getExerciseById } from '../../data/exercises';
-import { getCustomPrograms } from '../../utils/localStorage';
+import { getCustomPrograms, updateSession } from '../../utils/localStorage';
 import { formatDate, formatDuration } from '../../utils/dateUtils';
 import { Card } from '../ui/Card';
-import { ChevronDown, ChevronUp, Timer, Zap, Trophy, Gauge } from 'lucide-react';
+import { ChevronDown, ChevronUp, Timer, Zap, Trophy, Gauge, Pencil, Check, X } from 'lucide-react';
+import { useApp } from '../../store/AppContext';
+import { upsertSession } from '../../lib/db';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LogCardProps {
   session: WorkoutSession;
 }
 
 export function LogCard({ session }: LogCardProps) {
+  const { dispatch } = useApp();
+  const { session: authSession } = useAuth();
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  // Draft edits: exerciseId -> setIndex -> { weight, reps }
+  const [drafts, setDrafts] = useState<Record<string, Record<number, { weight: string; reps: string }>>>({});
+
   const program = [...programs, ...getCustomPrograms()].find((p) => p.id === session.programId);
   const day = program?.schedule[session.trainingDayIndex];
   const hasPRs = session.exercises.some((e) =>
@@ -28,9 +37,64 @@ export function LogCard({ session }: LogCardProps) {
       ? Math.round((rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length) * 10) / 10
       : null;
 
+  function startEditing() {
+    const initial: Record<string, Record<number, { weight: string; reps: string }>> = {};
+    session.exercises.forEach((ex) => {
+      initial[ex.exerciseId] = {};
+      ex.sets.forEach((s, i) => {
+        if (s.completed) {
+          initial[ex.exerciseId][i] = {
+            weight: String(s.weight),
+            reps: String(s.reps),
+          };
+        }
+      });
+    });
+    setDrafts(initial);
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setEditing(false);
+    setDrafts({});
+  }
+
+  function saveEdits() {
+    const updated: WorkoutSession = {
+      ...session,
+      exercises: session.exercises.map((ex) => ({
+        ...ex,
+        sets: ex.sets.map((s, i): LoggedSet => {
+          const draft = drafts[ex.exerciseId]?.[i];
+          if (!s.completed || !draft) return s;
+          const weight = parseFloat(draft.weight) || s.weight;
+          const reps = parseInt(draft.reps, 10) || s.reps;
+          return { ...s, weight, reps };
+        }),
+      })),
+    };
+    // Recalculate total volume
+    updated.totalVolumeKg = updated.exercises.reduce(
+      (total, ex) =>
+        total + ex.sets
+          .filter((s) => s.completed)
+          .reduce((acc, s) => acc + s.weight * s.reps, 0),
+      0,
+    );
+
+    updateSession(updated);
+    dispatch({ type: 'UPDATE_SESSION', payload: updated });
+    if (authSession?.user?.id) {
+      upsertSession(updated, authSession.user.id).catch(() => {});
+    }
+    setEditing(false);
+    setDrafts({});
+  }
+
   return (
     <Card padding="none" className="overflow-hidden">
       <button
+        type="button"
         className="w-full text-left px-4 py-3"
         onClick={() => setExpanded((v) => !v)}
       >
@@ -71,36 +135,119 @@ export function LogCard({ session }: LogCardProps) {
       </button>
 
       {expanded && (
-        <div className="border-t border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700/60">
-          {session.exercises.map((logEx) => {
-            const ex = getExerciseById(logEx.exerciseId);
-            const completedSets = logEx.sets.filter((s) => s.completed);
-            if (completedSets.length === 0) return null;
-            return (
-              <div key={logEx.exerciseId} className="px-4 py-2.5">
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {ex?.name ?? logEx.exerciseId}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {completedSets.map((s, i) => (
-                    <span
-                      key={i}
-                      className={[
-                        'text-xs px-2 py-0.5 rounded-full',
-                        s.isPersonalRecord
-                          ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 font-semibold'
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-                      ].join(' ')}
-                    >
-                      {s.weight}kg×{s.reps}
-                      {s.rpe != null && ` @${s.rpe}`}
-                      {s.isPersonalRecord && ' 🏆'}
-                    </span>
-                  ))}
-                </div>
+        <div className="border-t border-slate-100 dark:border-slate-700">
+          {/* Edit toolbar */}
+          <div className="flex items-center justify-end px-4 py-2 border-b border-slate-100 dark:border-slate-700/60">
+            {editing ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X size={13} />
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEdits}
+                  className="flex items-center gap-1 text-xs text-brand-500 font-medium px-2 py-1 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
+                >
+                  <Check size={13} />
+                  Save
+                </button>
               </div>
-            );
-          })}
+            ) : (
+              <button
+                type="button"
+                onClick={startEditing}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Pencil size={13} />
+                Edit
+              </button>
+            )}
+          </div>
+
+          <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+            {session.exercises.map((logEx) => {
+              const ex = getExerciseById(logEx.exerciseId);
+              const completedSets = logEx.sets
+                .map((s, i) => ({ set: s, index: i }))
+                .filter(({ set }) => set.completed);
+              if (completedSets.length === 0) return null;
+              return (
+                <div key={logEx.exerciseId} className="px-4 py-2.5">
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    {ex?.name ?? logEx.exerciseId}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {completedSets.map(({ set: s, index: i }) => {
+                      if (editing) {
+                        const draft = drafts[logEx.exerciseId]?.[i];
+                        if (!draft) return null;
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1"
+                          >
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={draft.weight}
+                              onChange={(e) =>
+                                setDrafts((d) => ({
+                                  ...d,
+                                  [logEx.exerciseId]: {
+                                    ...d[logEx.exerciseId],
+                                    [i]: { ...draft, weight: e.target.value },
+                                  },
+                                }))
+                              }
+                              className="w-14 text-xs text-center bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-1 py-0.5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+                              aria-label={`Set ${i + 1} weight`}
+                            />
+                            <span className="text-xs text-slate-400">kg×</span>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              value={draft.reps}
+                              onChange={(e) =>
+                                setDrafts((d) => ({
+                                  ...d,
+                                  [logEx.exerciseId]: {
+                                    ...d[logEx.exerciseId],
+                                    [i]: { ...draft, reps: e.target.value },
+                                  },
+                                }))
+                              }
+                              className="w-10 text-xs text-center bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-1 py-0.5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+                              aria-label={`Set ${i + 1} reps`}
+                            />
+                          </div>
+                        );
+                      }
+                      return (
+                        <span
+                          key={i}
+                          className={[
+                            'text-xs px-2 py-0.5 rounded-full',
+                            s.isPersonalRecord
+                              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 font-semibold'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+                          ].join(' ')}
+                        >
+                          {s.weight}kg×{s.reps}
+                          {s.rpe != null && ` @${s.rpe}`}
+                          {s.isPersonalRecord && ' 🏆'}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </Card>
