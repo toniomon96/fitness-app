@@ -1,6 +1,12 @@
 # Omnexus
 
-A science-backed health and fitness platform built as a mobile-first progressive web app. Omnexus combines structured workout tracking, AI-powered coaching, evidence-based learning, real-time research from PubMed, community features, push notifications, and GDPR-compliant data management — all backed by Supabase and deployed on Vercel.
+[![CI](https://github.com/toniomon96/fitness-app/actions/workflows/ci.yml/badge.svg)](https://github.com/toniomon96/fitness-app/actions/workflows/ci.yml)
+![Tests](https://img.shields.io/badge/tests-115%20passing-22c55e)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)
+[![Live](https://img.shields.io/badge/Live%20App-omnexus.fit-6366f1?logo=vercel&logoColor=white)](https://fitness-app-ten-eta.vercel.app)
+
+A science-backed fitness platform powered by AI. Track workouts, generate personalized training programs, get coaching from Claude, read peer-reviewed research, and compete with friends — all in a mobile-first PWA that also ships as a native iOS and Android app.
 
 ---
 
@@ -8,22 +14,25 @@ A science-backed health and fitness platform built as a mobile-first progressive
 
 | Feature | Description |
 |---|---|
-| **Workout Tracking** | Log sessions, track sets/reps/weight/RPE, auto-detect personal records with PR celebration |
-| **Training Programs** | Pre-built and custom programs with week/day progression |
-| **Exercise Library** | 50+ exercises with instructions, muscle groups, and SVG progression charts |
-| **Learn** | Structured courses with lessons, quizzes, and animated answer reveal |
-| **Ask Omnexus** | AI Q&A powered by Claude — multi-turn conversation, follow-up chips, citation rendering |
-| **AI Insights** | Claude analyzes your last 4 weeks of training and gives personalized recommendations |
-| **Research Feed** | Live PubMed articles filtered by category, 6-hour client-side cache |
-| **Personalization** | Course recommendations and article defaults based on your goal |
-| **Community** | Friends, weekly leaderboard, challenges, real-time activity feed with emoji reactions |
-| **Nutrition Tracking** | Daily macro logging with progress bars, date navigator, and goal management |
-| **Measurements** | Track body metrics over time |
-| **Push Notifications** | Friend workout alerts + daily/weekly reminders via Web Push (VAPID) |
+| **AI Onboarding** | Multi-turn Claude conversation that builds your training profile and generates a custom 8-week periodized program |
+| **Workout Tracking** | Log sets, reps, weight, RPE — auto-detects personal records with confetti celebration |
+| **Exercise Library** | 51 exercises with instructions, muscle groups, YouTube demo embeds, and SVG progression charts |
+| **Training Programs** | Pre-built + custom-built programs with week/day cursor, builder UI, and AI-generated mesocycles |
+| **Ask Omnexus** | Claude-powered AI coach with multi-turn chat, follow-up chips, and RAG citations from PubMed |
+| **AI Insights** | Analyzes your last 4 weeks of training — personalized volume, frequency, and recovery recommendations |
+| **Adaptation Engine** | After every session, Claude suggests next-session adjustments per exercise based on recent RPE trends |
+| **Learn** | Structured courses with modules, lessons, quizzes, semantic search (pgvector), and micro-lesson generation |
+| **Research Feed** | Live PubMed articles across 7 categories with 6-hour client-side cache |
+| **Community** | Friends, real-time activity feed with emoji reactions, weekly leaderboard, individual and team challenges |
+| **Nutrition Tracking** | Daily macro logging with progress bars, date navigator, quick-add meals, and goal management |
+| **Measurements** | Track body metrics over time with trend visualization |
+| **Push Notifications** | Web Push (VAPID) — friend workout alerts, daily reminders, and weekly digest via Vercel cron |
 | **Shareable Cards** | Canvas-generated 1080×1080 PNG cards for PRs and weekly recaps |
-| **Guest Mode** | Try the app instantly — no account required |
-| **Cloud Sync** | All data synced to Supabase — accessible across devices |
+| **Premium Tier** | Stripe-powered subscriptions — unlimited AI + insights; free tier gated at 5 asks/day |
+| **Guest Mode** | Try the full app instantly — no account required |
+| **Cloud Sync** | All data in Supabase — accessible across devices |
 | **GDPR** | Cookie consent, data export (JSON), account deletion |
+| **Native Apps** | Capacitor v8 — iOS + Android, with haptics, status bar, and safe-area handling |
 
 ---
 
@@ -35,25 +44,20 @@ A science-backed health and fitness platform built as a mobile-first progressive
 | Routing | React Router v7 |
 | Styling | Tailwind CSS v4 |
 | Icons | Lucide React |
-| Auth & Database | Supabase (Auth, PostgreSQL, Realtime, RLS) |
-| AI | Anthropic Claude (`claude-sonnet-4-6`) via `@anthropic-ai/sdk` |
+| Auth & Database | Supabase (Auth, PostgreSQL, Realtime, RLS, pgvector) |
+| AI Coach | Anthropic Claude `claude-sonnet-4-6` |
+| Embeddings | OpenAI `text-embedding-3-small` (pgvector RAG) |
+| Email | Resend (branded transactional email) |
+| Payments | Stripe (subscriptions + webhooks) |
+| Analytics | PostHog |
+| Rate Limiting | Upstash Redis |
 | Push Notifications | Web Push API + VAPID via `web-push` |
 | Serverless | Vercel Functions (Node.js 20) + Cron Jobs |
-| External API | PubMed E-utilities (free, no key required) |
-| Storage | Supabase PostgreSQL (source of truth) + `localStorage` (session cache) |
-| Testing | Vitest (28 unit tests) |
-| CI/CD | GitHub Actions (lint + tsc + test on every push/PR) |
+| External API | PubMed E-utilities |
+| Native | Capacitor v8 (iOS + Android) |
+| Testing | Vitest (115 unit tests), Playwright (E2E) |
+| CI/CD | GitHub Actions |
 | Deployment | Vercel |
-
----
-
-## Prerequisites
-
-- Node.js 20+
-- [Vercel CLI](https://vercel.com/docs/cli): `npm i -g vercel`
-- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
-- A free [Supabase](https://supabase.com) project
-- VAPID keys for push notifications: `npx web-push generate-vapid-keys`
 
 ---
 
@@ -67,66 +71,71 @@ npm install
 
 ### 2. Set up environment variables
 
-Create `.env.local` in the project root:
+Create `.env.local`:
 
-```
+```bash
 # Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Supabase — client-side (safe to expose)
+# Supabase (client-side — safe to expose)
 VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 
-# Supabase — server-side only (never in client bundle)
+# Supabase (server-side only — never in client bundle)
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# OpenAI (server-side — pgvector embeddings)
+OPENAI_API_KEY=sk-...
+
+# Resend (transactional email)
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=Omnexus <no-reply@notifications.omnexus.fit>
+
+# Stripe
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
+APP_URL=http://localhost:3000
 
 # Web Push / VAPID
 VITE_VAPID_PUBLIC_KEY=BM...
 VAPID_PUBLIC_KEY=BM...
 VAPID_PRIVATE_KEY=...
 VAPID_EMAIL=mailto:you@example.com
+
+# CORS (production only)
+ALLOWED_ORIGIN=https://your-app.vercel.app
+
+# Rate limiting (optional — disables gracefully if absent)
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+
+# Analytics (optional — no-op if absent)
+VITE_POSTHOG_KEY=phc_...
+VITE_POSTHOG_HOST=https://app.posthog.com
+
+# Native builds only
+VITE_API_BASE_URL=https://your-app.vercel.app
 ```
 
-> `.env.local` is gitignored. Never commit API keys or service role keys.
+> Generate VAPID keys: `npx web-push generate-vapid-keys`
+>
+> `.env.local` is gitignored — never commit secrets.
 
-Generate VAPID keys:
-```bash
-npx web-push generate-vapid-keys
-```
-
-### 3. Run the Supabase SQL migrations
-
-In the Supabase SQL editor, run the migrations from [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) in order:
-1. Profiles
-2. Cloud Sync (workout_sessions, personal_records, custom_programs, learning_progress)
-3. Community (friendships, reactions, challenges, challenge_participants)
-4. Push Notifications (push_subscriptions)
-5. Nutrition & Measurements (nutrition_logs, measurements)
-
-### 4. Run the dev server
+### 3. Run the dev server
 
 ```bash
 vercel dev
 ```
 
-This starts both the Vite frontend and Vercel serverless functions (`/api/*`) on a single local port (default `http://localhost:3000`).
+> **Use `vercel dev`, not `npm run dev`.** The Vercel CLI runs both the Vite frontend and serverless functions together on port 3000. `npm run dev` only starts Vite — AI features, articles, email, and Stripe won't work.
 
-> **Do not use `npm run dev`** — it runs Vite only. AI features, articles, and push notification endpoints require the Vercel serverless runtime.
-
----
-
-## Testing
+### 4. Run tests
 
 ```bash
-npm test
+npm test          # Vitest unit tests (115 tests)
+npm run test:e2e  # Playwright E2E tests (requires vercel dev running)
 ```
-
-Runs Vitest. All 28 unit tests must pass.
-
-Test files:
-- `src/lib/db.test.ts` — Supabase write/read helper error propagation
-- `src/utils/volumeUtils.test.ts` — 1RM estimation, volume calculation, weekly muscle volume
-- `src/utils/programUtils.test.ts` — program recommendation logic
 
 ---
 
@@ -134,151 +143,135 @@ Test files:
 
 ```
 fitness-app/
-├── api/                          Vercel serverless functions
-│   ├── ask.ts                    POST   /api/ask              → Claude Q&A
-│   ├── insights.ts               POST   /api/insights          → Claude analysis
-│   ├── articles.ts               GET    /api/articles          → PubMed proxy
-│   ├── setup-profile.ts          POST   /api/setup-profile     → Create profile (admin)
-│   ├── notify-friends.ts         POST   /api/notify-friends    → Web Push to friends
-│   ├── daily-reminder.ts         GET    /api/daily-reminder    → Cron: push all (9am UTC)
-│   ├── weekly-digest.ts          GET    /api/weekly-digest     → Cron: volume summary (Mon 8am)
-│   ├── export-data.ts            GET    /api/export-data       → GDPR data export
-│   ├── delete-account.ts         DELETE /api/delete-account    → GDPR account deletion
-│   └── _sendPush.ts              Shared helper: sendPushToUser / sendPushToUsers
+├── api/                    Vercel serverless functions
+│   ├── ask.ts              POST /api/ask              Claude Q&A + pgvector RAG
+│   ├── insights.ts         POST /api/insights          Claude training analysis
+│   ├── onboard.ts          POST /api/onboard           Multi-turn onboarding agent
+│   ├── generate-program.ts POST /api/generate-program  8-week mesocycle generation
+│   ├── adapt.ts            POST /api/adapt             Per-exercise session adaptation
+│   ├── generate-missions.ts POST /api/generate-missions Block missions
+│   ├── signup.ts           POST /api/signup            Account creation + Resend email
+│   ├── setup-profile.ts    POST /api/setup-profile     Profile creation (admin SDK)
+│   ├── report-bug.ts       POST /api/report-bug        In-app bug reports
+│   ├── articles.ts         GET  /api/articles          PubMed proxy
+│   ├── export-data.ts      GET  /api/export-data       GDPR data export
+│   ├── delete-account.ts   DELETE /api/delete-account  GDPR account deletion
+│   ├── notify-friends.ts   POST /api/notify-friends    Web Push to friends
+│   ├── create-checkout.ts  POST /api/create-checkout   Stripe checkout session
+│   ├── webhook-stripe.ts   POST /api/webhook-stripe    Stripe events
+│   ├── daily-reminder.ts   GET  /api/daily-reminder    Cron: push all (9am UTC)
+│   ├── weekly-digest.ts    GET  /api/weekly-digest     Cron: volume summary (Mon 8am)
+│   ├── _cors.ts            Shared CORS helper
+│   └── _rateLimit.ts       Upstash rate limiting helper
 │
 ├── public/
-│   └── sw.js                     Service worker (Web Push handler)
+│   ├── sw.js               Service worker (Web Push handler)
+│   ├── manifest.json       PWA manifest
+│   └── icons/              PWA + apple-touch-icon PNGs
 │
 ├── src/
 │   ├── components/
-│   │   ├── community/            FriendCard, ChallengeCard, ActivityItem, LeaderboardRow
-│   │   ├── dashboard/            WelcomeBanner, TodayCard, StreakDisplay, WeeklyRecapCard, MuscleHeatMap
-│   │   ├── exercise-library/     ExerciseCard (React.memo), ExerciseProgressChart
-│   │   ├── history/              LogCard, HeatmapCalendar
-│   │   ├── layout/               AppShell, BottomNav (5 tabs), TopBar
-│   │   ├── learn/                CourseCard, LessonReader, QuizBlock (200ms reveal animation)
-│   │   ├── onboarding/           OnboardingForm, GoalCard
-│   │   ├── programs/             ProgramCard, DaySchedule
-│   │   ├── ui/                   Button, Card (gradient prop), Badge, Input, Modal,
-│   │   │                         ConfirmDialog, Skeleton, Toast+ToastContainer,
-│   │   │                         MarkdownText, CookieConsent
-│   │   └── workout/              ExerciseBlock, SetRow (RPE tap-buttons), RestTimer,
-│   │                             WorkoutCompleteModal, PRCelebration, AddExerciseDrawer
+│   │   ├── community/      FriendCard, ChallengeCard, ActivityItem, LeaderboardRow
+│   │   ├── dashboard/      WelcomeBanner, TodayCard, StreakDisplay, WeeklyRecapCard, MuscleHeatMap
+│   │   ├── history/        LogCard (with inline set editing), HeatmapCalendar
+│   │   ├── layout/         AppShell, BottomNav, TopBar
+│   │   ├── learn/          CourseCard, LessonReader, QuizBlock
+│   │   ├── onboarding/     OnboardingForm, OnboardingChat, ProfileSummaryCard
+│   │   ├── programs/       ProgramCard, DaySchedule
+│   │   └── ui/             Button, Card, Badge, Input, Modal, ConfirmDialog,
+│   │                       Skeleton, Toast, Avatar, YouTubeEmbed, CookieConsent
 │   │
 │   ├── contexts/
-│   │   ├── AuthContext.tsx        Supabase auth state (session, loading, signOut)
-│   │   └── ToastContext.tsx       In-app toast notifications (useToast hook)
+│   │   ├── AuthContext.tsx  Supabase auth state
+│   │   └── ToastContext.tsx In-app toast notifications
 │   │
 │   ├── data/
-│   │   ├── courses.ts             Static course/lesson/quiz content
-│   │   ├── exercises.ts           50+ exercise definitions
-│   │   └── programs.ts            Pre-built training programs
+│   │   ├── courses.ts      Course/lesson/quiz content
+│   │   ├── exercises.ts    51 exercise definitions + YouTube IDs
+│   │   └── programs.ts     Pre-built training programs
 │   │
-│   ├── hooks/
-│   │   ├── useLearningProgress.ts
-│   │   ├── useRestTimer.ts
-│   │   └── useWorkoutSession.ts
+│   ├── hooks/              useLearningProgress, useRestTimer, useWorkoutSession, useSubscription
 │   │
 │   ├── lib/
-│   │   ├── supabase.ts            Supabase client singleton
-│   │   ├── db.ts                  Typed async helpers for all Supabase tables
-│   │   ├── dataMigration.ts       One-time localStorage → Supabase migration
-│   │   └── pushSubscription.ts    VAPID subscription management
+│   │   ├── supabase.ts     Supabase client singleton
+│   │   ├── db.ts           Typed async helpers for all Supabase tables
+│   │   ├── api.ts          apiBase abstraction (web vs native)
+│   │   ├── analytics.ts    PostHog wrapper
+│   │   └── capacitor.ts    Native plugin wrappers
 │   │
-│   ├── pages/                     One file per route (24 pages total)
-│   │
-│   ├── services/
-│   │   ├── claudeService.ts       fetch() wrappers for /api/ask and /api/insights
-│   │   ├── insightsService.ts     Builds workout summary from session history
-│   │   └── pubmedService.ts       PubMed client + localStorage cache
-│   │
-│   ├── store/
-│   │   └── AppContext.tsx         Global state (Context API + useReducer)
-│   │
-│   ├── types/
-│   │   └── index.ts               All TypeScript interfaces
-│   │
-│   └── utils/
-│       ├── dateUtils.ts
-│       ├── localStorage.ts        Typed read/write helpers
-│       ├── programUtils.ts        Recommendation + cursor logic
-│       ├── shareCard.ts           Canvas PNG generation (PRCard, WeeklyCard)
-│       └── volumeUtils.ts         Volume, 1RM, muscle group breakdown
+│   ├── pages/              One file per route (27 pages)
+│   ├── services/           claudeService, insightsService, learningService, pubmedService
+│   ├── store/AppContext.tsx Global state (Context API + useReducer)
+│   ├── types/index.ts      All TypeScript interfaces
+│   └── utils/              dateUtils, localStorage, programUtils, volumeUtils, formatUtils, shareCard
 │
-├── docs/
-│   ├── API.md                     All serverless endpoint reference
-│   ├── ARCHITECTURE.md            System diagram, data models, Supabase schema
-│   ├── PROJECT_BRIEF.md           Complete app description (LLM context doc)
-│   └── REVIEW.md                  Current state, code quality, security, roadmap
-│
-├── .github/workflows/ci.yml       GitHub Actions: lint + tsc + test
-├── eslint.config.js               Flat config (TypeScript rules + sw.js globals)
-├── vitest.config.ts               Test config (node env)
-├── vercel.json                    Routes + cron jobs
-├── vite.config.ts
-└── tsconfig.json
+├── tests/e2e/              Playwright E2E tests
+├── docs/                   Architecture, API reference, mobile guide, roadmap
+├── .github/                CI workflow, issue templates, PR template
+├── capacitor.config.ts     Capacitor app config
+├── vercel.json             Routes + cron jobs
+└── vite.config.ts
 ```
 
 ---
 
 ## Deployment
 
-### Deploy to Vercel
-
 ```bash
 vercel deploy --prod
 ```
 
-### Set environment variables in Vercel
+### Required Vercel environment variables
 
-In Vercel Dashboard → Project → Settings → Environment Variables, set all keys for **Production**, **Preview**, and **Development**:
-
-| Key | Used by |
+| Variable | Used by |
 |---|---|
-| `ANTHROPIC_API_KEY` | `/api/ask`, `/api/insights` |
+| `ANTHROPIC_API_KEY` | All Claude endpoints |
 | `VITE_SUPABASE_URL` | Client + all API routes |
 | `VITE_SUPABASE_ANON_KEY` | Browser Supabase client |
-| `SUPABASE_SERVICE_ROLE_KEY` | `/api/setup-profile`, `/api/export-data`, `/api/delete-account`, cron jobs |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin operations (signup, export, delete) |
+| `OPENAI_API_KEY` | pgvector embeddings in `/api/ask` |
+| `RESEND_API_KEY` | Transactional email via `/api/signup` |
+| `RESEND_FROM_EMAIL` | Sender address (e.g. `Omnexus <no-reply@notifications.omnexus.fit>`) |
+| `STRIPE_SECRET_KEY` | Stripe API calls |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
+| `STRIPE_PRICE_ID` | Premium subscription price |
+| `APP_URL` | Stripe redirect URLs |
 | `VITE_VAPID_PUBLIC_KEY` | Browser push subscription |
-| `VAPID_PUBLIC_KEY` | `/api/notify-friends`, `/api/daily-reminder`, `/api/weekly-digest` |
-| `VAPID_PRIVATE_KEY` | Same as above |
-| `VAPID_EMAIL` | VAPID contact email (`mailto:...`) |
+| `VAPID_PUBLIC_KEY` | Push notification sending |
+| `VAPID_PRIVATE_KEY` | Push notification signing |
+| `VAPID_EMAIL` | VAPID contact email |
+| `ALLOWED_ORIGIN` | Production CORS (set to your Vercel URL) |
+| `UPSTASH_REDIS_REST_URL` | Rate limiting (optional) |
+| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting (optional) |
+| `VITE_POSTHOG_KEY` | Analytics (optional) |
+| `SEED_SECRET` | Protects `/api/seed-embeddings` |
 
-### Supabase URL Configuration
+### Supabase auth configuration
 
 In Supabase Dashboard → Authentication → URL Configuration:
-- **Site URL**: your production Vercel URL (e.g. `https://your-app.vercel.app`)
+- **Site URL**: your production Vercel URL
 - **Redirect URLs**: `https://your-app.vercel.app/**` and `http://localhost:3000/**`
 
-### Cron Jobs
-
-`vercel.json` schedules two cron jobs (requires Vercel Pro or higher):
-- `GET /api/daily-reminder` — 9am UTC daily
-- `GET /api/weekly-digest` — Monday 8am UTC
-
 ---
 
-## localStorage Keys
+## Documentation
 
-| Key | Contents |
+| Doc | Description |
 |---|---|
-| `fit_user` | User profile (Supabase is source of truth) |
-| `fit_history` | Workout sessions (session cache) |
-| `fit_active_session` | In-progress workout |
-| `fit_theme` | `"dark"` or `"light"` |
-| `fit_program_week_cursor` | Week progress per program |
-| `fit_program_day_cursor` | Day progress per program |
-| `omnexus_learning_progress` | Completed lessons, modules, courses, quiz scores |
-| `omnexus_insight_sessions` | Ask Omnexus Q&A history (last 50) |
-| `omnexus_article_cache` | PubMed articles per category (6h TTL) |
-| `omnexus_custom_programs` | User-built programs (session cache) |
-| `omnexus_nutrition_goals` | Daily macro targets |
-| `omnexus_guest` | Guest mode flag |
-| `omnexus_cookie_consent` | `"accepted"` or `"declined"` |
-| `omnexus_migrated_v1` | One-time localStorage → Supabase migration flag |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System diagram, data models, Supabase schema |
+| [docs/API.md](docs/API.md) | All serverless endpoint reference |
+| [docs/MOBILE.md](docs/MOBILE.md) | Capacitor iOS + Android build guide |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Shipped features + post-v1.0 plans |
+| [docs/setup-procedures.md](docs/setup-procedures.md) | Upstash, CORS, E2E, Supabase setup steps |
 
 ---
 
-## AI Disclaimer
+## Contributing
 
-Omnexus provides **educational information only**. AI-generated content is not medical advice. Users should consult a qualified healthcare professional for personal health concerns.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Disclaimer
+
+Omnexus provides **educational information only**. AI-generated content is not medical advice. Consult a qualified healthcare professional for personal health concerns.

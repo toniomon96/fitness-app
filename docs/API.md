@@ -17,12 +17,14 @@ All API endpoints are Vercel serverless functions in `/api/`. They run on Node.j
 
 | Endpoint | Auth Required |
 |---|---|
+| `POST /api/signup` | No |
+| `POST /api/setup-profile` | No (verifies user exists via admin SDK) |
 | `POST /api/ask` | No |
 | `POST /api/insights` | No |
 | `POST /api/onboard` | No |
 | `POST /api/generate-program` | No |
 | `GET /api/articles` | No |
-| `POST /api/setup-profile` | No (verifies user exists via admin SDK) |
+| `POST /api/report-bug` | No (optional Bearer — associates report with user if present) |
 | `POST /api/notify-friends` | **Yes** — Bearer JWT |
 | `GET /api/export-data` | **Yes** — Bearer JWT |
 | `DELETE /api/delete-account` | **Yes** — Bearer JWT |
@@ -824,6 +826,86 @@ NEVER:
 
 Every response ends with:
 > ⚠️ This is educational information only, not medical advice. Consult a qualified healthcare professional for personal health concerns.
+
+---
+
+## POST /api/signup
+
+Creates a new user account via the Supabase admin API and sends a branded confirmation email via Resend. Using the admin API (rather than `supabase.auth.signUp`) avoids email enumeration protection and allows full control over email design.
+
+**Request**
+
+```http
+POST /api/signup
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword",
+  "redirectTo": "https://your-app.vercel.app/auth/callback"
+}
+```
+
+**Response (200)**
+
+```json
+{ "userId": "uuid", "emailSent": true }
+```
+
+**Errors**
+
+| Status | Meaning |
+|---|---|
+| 400 | Invalid email or password too short (< 6 chars) |
+| 409 | Email already registered |
+| 429 | Rate limited |
+| 500 | Service not configured (missing env vars) |
+
+**Environment variables required:** `VITE_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
+
+---
+
+## POST /api/report-bug
+
+Saves a bug report to the `bug_reports` Supabase table. If a valid Bearer token is present, the report is associated with the authenticated user's ID.
+
+**Request**
+
+```http
+POST /api/report-bug
+Content-Type: application/json
+Authorization: Bearer <supabase-access-token>   (optional)
+```
+
+```json
+{
+  "description": "The workout doesn't save after completing a session.",
+  "steps": "1. Start workout\n2. Complete all sets\n3. Tap Finish",
+  "email": "user@example.com"
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `description` | string | Yes | Max 2000 chars |
+| `steps` | string | No | Steps to reproduce, max 2000 chars |
+| `email` | string | No | Contact email, max 200 chars |
+
+**Response (200)**
+
+```json
+{ "ok": true }
+```
+
+**Errors**
+
+| Status | Meaning |
+|---|---|
+| 400 | `description` missing or empty |
+| 429 | Rate limited |
+| 500 | Database error |
 
 ---
 

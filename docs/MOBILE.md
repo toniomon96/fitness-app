@@ -348,4 +348,4 @@ This is only needed if you add magic link or social OAuth login — email/passwo
 - [ ] Content rating questionnaire completed in Play Console
 - [ ] Cron jobs verified working on production Vercel
 
-> See `docs/PENDING.md` for the step-by-step action plan.
+> The build and submission steps above cover the full end-to-end process.
