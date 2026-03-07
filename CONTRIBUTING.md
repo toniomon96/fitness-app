@@ -18,9 +18,67 @@ vercel dev        # starts frontend + serverless functions on :3000
 
 ---
 
+## Branching Strategy
+
+The `main` branch is **protected** — no direct pushes. All changes go through a PR.
+
+### Branch naming
+
+| Prefix | Use for |
+|---|---|
+| `feat/` | New features |
+| `fix/` | Bug fixes |
+| `chore/` | Dependencies, config, scripts |
+| `docs/` | Documentation only |
+| `hotfix/` | Urgent production patches |
+
+Examples:
+```bash
+git checkout -b feat/form-coach-mediapipe
+git checkout -b fix/offline-sync-conflict
+git checkout -b chore/bump-capacitor-v9
+git checkout -b docs/update-roadmap
+```
+
+### Commit conventions
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+```
+feat: add MediaPipe pose estimation to AI form coach
+fix: resolve offline sync conflict on duplicate set logs
+chore: bump capacitor to v9
+docs: update ROADMAP with v3 B2B section
+test: add E2E spec for nutrition quick log
+```
+
+### PR workflow
+
+1. Create your branch from `main`
+2. Make your changes; commit often with descriptive messages
+3. Run all checks locally (see below) — CI will reject failures
+4. Push your branch and open a PR against `main`
+5. Address review feedback; the branch merges when CI is green + approved
+
+```bash
+git push -u origin feat/your-feature
+gh pr create --base main --fill
+```
+
+### Hotfixes
+
+Branch from `main`, fix, PR back to `main` with fast-track review:
+```bash
+git checkout -b hotfix/fix-broken-api main
+# ... fix ...
+git push -u origin hotfix/fix-broken-api
+gh pr create --base main --label hotfix
+```
+
+---
+
 ## Making Changes
 
-1. Fork the repo and create a branch: `git checkout -b feat/your-feature`
+1. Create a branch: `git checkout -b feat/your-feature`
 2. Make your changes
 3. Run the checks:
    ```bash
