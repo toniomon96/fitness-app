@@ -23,6 +23,9 @@ test-results/
 .vscode/
 .idea/
 
+# Claude Code local settings (may contain tokens)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
