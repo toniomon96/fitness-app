@@ -248,13 +248,16 @@ function AuthOnlyGuard() {
   useEffect(() => {
     // Only hydrate when we have a session but no user yet (direct navigation)
     if (!session || loading || state.user) return
-    setSyncing(true)
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data: profile }) => {
+
+    async function hydrate() {
+      if (!session) return
+      setSyncing(true)
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
         if (profile) {
           dispatch({
             type: 'SET_USER',
@@ -270,9 +273,14 @@ function AuthOnlyGuard() {
             } satisfies User,
           })
         }
-      })
-      .catch(err => console.error('[AuthOnlyGuard] Profile fetch failed:', err))
-      .finally(() => setSyncing(false))
+      } catch (err) {
+        console.error('[AuthOnlyGuard] Profile fetch failed:', err)
+      } finally {
+        setSyncing(false)
+      }
+    }
+
+    hydrate()
   }, [session, loading, state.user, dispatch])
 
   if (loading || syncing) return <LoadingScreen />
