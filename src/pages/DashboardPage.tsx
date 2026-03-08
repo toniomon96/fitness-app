@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -36,11 +36,15 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { session: activeSession } = useWorkoutSession();
   const { status: genStatus, programId: generatedProgramId } = useProgramGeneration();
+  const repairedMissingProgramRef = useRef(false);
 
   const user = state.user;
 
   const allPrograms = [...programs, ...getCustomPrograms()];
   const program = allPrograms.find(p => p.id === user?.activeProgramId) ?? null;
+  const generatedProgramExists = generatedProgramId
+    ? allPrograms.some((p) => p.id === generatedProgramId)
+    : false;
 
   // When generation completes: activate the program on the user
   useEffect(() => {
@@ -62,6 +66,32 @@ export function DashboardPage() {
     const t = setTimeout(() => clearGenerationState(), 8000);
     return () => clearTimeout(t);
   }, [genStatus, generatedProgramId, user, dispatch]);
+
+  // Self-heal older stuck accounts where a stale local "ready" flag exists but
+  // the generated program record never made it to localStorage/Supabase.
+  useEffect(() => {
+    if (!user || genStatus !== 'ready' || !generatedProgramId) return;
+
+    if (generatedProgramExists) {
+      repairedMissingProgramRef.current = false;
+      return;
+    }
+
+    if (repairedMissingProgramRef.current) return;
+    repairedMissingProgramRef.current = true;
+
+    const stored = getGenerationState();
+    if (!stored || stored.userId !== user.id) {
+      clearGenerationState();
+      return;
+    }
+
+    console.warn('[Dashboard] Ready generation state had no matching program. Restarting generation recovery.');
+    void startGeneration(user.id, stored.profile).catch((err) => {
+      console.error('[Dashboard] Program recovery failed:', err);
+      repairedMissingProgramRef.current = false;
+    });
+  }, [genStatus, generatedProgramId, generatedProgramExists, user]);
 
   if (!user) return null;
 
@@ -111,7 +141,7 @@ export function DashboardPage() {
         </div>
 
         {/* ── Program ready banner ──────────────────────────────────── */}
-        {genStatus === 'ready' && generatedProgramId && (
+        {genStatus === 'ready' && generatedProgramId && generatedProgramExists && (
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/50 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
             <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
             <div className="flex-1 min-w-0">
@@ -128,6 +158,20 @@ export function DashboardPage() {
             >
               View →
             </Link>
+          </div>
+        )}
+
+        {genStatus === 'ready' && generatedProgramId && !generatedProgramExists && (
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-900/15 dark:border-amber-700/40 px-4 py-3">
+            <AlertTriangle size={18} className="text-amber-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                Restoring your personalized program
+              </p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                We found an older incomplete generation state and are rebuilding your program now.
+              </p>
+            </div>
           </div>
         )}
 
