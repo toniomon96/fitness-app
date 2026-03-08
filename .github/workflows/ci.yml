@@ -50,6 +50,22 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Verify E2E credentials are set
+        run: |
+          if [ -z "$E2E_TEST_EMAIL" ]; then
+            echo "::warning::E2E_TEST_EMAIL is NOT set — auth tests will skip"
+          else
+            echo "E2E_TEST_EMAIL is set (${#E2E_TEST_EMAIL} chars)"
+          fi
+          if [ -z "$E2E_TEST_PASSWORD" ]; then
+            echo "::warning::E2E_TEST_PASSWORD is NOT set — auth tests will skip"
+          else
+            echo "E2E_TEST_PASSWORD is set"
+          fi
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
       - name: Run E2E tests
         run: npm run test:e2e
         env:
