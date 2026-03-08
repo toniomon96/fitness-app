@@ -3,6 +3,8 @@ import type {
   WorkoutSession,
   PersonalRecord,
   WorkoutHistory,
+  Goal,
+  ExperienceLevel,
   FriendProfile,
   FriendshipWithProfile,
   LeaderboardEntry,
@@ -187,6 +189,30 @@ export async function updateAvatarUrl(userId: string, url: string): Promise<void
     .update({ avatar_url: url })
     .eq('id', userId);
   if (error) throw new Error(`updateAvatarUrl: ${error.message}`);
+}
+
+interface ProfileRecord {
+  id: string;
+  name: string;
+  goal: Goal;
+  experience_level: ExperienceLevel;
+  active_program_id: string | null;
+  created_at: string;
+  avatar_url: string | null;
+}
+
+export async function getProfileById(userId: string): Promise<ProfileRecord | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, goal, experience_level, active_program_id, created_at, avatar_url')
+    .eq('id', userId)
+    .maybeSingle<ProfileRecord>();
+
+  if (error) {
+    throw new Error(`[getProfileById] ${error.message}`);
+  }
+
+  return data ?? null;
 }
 
 // ─── Community: Friendships ───────────────────────────────────────────────────

@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate, Outlet, useNavigate } from 'react-router
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useApp } from './store/AppContext'
-import { supabase } from './lib/supabase'
 import { setUser, setCustomPrograms, getCustomPrograms, getGuestProfile, getTheme } from './utils/localStorage'
 import * as db from './lib/db'
 import { runMigrationIfNeeded } from './lib/dataMigration'
@@ -119,11 +118,7 @@ function GuestOrAuthGuard() {
         let user = state.user
 
         if (!user || user.isGuest) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
+          const profile = await db.getProfileById(session.user.id)
 
           if (!profile) {
             // Remember this session has no profile so remounts skip the 406 query
@@ -261,11 +256,7 @@ function AuthOnlyGuard() {
       if (!session) return
       setSyncing(true)
       try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
+        const profile = await db.getProfileById(session.user.id)
         if (!profile) {
           sessionsWithNoProfile.add(session.user.id)
           navigate('/onboarding', { replace: true })

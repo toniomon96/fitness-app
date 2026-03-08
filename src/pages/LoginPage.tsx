@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getProfileById } from '../lib/db';
 import { useApp } from '../store/AppContext';
 import { setUser, getTheme } from '../utils/localStorage';
 import type { User } from '../types';
@@ -56,13 +57,9 @@ export function LoginPage() {
       }
 
       // Fetch profile from Supabase to hydrate local state
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
+      const profile = await getProfileById(data.user.id);
 
-      if (profileError || !profile) {
+      if (!profile) {
         // Profile missing — redirect to onboarding to complete setup
         navigate('/onboarding', { replace: true });
         return;
