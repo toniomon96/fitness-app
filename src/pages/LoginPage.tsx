@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getProfileById } from '../lib/db';
+import { ensureProfileUser } from '../lib/profileRecovery';
 import { useApp } from '../store/AppContext';
-import { setUser, getTheme } from '../utils/localStorage';
-import type { User } from '../types';
+import { setUser } from '../utils/localStorage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 
@@ -57,24 +56,13 @@ export function LoginPage() {
       }
 
       // Fetch profile from Supabase to hydrate local state
-      const profile = await getProfileById(data.user.id);
+      const user = await ensureProfileUser(data.session);
 
-      if (!profile) {
+      if (!user) {
         // Profile missing — redirect to onboarding to complete setup
         navigate('/onboarding', { replace: true });
         return;
       }
-
-      const user: User = {
-        id: profile.id,
-        name: profile.name,
-        goal: profile.goal,
-        experienceLevel: profile.experience_level,
-        activeProgramId: profile.active_program_id ?? undefined,
-        onboardedAt: profile.created_at,
-        theme: getTheme(),
-        avatarUrl: profile.avatar_url ?? null,
-      };
 
       setUser(user);
       dispatch({ type: 'SET_USER', payload: user });
