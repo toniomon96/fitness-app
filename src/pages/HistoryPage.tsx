@@ -11,9 +11,25 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { LogCard } from '../components/history/LogCard';
 import { VolumeChart } from '../components/history/VolumeChart';
 import { HeatmapCalendar } from '../components/history/HeatmapCalendar';
-import { getExerciseNameMap } from '../lib/staticCatalogs';
-import { getWeeklyVolumeByMuscle } from '../utils/volumeUtils';
+import { getExerciseNameMap, getWeeklyVolumeByMuscleMap } from '../lib/staticCatalogs';
 import { Clock, List, Calendar, Play } from 'lucide-react';
+import type { MuscleGroup } from '../types';
+
+function createEmptyWeeklyVolume(): Record<MuscleGroup, number[]> {
+  return {
+    chest: [],
+    back: [],
+    shoulders: [],
+    biceps: [],
+    triceps: [],
+    quads: [],
+    hamstrings: [],
+    glutes: [],
+    calves: [],
+    core: [],
+    cardio: [],
+  };
+}
 
 const SessionList = memo(function SessionList({ sessions }: { sessions: WorkoutSession[] }) {
   const cards = useMemo(
@@ -28,9 +44,9 @@ export function HistoryPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [ready, setReady] = useState(false);
+  const [weeklyVolume, setWeeklyVolume] = useState<Record<MuscleGroup, number[]>>(() => createEmptyWeeklyVolume());
   useEffect(() => { setReady(true); }, []);
   const sessions = [...state.history.sessions].reverse();
-  const weeklyVolume = getWeeklyVolumeByMuscle(state.history, 4);
   const totalSessions = state.history.sessions.length;
   const totalVolume = state.history.sessions.reduce(
     (t, s) => t + s.totalVolumeKg,
@@ -61,6 +77,20 @@ export function HistoryPage() {
       cancelled = true;
     };
   }, [state.history.personalRecords]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getWeeklyVolumeByMuscleMap(state.history, 4).then((volume) => {
+      if (!cancelled) {
+        setWeeklyVolume(volume);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state.history]);
 
   return (
     <AppShell>
