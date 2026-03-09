@@ -32,9 +32,35 @@ function createEmptyWeeklyVolume(): Record<MuscleGroup, number[]> {
 }
 
 const SessionList = memo(function SessionList({ sessions }: { sessions: WorkoutSession[] }) {
+  const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = Array.from(
+      new Set(sessions.flatMap((session) => session.exercises.map((exercise) => exercise.exerciseId))),
+    );
+
+    if (ids.length === 0) {
+      setExerciseNames({});
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void getExerciseNameMap(ids).then((names) => {
+      if (!cancelled) {
+        setExerciseNames(names);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessions]);
+
   const cards = useMemo(
-    () => sessions.map((s) => <LogCard key={s.id} session={s} />),
-    [sessions],
+    () => sessions.map((s) => <LogCard key={s.id} session={s} exerciseNames={exerciseNames} />),
+    [exerciseNames, sessions],
   );
   return <div className="space-y-2">{cards}</div>;
 });
