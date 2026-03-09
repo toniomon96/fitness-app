@@ -66,6 +66,13 @@ Configure Vercel so the repo environments match the branch flow:
 3. Preview deployments: every PR, especially the `dev -> main` release PR
 4. Separate environment-variable scopes for Development, Preview, and Production
 
+Important Vercel nuance:
+
+- Vercel `Development` variables are primarily for local `vercel dev`
+- A hosted `dev` branch deployment normally uses `Preview` variables unless you set up branch-specific overrides or custom environments
+- A custom DEV domain in Vercel is normally attached as a `Preview` domain
+- The simplest safe setup is to treat hosted `dev` as `Preview` in Vercel, while still treating it as the repo's DEV stage
+
 Recommended environment ownership:
 
 - Development: safe test keys, DEV Supabase project if available
