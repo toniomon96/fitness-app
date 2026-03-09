@@ -1,12 +1,32 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { ensureProfileUser } from '../lib/profileRecovery';
 import { useApp } from '../store/AppContext';
 import { setUser } from '../utils/localStorage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+
+async function signInWithEmailPassword(email: string, password: string) {
+  const { supabase } = await import('../lib/supabase');
+  return supabase.auth.signInWithPassword({ email, password });
+}
+
+async function resendConfirmationEmail(email: string) {
+  const { supabase } = await import('../lib/supabase');
+  return supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+  });
+}
+
+async function sendPasswordReset(email: string) {
+  const { supabase } = await import('../lib/supabase');
+  return supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback`,
+  });
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -37,8 +57,7 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: signInError } = await signInWithEmailPassword(email, password);
 
       if (signInError) {
         // Detect "email not confirmed" — offer to resend the confirmation link
@@ -76,11 +95,7 @@ export function LoginPage() {
     setResendLoading(true);
     setResendSuccess(false);
     try {
-      await supabase.auth.resend({
-        type: 'signup',
-        email: unconfirmedEmail,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
+      await resendConfirmationEmail(unconfirmedEmail);
       setResendSuccess(true);
     } finally {
       setResendLoading(false);
@@ -92,9 +107,7 @@ export function LoginPage() {
     setForgotError('');
     setForgotLoading(true);
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      });
+      const { error: resetError } = await sendPasswordReset(forgotEmail);
       if (resetError) {
         setForgotError(resetError.message);
       } else {

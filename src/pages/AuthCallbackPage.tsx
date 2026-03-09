@@ -1,20 +1,36 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { getHistory } from '../utils/localStorage';
-import { upsertSession, upsertPersonalRecords } from '../lib/db';
 
 type Status = 'loading' | 'confirmed' | 'recovery' | 'error';
 
-/** Sync any guest workout history + PRs to Supabase after email confirmation. Fire-and-forget. */
-function migrateGuestData(userId: string): void {
+async function migrateGuestHistory(userId: string): Promise<void> {
   const history = getHistory();
   if (history.sessions.length === 0 && history.personalRecords.length === 0) return;
-  Promise.all([
-    ...history.sessions.map(s => upsertSession(s, userId)),
+
+  const { upsertSession, upsertPersonalRecords } = await import('../lib/db');
+  await Promise.all([
+    ...history.sessions.map((session) => upsertSession(session, userId)),
     upsertPersonalRecords(history.personalRecords, userId),
-  ]).catch(err => {
+  ]);
+}
+
+async function subscribeToAuthCallback(
+  onEvent: (event: string, session: { user: { id: string } } | null) => void,
+) {
+  const { supabase } = await import('../lib/supabase');
+  return supabase.auth.onAuthStateChange(onEvent);
+}
+
+async function getAuthCallbackSession() {
+  const { supabase } = await import('../lib/supabase');
+  return supabase.auth.getSession();
+}
+
+/** Sync any guest workout history + PRs to Supabase after email confirmation. Fire-and-forget. */
+function migrateGuestData(userId: string): void {
+  void migrateGuestHistory(userId).catch((err) => {
     console.warn('[AuthCallbackPage] Guest data migration failed:', err);
   });
 }
@@ -26,7 +42,11 @@ export function AuthCallbackPage() {
   useEffect(() => {
     // Supabase v2 automatically processes the URL hash (access_token / type params)
     // and fires onAuthStateChange. We listen and route accordingly.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    let active = true;
+    let unsubscribe = () => {};
+
+    void subscribeToAuthCallback((event, session) => {
+      if (!active) return;
       if (event === 'PASSWORD_RECOVERY') {
         setStatus('recovery');
         // Brief confirmation message, then navigate to the reset form
@@ -36,12 +56,20 @@ export function AuthCallbackPage() {
         migrateGuestData(session.user.id);
         setTimeout(() => navigate('/', { replace: true }), 2000);
       }
+    }).then(({ data: { subscription } }) => {
+      if (!active) {
+        subscription.unsubscribe();
+        return;
+      }
+      unsubscribe = () => {
+        subscription.unsubscribe();
+      };
     });
 
     // Safety fallback — if no auth event fires within 6 seconds, try getSession()
     // This handles edge cases where the hash has already been consumed.
     const timeout = setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getAuthCallbackSession();
       if (session) {
         setStatus('confirmed');
         setTimeout(() => navigate('/', { replace: true }), 1500);
@@ -51,7 +79,8 @@ export function AuthCallbackPage() {
     }, 6000);
 
     return () => {
-      subscription.unsubscribe();
+      active = false;
+      unsubscribe();
       clearTimeout(timeout);
     };
   }, [navigate]);
