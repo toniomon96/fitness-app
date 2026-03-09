@@ -233,6 +233,7 @@ Omnexus should move through `local -> dev -> preview -> prod`.
 See `docs/RELEASE_STRATEGY.md` for the full branching, CI, Vercel, and release checklist.
 See `docs/RELEASE_CHECKLIST.md` for release-day execution.
 See `docs/ENVIRONMENT_MATRIX.md` for environment-specific variables and service expectations.
+See `docs/PLATFORM_SETUP_CHECKLIST.md` for the exact GitHub, Vercel, Supabase, and Stripe setup tasks that still need manual admin access.
 
 ### Required Vercel environment variables
 
@@ -274,6 +275,7 @@ In Supabase Dashboard → Authentication → URL Configuration:
 | `docs/RELEASE_STRATEGY.md` | Branching, VCS, testing, and environment promotion strategy |
 | `docs/RELEASE_CHECKLIST.md` | Release-day execution checklist for `dev -> main` promotions |
 | `docs/ENVIRONMENT_MATRIX.md` | Environment-specific variables, branch mapping, and external service behavior |
+| `docs/PLATFORM_SETUP_CHECKLIST.md` | Exact manual admin steps for GitHub, Vercel, Supabase, and Stripe |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System diagram, data models, Supabase schema |
 | [docs/API.md](docs/API.md) | All serverless endpoint reference |
 | [docs/MOBILE.md](docs/MOBILE.md) | Capacitor iOS + Android build guide |

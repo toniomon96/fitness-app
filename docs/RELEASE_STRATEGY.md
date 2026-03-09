@@ -93,3 +93,9 @@ Production should only receive code that has:
 - passed the CI gates for the target branch
 - been exercised in a Preview deployment
 - received human approval before merging to `main`
+
+## What still requires manual admin access
+
+The repository automation is already in place. The remaining work is platform configuration in GitHub, Vercel, Supabase, and Stripe.
+
+Use `docs/PLATFORM_SETUP_CHECKLIST.md` as the step-by-step setup guide.
