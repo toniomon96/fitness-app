@@ -2,15 +2,15 @@ import { createBrowserRouter, Navigate, Outlet, useNavigate } from 'react-router
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useApp } from './store/AppContext'
-import { setUser, setCustomPrograms, getCustomPrograms, getGuestProfile, getTheme } from './utils/localStorage'
+import { setUser, setCustomPrograms, getCustomPrograms, getGuestProfile } from './utils/localStorage'
 import * as db from './lib/db'
 import { runMigrationIfNeeded } from './lib/dataMigration'
-import type { User } from './types'
 import { CookieConsent } from './components/ui/CookieConsent'
 import { GuestBanner } from './components/ui/GuestBanner'
 import { AppTutorial, hasTutorialBeenSeen } from './components/onboarding/AppTutorial'
 import { resumeIfNeeded, getGenerationState } from './lib/programGeneration'
 import { RouterErrorBoundary } from './components/ui/RouterErrorBoundary'
+import { ensureProfileUser } from './lib/profileRecovery'
 
 // Module-level set — survives component unmount/remount cycles.
 // Prevents repeated 406 profile queries for users who have a Supabase session
@@ -118,9 +118,9 @@ function GuestOrAuthGuard() {
         let user = state.user
 
         if (!user || user.isGuest) {
-          const profile = await db.getProfileById(session.user.id)
+          user = await ensureProfileUser(session)
 
-          if (!profile) {
+          if (!user) {
             // Remember this session has no profile so remounts skip the 406 query
             sessionsWithNoProfile.add(session.user.id)
             hydratedRef.current = true
@@ -130,17 +130,6 @@ function GuestOrAuthGuard() {
 
           // Profile found — clear stale cache entry if present
           sessionsWithNoProfile.delete(session.user.id)
-
-          user = {
-            id: profile.id,
-            name: profile.name,
-            goal: profile.goal,
-            experienceLevel: profile.experience_level,
-            activeProgramId: profile.active_program_id ?? undefined,
-            onboardedAt: profile.created_at,
-            theme: getTheme(),
-            avatarUrl: profile.avatar_url ?? null,
-          } satisfies User
 
           setUser(user)
           dispatch({ type: 'SET_USER', payload: user })
@@ -256,8 +245,8 @@ function AuthOnlyGuard() {
       if (!session) return
       setSyncing(true)
       try {
-        const profile = await db.getProfileById(session.user.id)
-        if (!profile) {
+        const user = await ensureProfileUser(session)
+        if (!user) {
           sessionsWithNoProfile.add(session.user.id)
           navigate('/onboarding', { replace: true })
           return
@@ -266,16 +255,7 @@ function AuthOnlyGuard() {
         sessionsWithNoProfile.delete(session.user.id)
         dispatch({
           type: 'SET_USER',
-          payload: {
-            id: profile.id,
-            name: profile.name,
-            goal: profile.goal,
-            experienceLevel: profile.experience_level,
-            activeProgramId: profile.active_program_id ?? undefined,
-            onboardedAt: profile.created_at,
-            theme: getTheme(),
-            avatarUrl: profile.avatar_url ?? null,
-          } satisfies User,
+          payload: user,
         })
       } catch (err) {
         console.error('[AuthOnlyGuard] Profile fetch failed:', err)

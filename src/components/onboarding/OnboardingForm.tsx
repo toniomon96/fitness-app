@@ -295,9 +295,14 @@ export function OnboardingForm() {
   return (
     <div className="flex flex-col min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-brand-950 px-6 py-8 overflow-y-auto">
       {repairMode && (
-        <p className="mb-4 rounded-lg bg-amber-900/30 border border-amber-700/40 px-4 py-2 text-xs text-amber-300 text-center">
-          Your account exists — just finish setting up your profile.
-        </p>
+        <div className="mb-4 space-y-3">
+          <p className="rounded-lg bg-amber-900/30 border border-amber-700/40 px-4 py-2 text-xs text-amber-300 text-center">
+            Your account exists — just finish setting up your profile.
+          </p>
+          <Button variant="ghost" onClick={handleGoToSignIn} className="w-full text-slate-300 border border-slate-700">
+            Back to sign in
+          </Button>
+        </div>
       )}
 
       {/* Progress dots */}
