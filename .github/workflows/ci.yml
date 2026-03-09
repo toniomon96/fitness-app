@@ -28,8 +28,8 @@ jobs:
           BASE_REF="${{ github.base_ref }}"
 
           if [[ "$BASE_REF" == "dev" ]]; then
-            if [[ ! "$HEAD_REF" =~ ^(feature|bug|fix|chore|docs)/.+$ ]]; then
-              echo "PRs into dev must come from feature/*, bug/*, fix/*, chore/*, or docs/* branches."
+            if [[ ! "$HEAD_REF" =~ ^(feature|bug|fix|chore|docs|polish)/.+$ ]]; then
+              echo "PRs into dev must come from feature/*, bug/*, fix/*, chore/*, docs/*, or polish/* branches."
               exit 1
             fi
           fi

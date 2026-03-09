@@ -4,7 +4,7 @@ This matrix defines how Omnexus should differ across Local, DEV, Preview, and Pr
 
 | Area | Local | DEV | Preview | Prod |
 |---|---|---|---|---|
-| Git source | `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*` | `dev` | `dev -> main` PR / preview deploy | `main` |
+| Git source | `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*`, `polish/*` | `dev` | `dev -> main` PR / preview deploy | `main` |
 | Purpose | individual development | shared integration | release candidate validation | customer-facing stable release |
 | Deploy target | `vercel dev` or local preview | stable DEV deployment | Vercel Preview deployment | Vercel Production |
 | Verification command | `npm run verify:local` | `npm run verify:dev` | `npm run verify:preview` | post-deploy smoke + monitoring |

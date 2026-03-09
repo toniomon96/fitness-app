@@ -6,14 +6,14 @@ This repo should promote changes through `local -> dev -> preview -> prod`.
 
 | Stage | Branch source | Purpose | Required checks | Deployment target |
 |---|---|---|---|---|
-| Local | `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*` | Individual development | `npm run verify:local` | `vercel dev` or local preview |
+| Local | `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*`, `polish/*` | Individual development | `npm run verify:local` | `vercel dev` or local preview |
 | Dev | `dev` | Shared integration branch | GitHub `Quality Gate` + `Dev Smoke Gate` | Dedicated DEV Vercel domain |
 | Preview | PR `dev -> main` | Release candidate validation | GitHub `Quality Gate` + `Preview Release Gate` + manual QA | Vercel Preview deployment |
 | Prod | `main` | Production | Only merged release or hotfix PRs | Vercel Production |
 
 ## Branching rules
 
-- Branch feature, bug, fix, chore, and docs work from `dev`.
+- Branch feature, bug, fix, chore, docs, and polish work from `dev`.
 - Merge day-to-day work into `dev`, never directly into `main`.
 - Promote releases with a pull request from `dev` to `main`.
 - Use `hotfix/*` from `main` only for urgent production issues, then back-merge into `dev`.
