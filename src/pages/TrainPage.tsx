@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -6,10 +7,10 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ProgramContextBar } from '../components/dashboard/ProgramContextBar';
 import { programs } from '../data/programs';
+import { getExerciseNameMap } from '../lib/staticCatalogs';
 import { getCustomPrograms } from '../utils/localStorage';
 import { getNextWorkout } from '../utils/programUtils';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
-import { getExerciseById } from '../data/exercises';
 import {
   Play,
   Zap,
@@ -26,6 +27,7 @@ export function TrainPage() {
   const { state } = useApp();
   const navigate = useNavigate();
   const { session: activeSession } = useWorkoutSession();
+  const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
 
   const user = state.user;
   if (!user) return null;
@@ -34,6 +36,28 @@ export function TrainPage() {
   const program = allPrograms.find(p => p.id === user.activeProgramId) ?? null;
   const nextWorkout = program ? getNextWorkout(program) : null;
   const recentSessions = state.history.sessions.slice(0, 3);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!nextWorkout) {
+      setExerciseNames({});
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const ids = nextWorkout.day.exercises.slice(0, 5).map((exercise) => exercise.exerciseId);
+    void getExerciseNameMap(ids).then((names) => {
+      if (!cancelled) {
+        setExerciseNames(names);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nextWorkout]);
 
   return (
     <AppShell>
@@ -86,7 +110,7 @@ export function TrainPage() {
                   key={ex.exerciseId}
                   className="text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 capitalize"
                 >
-                  {getExerciseById(ex.exerciseId)?.name ?? ex.exerciseId.replace(/-/g, ' ')}
+                  {exerciseNames[ex.exerciseId] ?? ex.exerciseId.replace(/-/g, ' ')}
                 </span>
               ))}
               {nextWorkout.day.exercises.length > 5 && (
