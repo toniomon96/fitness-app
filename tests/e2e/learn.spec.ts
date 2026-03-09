@@ -31,4 +31,21 @@ test.describe('Learn', () => {
       ).toBeVisible({ timeout: 8_000 });
     }
   });
+
+  test('search no-results state shows clear recovery action', async ({ page }) => {
+    await page.route('**/api/recommend-content', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ recommendations: [], hasContentGap: false }),
+      });
+    });
+
+    await page.goto('/learn');
+    const searchInput = page.getByPlaceholder(/search topics, exercises, lessons/i);
+    await searchInput.fill('zzzz impossible query');
+
+    await expect(page.getByText(/no matching lessons yet/i)).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('button', { name: /clear search/i })).toBeVisible({ timeout: 5_000 });
+  });
 });

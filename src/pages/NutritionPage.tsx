@@ -359,10 +359,10 @@ export function NutritionPage() {
         <div className="flex flex-col items-center justify-center px-6 text-center gap-4 py-24">
           <span className="text-5xl">🥗</span>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-            Nutrition tracking requires an account
+            Nutrition is available with a free account
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs">
-            Create a free account to log meals, track macros, and monitor your nutrition alongside your training.
+            Create one to log meals, track macros, and keep your nutrition progress alongside your workouts.
           </p>
           <Button onClick={() => navigate('/onboarding')} size="lg">
             Create Free Account
@@ -495,10 +495,12 @@ export function NutritionPage() {
         {!loading && entries.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <span className="text-3xl">🥗</span>
-            <p className="text-sm text-slate-400">
-              No entries for {formatDisplayDate(date).toLowerCase()}.
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              No meals logged for {formatDisplayDate(date).toLowerCase()}
             </p>
-            <p className="text-xs text-slate-500">Tap "Log Food" to add your first meal.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Log food to track calories and macros for the day.
+            </p>
           </div>
         )}
 
