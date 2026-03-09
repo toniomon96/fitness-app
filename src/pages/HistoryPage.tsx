@@ -142,12 +142,12 @@ export function HistoryPage() {
         ) : ready ? (
           <EmptyState
             icon={<Clock size={40} />}
-            title="No workouts yet"
-            description="Complete your first workout to start building your history. Every session counts."
+            title="No workout history yet"
+            description="Finish your first session and your log, volume trends, and personal records will show up here."
             action={
               <Button onClick={() => navigate('/train')}>
                 <Play size={15} />
-                Start your first workout
+                Go to Train
               </Button>
             }
           />
