@@ -10,18 +10,41 @@ import { setUser, resetProgramCursors, getHistory } from '../../utils/localStora
 import { apiBase } from '../../lib/api';
 import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { upsertTrainingProfile, upsertSession, upsertPersonalRecords } from '../../lib/db';
 import { startGeneration } from '../../lib/programGeneration';
+
+async function signOutAuthSession() {
+  const { supabase } = await import('../../lib/supabase');
+  return supabase.auth.signOut();
+}
+
+async function resendSignupConfirmation(email: string) {
+  const { supabase } = await import('../../lib/supabase');
+  return supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+  });
+}
+
+async function upsertTrainingProfileToDb(userId: string, profile: UserTrainingProfile) {
+  const { upsertTrainingProfile } = await import('../../lib/db');
+  return upsertTrainingProfile(userId, profile);
+}
+
+async function migrateGuestHistory(userId: string): Promise<void> {
+  const history = getHistory();
+  if (history.sessions.length === 0 && history.personalRecords.length === 0) return;
+
+  const { upsertSession, upsertPersonalRecords } = await import('../../lib/db');
+  await Promise.all([
+    ...history.sessions.map((session) => upsertSession(session, userId)),
+    upsertPersonalRecords(history.personalRecords, userId),
+  ]);
+}
 
 /** Migrate any guest workout history + PRs to Supabase after account creation. Fire-and-forget. */
 function migrateGuestData(userId: string): void {
-  const history = getHistory();
-  if (history.sessions.length === 0 && history.personalRecords.length === 0) return;
-  Promise.all([
-    ...history.sessions.map(s => upsertSession(s, userId)),
-    upsertPersonalRecords(history.personalRecords, userId),
-  ]).catch(err => {
+  void migrateGuestHistory(userId).catch((err) => {
     console.warn('[OnboardingForm] Guest data migration failed:', err);
   });
 }
@@ -71,7 +94,7 @@ export function OnboardingForm() {
   function back() { setStep(s => Math.max(s - 1, 0)); }
 
   async function handleGoToSignIn() {
-    await supabase.auth.signOut();
+    await signOutAuthSession();
     navigate('/login');
   }
 
@@ -99,11 +122,7 @@ export function OnboardingForm() {
     setResendLoading(true);
     setResendSuccess(false);
     try {
-      await supabase.auth.resend({
-        type: 'signup',
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
+      await resendSignupConfirmation(email);
       setResendSuccess(true);
     } finally {
       setResendLoading(false);
@@ -193,7 +212,7 @@ export function OnboardingForm() {
 
       if (!profileRes.ok) {
         const body = await profileRes.json().catch(() => ({})) as { error?: string };
-        if (!repairMode) await supabase.auth.signOut();
+        if (!repairMode) await signOutAuthSession();
         const serverErr = body.error ?? '';
         setSubmitError(profileRes.status === 401
           ? 'An account with this email already exists. Please sign in instead.'
@@ -204,7 +223,7 @@ export function OnboardingForm() {
       }
 
       // 5. Store training profile (best-effort — used for generation resume on reload)
-      await upsertTrainingProfile(userId, profile).catch(() => {});
+      await upsertTrainingProfileToDb(userId, profile).catch(() => {});
 
       // 6. No session yet (email confirmation required) → show check-inbox screen
       if (!sessionAccessToken) {
