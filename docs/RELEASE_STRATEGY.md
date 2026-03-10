@@ -97,7 +97,7 @@ Recommended environment ownership:
 
 To automate the version-control promotion step:
 
-1. Check out `dev`
+1. In GitHub Actions, select the `dev` branch in the "Run workflow" branch selector (or use `gh workflow run "<workflow name>" --ref dev`).
 2. Run the `Promote dev to main` GitHub Actions workflow
 3. Review the created or updated release PR
 4. Let Vercel create the Preview deployment from that PR
