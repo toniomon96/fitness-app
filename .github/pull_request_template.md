@@ -4,7 +4,7 @@
 
 ## Promotion Path
 
-- [ ] `feature/*`, `bug/*`, `fix/*`, `chore/*`, or `docs/*` branch targeting `dev`
+- [ ] `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*`, or `polish/*` branch targeting `dev`
 - [ ] `dev -> main` release candidate targeting production
 - [ ] `hotfix/* -> main` urgent production patch
 

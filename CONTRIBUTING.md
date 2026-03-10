@@ -37,6 +37,7 @@ Use a promotion flow of `local -> dev -> preview -> prod`.
 | `fix/` | Bug fixes |
 | `chore/` | Dependencies, config, scripts |
 | `docs/` | Documentation only |
+| `polish/` | UX, copy, performance, or non-feature refinements |
 | `hotfix/` | Urgent production patches |
 
 Examples:
@@ -46,6 +47,7 @@ git checkout -b bug/learn-tab-regression
 git checkout -b fix/offline-sync-conflict
 git checkout -b chore/bump-capacitor-v9
 git checkout -b docs/update-roadmap
+git checkout -b polish/v1-launch-blockers
 ```
 
 ### Commit conventions
@@ -79,7 +81,7 @@ gh pr create --base dev --fill
 
 ### Release promotion
 
-1. `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*` branches merge into `dev`
+1. `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*`, and `polish/*` branches merge into `dev`
 2. `dev` auto-deploys to the shared DEV environment
 3. A `dev -> main` PR creates the Preview release candidate and runs the full preview gate
 4. `main` deploys to Prod only after the preview PR is approved and green

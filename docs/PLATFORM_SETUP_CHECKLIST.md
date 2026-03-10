@@ -75,12 +75,23 @@ Set:
 
 You want `dev` to be your shared internal environment.
 
+Important Vercel nuance:
+
+- A deployed `dev` branch is normally a `Preview` deployment in Vercel, not a `Development` deployment
+- Vercel `Development` environment variables are mainly for `vercel dev` and local `vercel env pull`
+- In the Domains UI, Vercel only lets you assign a domain to `Production` or `Preview`
+- A custom DEV hostname such as `dev.omnexus.fit` should therefore be attached as a `Preview` domain and pointed at the `dev` branch deployment
+- The simplest setup is:
+  - use `Development` variables for local work
+  - use `Preview` variables for the hosted `dev` branch and all PR previews
+  - use `Production` variables for `main`
+
 Set up:
 
 - `dev` branch deployment enabled
 - A stable DEV URL such as `dev.omnexus.fit`
 
-If Vercel does not automatically assign that stable DEV URL, add the domain and map it to the `dev` branch deployment.
+If Vercel does not automatically assign that stable DEV URL, add the domain as a `Preview` domain and map it to the `dev` branch deployment.
 
 ### Preview environment
 
@@ -110,13 +121,24 @@ Create separate values for:
 - `Preview`
 - `Production`
 
+Recommended mapping:
+
+- `Development`: local `vercel dev` only
+- `Preview`: hosted `dev` branch deployment and PR preview deployments
+- `Production`: `main`
+
 Use `docs/ENVIRONMENT_MATRIX.md` while entering them.
 
-At minimum review these variables one by one:
+Review these variables one by one:
 
+- `ANTHROPIC_API_KEY`
 - `APP_URL`
 - `ALLOWED_ORIGIN`
+- `CRON_SECRET`
+- `OPENAI_API_KEY`
+- `SEED_SECRET`
 - `VITE_API_BASE_URL`
+- `VITE_SITE_URL`
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -136,9 +158,11 @@ At minimum review these variables one by one:
 
 Recommended rules:
 
+- `APP_URL`, `ALLOWED_ORIGIN`, and `VITE_SITE_URL` should all point at the same public base URL for that environment
 - Local, DEV, and Preview should use non-production Stripe credentials
 - Prod should use live Stripe credentials only
 - Preview should not send real customer emails unless you explicitly want that
+- `CRON_SECRET` should be set anywhere Vercel cron jobs run
 
 ---
 

@@ -6,14 +6,14 @@ This repo should promote changes through `local -> dev -> preview -> prod`.
 
 | Stage | Branch source | Purpose | Required checks | Deployment target |
 |---|---|---|---|---|
-| Local | `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*` | Individual development | `npm run verify:local` | `vercel dev` or local preview |
+| Local | `feature/*`, `bug/*`, `fix/*`, `chore/*`, `docs/*`, `polish/*` | Individual development | `npm run verify:local` | `vercel dev` or local preview |
 | Dev | `dev` | Shared integration branch | GitHub `Quality Gate` + `Dev Smoke Gate` | Dedicated DEV Vercel domain |
 | Preview | PR `dev -> main` | Release candidate validation | GitHub `Quality Gate` + `Preview Release Gate` + manual QA | Vercel Preview deployment |
 | Prod | `main` | Production | Only merged release or hotfix PRs | Vercel Production |
 
 ## Branching rules
 
-- Branch feature, bug, fix, chore, and docs work from `dev`.
+- Branch feature, bug, fix, chore, docs, and polish work from `dev`.
 - Merge day-to-day work into `dev`, never directly into `main`.
 - Promote releases with a pull request from `dev` to `main`.
 - Use `hotfix/*` from `main` only for urgent production issues, then back-merge into `dev`.
@@ -65,6 +65,13 @@ Configure Vercel so the repo environments match the branch flow:
 2. DEV branch/domain: `dev` mapped to a stable internal URL such as `dev.omnexus.fit`
 3. Preview deployments: every PR, especially the `dev -> main` release PR
 4. Separate environment-variable scopes for Development, Preview, and Production
+
+Important Vercel nuance:
+
+- Vercel `Development` variables are primarily for local `vercel dev`
+- A hosted `dev` branch deployment normally uses `Preview` variables unless you set up branch-specific overrides or custom environments
+- A custom DEV domain in Vercel is normally attached as a `Preview` domain
+- The simplest safe setup is to treat hosted `dev` as `Preview` in Vercel, while still treating it as the repo's DEV stage
 
 Recommended environment ownership:
 
