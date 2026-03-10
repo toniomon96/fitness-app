@@ -405,6 +405,17 @@ Required schema:
   "tags": ["<goal>", "<split-type>", "<experience-level>"]
 }
 
+FINAL CHECKLIST before generating:
+- schedule length == ${profile.daysPerWeek} days
+- All exerciseIds are from the provided list
+- Every exercise has W1-W8 progression in its notes
+- Pull volume >= Push volume (rows + vertical pull >= bench + overhead)
+- Priority muscles (${priorityText}) have highest volume allocation
+- Session duration respected: ${durationGuide}
+- All injury accommodations applied
+- weeklyProgressionNotes has exactly 8 entries`;
+}
+
 function extractProgramJsonCandidate(text: string): string {
   const stripped = text
     .replace(/^```[a-z]*\n?/i, '')
@@ -419,17 +430,6 @@ function extractProgramJsonCandidate(text: string): string {
   }
 
   return stripped;
-}
-
-FINAL CHECKLIST before generating:
-- schedule length == ${profile.daysPerWeek} days
-- All exerciseIds are from the provided list
-- Every exercise has W1-W8 progression in its notes
-- Pull volume >= Push volume (rows + vertical pull >= bench + overhead)
-- Priority muscles (${priorityText}) have highest volume allocation
-- Session duration respected: ${durationGuide}
-- All injury accommodations applied
-- weeklyProgressionNotes has exactly 8 entries`;
 }
 
 // ─── Handler ────────────────────────────────────────────────────────────────────
