@@ -3,6 +3,7 @@
 Use this checklist whenever Omnexus is promoted from `dev` to `main`.
 
 Execution guide: see `docs/RELEASE_DAY.md` for step-by-step release-day operations.
+Security ops tracker: see `docs/PLATFORM_SECURITY_OPS.md`.
 
 ## 1. Local readiness
 

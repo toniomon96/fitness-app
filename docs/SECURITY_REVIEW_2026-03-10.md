@@ -37,10 +37,13 @@
 
 ## Migration and Env Requirements
 
-- Apply `docs/migrations/010_notification_events.sql`.
-- Apply `docs/migrations/011_auth_security_controls.sql`.
+- Migration status: completed manually on 2026-03-10.
+  - `docs/migrations/010_notification_events.sql`
+  - `docs/migrations/011_auth_security_controls.sql`
 - Set env vars for auth/server routes:
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY`
   - `AUTH_ATTEMPT_PEPPER` (recommended explicit secret for email-hash lockout keys)
+
+External platform follow-through is tracked in `docs/PLATFORM_SECURITY_OPS.md`.

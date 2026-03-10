@@ -141,6 +141,11 @@ export function LoginPage() {
         return;
       }
 
+      if (!data.session) {
+        setError('Sign in session is invalid. Please try again.');
+        return;
+      }
+
       // Fetch profile from Supabase to hydrate local state
       const user = await ensureProfileUser(data.session);
 

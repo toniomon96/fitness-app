@@ -10,6 +10,23 @@ This runbook tracks the remaining platform and security operations outside norma
 - In-repo auth and notification hardening: completed
 - Remaining items below are platform/external operations
 
+## Execution Tracker
+
+Use this as the source of truth while finishing launch security ops.
+
+| Item | Owner | Status | Target Date | Evidence Link/Note |
+|---|---|---|---|---|
+| Supabase MFA enforced for admin/staff accounts | Platform admin | Pending |  |  |
+| HTTPS/TLS and redirect verification complete | Platform admin | Pending |  |  |
+| Secret rotation complete (`service-role`, Stripe, Resend, OpenAI, Anthropic, `AUTH_ATTEMPT_PEPPER`) | Platform admin | Pending |  |  |
+| Auth lockout and 401/429 monitoring alerts configured | Platform admin | Pending |  |  |
+| Notification failure alerting (`notification_events`) configured | Platform admin | Pending |  |  |
+| External VA/PT completed and report received | Security lead | Pending |  |  |
+| VA/PT remediation and retest complete | Engineering + Security | Pending |  |  |
+| Final release security sign-off recorded | Engineering + Security | Pending |  |  |
+
+Status values: `Pending`, `In Progress`, `Blocked`, `Done`.
+
 ## 1. Supabase MFA (Admin/Staff)
 
 Owner: Platform admin
@@ -97,3 +114,9 @@ Sign-off template:
 - Engineering approver:
 - Security approver:
 - Notes:
+
+## Completion Criteria
+
+- All tracker rows are `Done`.
+- No open critical/high vulnerabilities without documented risk acceptance.
+- Sign-off fields are completed and linked in release PR.
