@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Play } from 'lucide-react';
+import { ChevronUp, Plus, Play } from 'lucide-react';
 import type { LoggedExercise, LoggedSet } from '../../types';
 import { SetRow } from './SetRow';
 import { getExerciseById, getExerciseYouTubeId } from '../../data/exercises';
