@@ -5,10 +5,11 @@ import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { TermHelpChips } from '../components/ui/TermHelpChips';
 import { ProgramContextBar } from '../components/dashboard/ProgramContextBar';
 import { programs } from '../data/programs';
 import { getExerciseNameMap } from '../lib/staticCatalogs';
-import { getCustomPrograms } from '../utils/localStorage';
+import { getCustomPrograms, getExperienceMode } from '../utils/localStorage';
 import { getNextWorkout } from '../utils/programUtils';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import {
@@ -25,6 +26,7 @@ import {
   Route,
   Apple,
 } from 'lucide-react';
+import { trackFeatureEntry } from '../lib/analytics';
 
 export function TrainPage() {
   const { state } = useApp();
@@ -40,6 +42,7 @@ export function TrainPage() {
   const nextWorkout = program ? getNextWorkout(program) : null;
   const recentSessions = state.history.sessions.slice(0, 3);
   const isFirstWorkout = state.history.sessions.length === 0;
+  const isGuidedMode = getExperienceMode(user.id) === 'guided';
 
   useEffect(() => {
     let cancelled = false;
@@ -91,10 +94,36 @@ export function TrainPage() {
           </Card>
         )}
 
+        {isGuidedMode && (
+          <TermHelpChips
+            title="Train terms explained"
+            terms={[
+              {
+                key: 'quick-log',
+                label: 'Quick Log',
+                description: 'Start a workout without a full program when you want flexibility.',
+              },
+              {
+                key: 'guided-session',
+                label: 'Guided Session',
+                description: 'A workout based on your selected program with structured sets and rest.',
+              },
+              {
+                key: 'program',
+                label: 'Program',
+                description: 'A multi-week training plan organized by workout days and progression.',
+              },
+            ]}
+          />
+        )}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => navigate('/guided-pathways')}
+            onClick={() => {
+              trackFeatureEntry({ source: 'train_card', destination: '/guided-pathways', label: 'guided_pathways' });
+              navigate('/guided-pathways');
+            }}
             className="w-full text-left"
           >
             <Card hover>
@@ -114,7 +143,10 @@ export function TrainPage() {
 
           <button
             type="button"
-            onClick={() => navigate('/nutrition')}
+            onClick={() => {
+              trackFeatureEntry({ source: 'train_card', destination: '/nutrition', label: 'nutrition_starter' });
+              navigate('/nutrition');
+            }}
             className="w-full text-left"
           >
             <Card hover>
@@ -230,7 +262,10 @@ export function TrainPage() {
               <button
                 key={to}
                 type="button"
-                onClick={() => navigate(to)}
+                onClick={() => {
+                  trackFeatureEntry({ source: 'train_tools', destination: to, label });
+                  navigate(to);
+                }}
                 className="rounded-2xl bg-slate-100 p-4 text-left text-slate-700 transition-colors hover:bg-brand-500/10 hover:text-brand-500 dark:bg-slate-800 dark:text-slate-300"
               >
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">

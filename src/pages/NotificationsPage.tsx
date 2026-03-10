@@ -1,4 +1,5 @@
 import { Bell, CheckCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
@@ -10,6 +11,7 @@ import {
 } from '../lib/notifications';
 import { useEffect, useMemo, useState } from 'react';
 import type { NotificationItem } from '../types';
+import { trackFeatureEntry } from '../lib/analytics';
 
 const KIND_LABEL: Record<NotificationItem['kind'], string> = {
   reminder: 'Reminder',
@@ -21,6 +23,7 @@ const KIND_LABEL: Record<NotificationItem['kind'], string> = {
 };
 
 export function NotificationsPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<NotificationItem[]>(() => getNotifications());
 
   useEffect(() => {
@@ -75,6 +78,14 @@ export function NotificationsPage() {
                   markNotificationRead(item.id);
                   setItems(getNotifications());
                 }
+                if (item.route) {
+                  trackFeatureEntry({
+                    source: 'notifications',
+                    destination: item.route,
+                    label: item.id,
+                  });
+                  navigate(item.route);
+                }
               }}
               className="w-full text-left"
             >
@@ -90,6 +101,9 @@ export function NotificationsPage() {
                     <p className="text-[10px] uppercase tracking-wider text-slate-400">{KIND_LABEL[item.kind]}</p>
                     <p className="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">{item.title}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.message}</p>
+                    {item.actionLabel && item.route && (
+                      <p className="text-[11px] font-semibold text-brand-500 mt-1.5">{item.actionLabel} →</p>
+                    )}
                   </div>
                 </div>
               </Card>

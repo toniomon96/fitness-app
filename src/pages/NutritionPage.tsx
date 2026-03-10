@@ -12,7 +12,9 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
+import { TermHelpChips } from '../components/ui/TermHelpChips';
 import { today as todayStr } from '../utils/dateUtils';
+import { getExperienceMode } from '../utils/localStorage';
 import {
   Plus,
   ChevronLeft,
@@ -230,6 +232,7 @@ export function NutritionPage() {
 
   const user = state.user;
   const isGuest = !!user?.isGuest;
+  const isGuidedMode = user ? getExperienceMode(user.id) === 'guided' : true;
 
   const [date, setDate] = useState(todayStr());
   const [entries, setEntries] = useState<NutritionLog[]>([]);
@@ -520,6 +523,29 @@ export function NutritionPage() {
             </div>
           </div>
         </Card>
+
+        {isGuidedMode && (
+          <TermHelpChips
+            title="Nutrition terms explained"
+            terms={[
+              {
+                key: 'calories',
+                label: 'Calories',
+                description: 'Your daily energy intake from food and drinks.',
+              },
+              {
+                key: 'macros',
+                label: 'Macros',
+                description: 'Protein, carbs, and fat. These shape recovery, energy, and body-composition goals.',
+              },
+              {
+                key: 'protein',
+                label: 'Protein target',
+                description: 'Daily protein goal to support muscle recovery and appetite control.',
+              },
+            ]}
+          />
+        )}
 
         {/* Quick-add recent meals */}
         {recentMeals.length > 0 && (

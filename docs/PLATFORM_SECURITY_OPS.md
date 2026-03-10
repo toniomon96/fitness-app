@@ -9,6 +9,7 @@ This runbook tracks the remaining platform and security operations outside norma
   - `docs/migrations/011_auth_security_controls.sql`
 - In-repo auth and notification hardening: completed
 - Remaining items below are platform/external operations
+- Product decision: external security operations are intentionally deferred for now; keep tracker current and revisit before release sign-off
 
 ## Execution Tracker
 

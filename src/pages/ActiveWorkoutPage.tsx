@@ -9,10 +9,11 @@ import { AddExerciseDrawer } from '../components/workout/AddExerciseDrawer';
 import { PRCelebration } from '../components/workout/PRCelebration';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { TermHelpChips } from '../components/ui/TermHelpChips';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useRestTimer } from '../hooks/useRestTimer';
 import { programs } from '../data/programs';
-import { getActiveSession, getCustomPrograms } from '../utils/localStorage';
+import { getActiveSession, getCustomPrograms, getExperienceMode } from '../utils/localStorage';
 import { formatDuration } from '../utils/dateUtils';
 import type { WorkoutSession, PersonalRecord } from '../types';
 import { Plus, X, StopCircle } from 'lucide-react';
@@ -58,6 +59,8 @@ export function ActiveWorkoutPage() {
   });
   const persistedSession = session ?? getActiveSession();
   const isFirstWorkout = state.history.sessions.length === 0;
+  const experienceMode = state.user ? getExperienceMode(state.user.id) : 'guided';
+  const isGuidedMode = experienceMode === 'guided';
 
   useEffect(() => {
     if (!session && persistedSession && !state.activeSession) {
@@ -229,6 +232,29 @@ export function ActiveWorkoutPage() {
               </button>
             </div>
           </div>
+
+          {isGuidedMode && (
+            <TermHelpChips
+              title="Workout terms explained"
+              terms={[
+                {
+                  key: 'rpe',
+                  label: 'RPE',
+                  description: 'Effort score from 1-10. Use it to record how hard a set felt.',
+                },
+                {
+                  key: 'rest',
+                  label: 'Rest Timer',
+                  description: 'Time between sets. Keeping rest consistent helps progress tracking.',
+                },
+                {
+                  key: 'pr',
+                  label: 'PR',
+                  description: 'Personal Record. You set one when you beat your previous best.',
+                },
+              ]}
+            />
+          )}
 
           {persistedSession.exercises.map((loggedEx, ei) => {
             const dayEx = trainingDay?.exercises[ei];

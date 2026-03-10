@@ -82,6 +82,8 @@ export interface NotificationItem {
   title: string;
   message: string;
   kind: 'reminder' | 'guidance' | 'insight' | 'feature' | 'training' | 'nutrition';
+  route?: string;
+  actionLabel?: string;
   createdAt: string;
   read: boolean;
 }

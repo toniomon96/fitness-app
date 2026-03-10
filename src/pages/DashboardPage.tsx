@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -11,6 +11,7 @@ import { MuscleHeatMap } from '../components/dashboard/MuscleHeatMap';
 import { ProgramContextBar } from '../components/dashboard/ProgramContextBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { programs } from '../data/programs';
 import { getNextWorkout } from '../utils/programUtils';
 import { getProgramWeekCursor, getCustomPrograms, setUser, getExperienceMode } from '../utils/localStorage';
@@ -37,6 +38,10 @@ import { clearGenerationState, getGenerationState } from '../lib/programGenerati
 import { formatDuration } from '../utils/dateUtils';
 import { applyAiProgramLifecycle } from '../utils/programLifecycle';
 import { setCustomPrograms } from '../utils/localStorage';
+import { trackFeatureEntry, trackReleaseModalEvent } from '../lib/analytics';
+
+const WHATS_NEW_RELEASE = 'guided-release-2026-03-10';
+const WHATS_NEW_KEY = `omnexus_whats_new_seen_${WHATS_NEW_RELEASE}`;
 
 async function syncAiProgramActivation(programId: string, userId: string, nextPrograms: typeof programs) {
   const [{ upsertCustomProgram }, { supabase }] = await Promise.all([
@@ -71,6 +76,7 @@ export function DashboardPage() {
   const { session: activeSession } = useWorkoutSession();
   const { status: genStatus, programId: generatedProgramId, generationState } = useProgramGeneration();
   const repairedMissingProgramRef = useRef(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   const user = state.user;
 
@@ -125,6 +131,20 @@ export function DashboardPage() {
     });
   }, [genStatus, generatedProgramId, generatedProgramExists, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    if (state.history.sessions.length === 0) return;
+    try {
+      const alreadySeen = localStorage.getItem(WHATS_NEW_KEY) === 'true';
+      if (!alreadySeen) {
+        setShowWhatsNew(true);
+        trackReleaseModalEvent({ action: 'shown', release: WHATS_NEW_RELEASE });
+      }
+    } catch {
+      // Ignore storage errors in private browsing modes.
+    }
+  }, [state.history.sessions.length, user]);
+
   if (!user) return null;
 
   const nextWorkout = program ? getNextWorkout(program) : null;
@@ -155,8 +175,31 @@ export function DashboardPage() {
     void restartProgramGeneration(user.id, stored.profile);
   }
 
+  function dismissWhatsNew() {
+    try {
+      localStorage.setItem(WHATS_NEW_KEY, 'true');
+    } catch {
+      // Ignore storage errors in private browsing modes.
+    }
+    setShowWhatsNew(false);
+    trackReleaseModalEvent({ action: 'dismissed', release: WHATS_NEW_RELEASE });
+  }
+
+  function openFromWhatsNew(route: string) {
+    try {
+      localStorage.setItem(WHATS_NEW_KEY, 'true');
+    } catch {
+      // Ignore storage errors in private browsing modes.
+    }
+    setShowWhatsNew(false);
+    trackReleaseModalEvent({ action: 'cta', release: WHATS_NEW_RELEASE, ctaTarget: route });
+    trackFeatureEntry({ source: 'whats_new_modal', destination: route });
+    navigate(route);
+  }
+
   return (
-    <AppShell>
+    <>
+      <AppShell>
       <TopBar title="Omnexus" />
 
       <div className="px-4 pb-6 space-y-4 mt-2">
@@ -262,7 +305,10 @@ export function DashboardPage() {
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => navigate('/guided-pathways')} className="w-full text-left">
+          <button type="button" onClick={() => {
+            trackFeatureEntry({ source: 'dashboard_card', destination: '/guided-pathways', label: 'guided_pathways' });
+            navigate('/guided-pathways');
+          }} className="w-full text-left">
             <Card hover className="h-full border-brand-400/30 bg-brand-50/40 dark:bg-brand-900/10">
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0">
@@ -278,7 +324,10 @@ export function DashboardPage() {
             </Card>
           </button>
 
-          <button type="button" onClick={() => navigate('/nutrition')} className="w-full text-left">
+          <button type="button" onClick={() => {
+            trackFeatureEntry({ source: 'dashboard_card', destination: '/nutrition', label: 'nutrition_starter' });
+            navigate('/nutrition');
+          }} className="w-full text-left">
             <Card hover className="h-full border-emerald-400/30 bg-emerald-50/40 dark:bg-emerald-900/10">
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
@@ -413,7 +462,10 @@ export function DashboardPage() {
               <button
                 key={to}
                 type="button"
-                onClick={() => navigate(to)}
+                onClick={() => {
+                  trackFeatureEntry({ source: 'dashboard_explore_more', destination: to, label });
+                  navigate(to);
+                }}
                 className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-left hover:border-brand-300 dark:hover:border-brand-700 transition-colors"
               >
                 <div className="flex items-center gap-2">
@@ -466,6 +518,32 @@ export function DashboardPage() {
         )}
 
       </div>
-    </AppShell>
+      </AppShell>
+
+      <Modal open={showWhatsNew} onClose={dismissWhatsNew} title="What's New in Omnexus">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            We added a guided beginner experience while keeping advanced depth.
+          </p>
+          <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+            <li>- Guided vs Advanced mode in Profile</li>
+            <li>- Guided Pathways for no-gym, consistency, and busy schedules</li>
+            <li>- Notifications center and clearer in-app terminology</li>
+            <li>- Equipment-first filters in Programs</li>
+          </ul>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <Button size="sm" onClick={() => openFromWhatsNew('/guided-pathways')}>
+              Open Pathways
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => openFromWhatsNew('/notifications')}>
+              View Updates
+            </Button>
+          </div>
+          <Button variant="ghost" onClick={dismissWhatsNew} fullWidth>
+            Continue
+          </Button>
+        </div>
+      </Modal>
+    </>
   );
 }
