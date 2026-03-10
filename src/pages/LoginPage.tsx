@@ -23,9 +23,20 @@ async function resendConfirmationEmail(email: string) {
 
 async function sendPasswordReset(email: string) {
   const { supabase } = await import('../lib/supabase');
-  return supabase.auth.resetPasswordForEmail(email, {
+  const response = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/auth/callback`,
   });
+
+  // Some environments (preview domains, localhost variants) may not be in
+  // Supabase's allowlist. Retry without a custom redirect so delivery still works.
+  if (response.error) {
+    const message = response.error.message.toLowerCase();
+    if (message.includes('redirect') || message.includes('allow')) {
+      return supabase.auth.resetPasswordForEmail(email);
+    }
+  }
+
+  return response;
 }
 
 export function LoginPage() {
@@ -102,7 +113,7 @@ export function LoginPage() {
     }
   }
 
-  async function handleForgotPassword(e: React.FormEvent) {
+  async function handleForgotPassword(e: React.SyntheticEvent) {
     e.preventDefault();
     setForgotError('');
     setForgotLoading(true);
@@ -176,7 +187,7 @@ export function LoginPage() {
                 Check your email for a password reset link.
               </p>
             ) : (
-              <form onSubmit={handleForgotPassword} className="space-y-3">
+              <div className="space-y-3">
                 <Input
                   label="Your email"
                   type="email"
@@ -190,13 +201,14 @@ export function LoginPage() {
                   <p className="text-sm text-red-400">{forgotError}</p>
                 )}
                 <Button
-                  type="submit"
+                  type="button"
                   fullWidth
                   disabled={forgotLoading || !forgotEmail}
+                  onClick={(e) => void handleForgotPassword(e)}
                 >
                   {forgotLoading ? 'Sending…' : 'Send Reset Link'}
                 </Button>
-              </form>
+              </div>
             )}
           </div>
         )}
