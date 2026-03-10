@@ -235,6 +235,25 @@ See `docs/RELEASE_CHECKLIST.md` for release-day execution.
 See `docs/ENVIRONMENT_MATRIX.md` for environment-specific variables and service expectations.
 See `docs/PLATFORM_SETUP_CHECKLIST.md` for the exact GitHub, Vercel, Supabase, and Stripe setup tasks that still need manual admin access.
 
+## CI Gate Matrix
+
+| Trigger | Gate | Command | Coverage |
+|---|---|---|---|
+| Push to `dev` | Dev Verification Gate | `npm run verify:dev` | `lint` + `typecheck` + `unit` + `build` + smoke E2E |
+| PR into `dev` | Dev Verification Gate | `npm run verify:dev` | `lint` + `typecheck` + `unit` + `build` + smoke E2E |
+| Push to `main` | Production Verification Gate | `npm run verify:prod` | `lint` + `typecheck` + `unit` + `build` + full E2E |
+| PR into `main` | Production Verification Gate | `npm run verify:prod` | `lint` + `typecheck` + `unit` + `build` + full E2E |
+| Manual release workflow (`target=preview`) | Manual Release Verification | `npm run verify:preview` | `lint` + `typecheck` + `unit` + `build` + full E2E |
+| Manual release workflow (`target=production`) | Manual Release Verification | `npm run verify:prod` | `lint` + `typecheck` + `unit` + `build` + full E2E |
+
+Required CI secrets for E2E:
+
+| Secret | Purpose |
+|---|---|
+| `E2E_BASE_URL` | Environment URL under test (preview or deployed app) |
+| `E2E_TEST_EMAIL` | Dedicated test account email for auth E2E flows |
+| `E2E_TEST_PASSWORD` | Dedicated test account password for auth E2E flows |
+
 ### Required Vercel environment variables
 
 | Variable | Used by |
