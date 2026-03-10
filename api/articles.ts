@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { HealthArticle, LearningCategory } from '../src/types/index.js';
-import { setCorsHeaders, ALLOWED_ORIGIN } from './_cors.js';
+import { setCorsHeaders } from './_cors.js';
 import { checkRateLimit } from './_rateLimit.js';
 
 // ─── PubMed search queries per category ──────────────────────────────────────
@@ -85,7 +85,7 @@ async function fetchAbstracts(ids: string[]): Promise<Record<string, string>> {
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res, ALLOWED_ORIGIN);
+  if (!setCorsHeaders(req, res)) return;
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') {
