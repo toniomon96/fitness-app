@@ -290,7 +290,7 @@ export function ProfilePage() {
         return;
       }
 
-      localStorage.clear();
+      clearAppStorage();
       await signOut();
       navigate('/login', { replace: true });
     } catch {
