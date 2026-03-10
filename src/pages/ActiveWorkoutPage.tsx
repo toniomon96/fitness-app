@@ -141,7 +141,8 @@ export function ActiveWorkoutPage() {
     <>
       <AppShell hideNav>
         {/* Fixed header */}
-        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/90 pt-safe">
+        <div className="sticky top-0 z-30 -mx-0 lg:-mx-6 border-b border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/95 pt-safe">
+          <div className="flex min-h-14 items-center justify-between gap-3 px-4 py-2">
           <div>
             <p className="text-xs font-medium text-slate-400">
               {trainingDay?.label ?? 'Workout'}
@@ -164,6 +165,7 @@ export function ActiveWorkoutPage() {
               <StopCircle size={16} />
               Finish
             </Button>
+          </div>
           </div>
         </div>
 
