@@ -66,7 +66,7 @@ const MAX_HISTORY_ITEMS = 4;
 const MAX_HISTORY_CONTENT = 2000;
 const CLAUDE_TIMEOUT_MS = 12000;
 const CLAUDE_RETRY_TIMEOUT_MS = 8000;
-const CLAUDE_STREAM_TIMEOUT_MS = 20000;
+const CLAUDE_STREAM_TIMEOUT_MS = 30000;
 const CLAUDE_PRIMARY_MODEL = process.env.ASK_MODEL ?? 'claude-3-5-haiku-20241022';
 const CLAUDE_FALLBACK_MODEL = process.env.ASK_FALLBACK_MODEL ?? 'claude-sonnet-4-6';
 
@@ -391,25 +391,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let streamedAnswer = '';
       try {
-        try {
-          await streamClaudeText({
-            model: CLAUDE_PRIMARY_MODEL,
-            maxTokens,
-            system: SYSTEM_PROMPT,
-            messages,
-            onText: (delta) => {
-              streamedAnswer += delta;
-              writeSseEvent(res, 'chunk', { text: delta });
-            },
-          });
-        } catch (streamErr: unknown) {
-          if (
-            isModelNotFoundError(streamErr) &&
-            CLAUDE_FALLBACK_MODEL !== CLAUDE_PRIMARY_MODEL
-          ) {
-            streamedAnswer = '';
+        const streamModels = [
+          CLAUDE_PRIMARY_MODEL,
+          ...(CLAUDE_FALLBACK_MODEL !== CLAUDE_PRIMARY_MODEL ? [CLAUDE_FALLBACK_MODEL] : []),
+        ];
+
+        let lastStreamError: unknown;
+        for (const model of streamModels) {
+          try {
             await streamClaudeText({
-              model: CLAUDE_FALLBACK_MODEL,
+              model,
               maxTokens,
               system: SYSTEM_PROMPT,
               messages,
@@ -418,13 +409,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 writeSseEvent(res, 'chunk', { text: delta });
               },
             });
-          } else {
+
+            if (streamedAnswer.trim()) {
+              break;
+            }
+            lastStreamError = new Error('Anthropic stream produced empty response');
+          } catch (streamErr: unknown) {
+            lastStreamError = streamErr;
+            // If we already streamed usable content, keep it instead of hard failing.
+            if (streamedAnswer.trim()) {
+              break;
+            }
+
+            // Try next model when this one is unavailable/upstream-failing/timeouts.
+            if (
+              isModelNotFoundError(streamErr) ||
+              classifyDegradedReason(streamErr) === 'anthropic_upstream_error' ||
+              classifyDegradedReason(streamErr) === 'anthropic_timeout'
+            ) {
+              continue;
+            }
+
             throw streamErr;
           }
         }
 
         if (!streamedAnswer.trim()) {
-          throw new Error('Anthropic stream produced empty response');
+          throw lastStreamError ?? new Error('Anthropic stream produced empty response');
         }
 
         writeSseEvent(res, 'done', { answer: streamedAnswer, citations });
