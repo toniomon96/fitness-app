@@ -22,6 +22,8 @@ import {
   AlertCircle,
   History,
   CircleHelp,
+  Route,
+  Apple,
 } from 'lucide-react';
 
 export function TrainPage() {
@@ -88,6 +90,48 @@ export function TrainPage() {
             </div>
           </Card>
         )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => navigate('/guided-pathways')}
+            className="w-full text-left"
+          >
+            <Card hover>
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0">
+                  <Route size={18} className="text-brand-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Beginner Guided Pathways</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Choose goals like No Gym, Build Consistency, or Stay Active While Busy.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/nutrition')}
+            className="w-full text-left"
+          >
+            <Card hover>
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+                  <Apple size={18} className="text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Start a Nutrition Plan</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Get beginner-friendly nutrition guidance and realistic daily steps.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+        </div>
 
         {/* Resume active workout banner */}
         {activeSession && (

@@ -58,10 +58,11 @@ export function ExerciseBlock({
             {youtubeId && (
               <button
                 onClick={() => setShowDemo((open) => !open)}
-                className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-brand-500 hover:border-brand-400/60 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 aria-label="Watch demo"
               >
-                {isDemoVisible ? <ChevronUp size={14} /> : <Play size={14} />}
+                {isDemoVisible ? <ChevronUp size={13} /> : <Play size={13} />}
+                <span>{isDemoVisible ? 'Hide demo' : 'Show demo'}</span>
               </button>
             )}
             <span className="text-sm font-medium text-slate-500 dark:text-slate-400">

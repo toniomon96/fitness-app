@@ -77,6 +77,15 @@ export interface NotificationPreferences {
   timezone: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  kind: 'reminder' | 'guidance' | 'insight' | 'feature' | 'training' | 'nutrition';
+  createdAt: string;
+  read: boolean;
+}
+
 // ─── Subscription ─────────────────────────────────────────────────────────────
 
 export interface SubscriptionStatus {

@@ -346,7 +346,7 @@ export function OnboardingForm() {
           <div className="space-y-6 max-w-2xl">
             <div>
               <h1 className="text-3xl font-bold text-white">Create account</h1>
-              <p className="mt-2 text-slate-400">Sign up to sync your data across all devices.</p>
+              <p className="mt-2 text-slate-400">Create your account to save progress and keep your plan synced across devices.</p>
             </div>
             {submitError && (
               <p className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
@@ -364,6 +364,7 @@ export function OnboardingForm() {
               autoComplete="email"
               onKeyDown={e => e.key === 'Enter' && nextFromAccount()}
             />
+            <p className="-mt-4 text-xs text-slate-500">Use an email you can access for confirmation and password resets.</p>
             <div className="relative">
               <Input
                 label="Password"
@@ -375,6 +376,7 @@ export function OnboardingForm() {
                 autoComplete="new-password"
                 onKeyDown={e => e.key === 'Enter' && nextFromAccount()}
               />
+              <p className="mt-1 text-xs text-slate-500">Use a phrase you can remember, like 3-4 words with numbers.</p>
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
@@ -398,7 +400,7 @@ export function OnboardingForm() {
           <div className="space-y-6 max-w-2xl">
             <div>
               <h1 className="text-3xl font-bold text-white">What's your name?</h1>
-              <p className="mt-2 text-slate-400">This is how Omnexus will greet you.</p>
+              <p className="mt-2 text-slate-400">This helps personalize your coaching messages.</p>
             </div>
             <Input
               label="Your name"
@@ -410,6 +412,7 @@ export function OnboardingForm() {
               onKeyDown={e => e.key === 'Enter' && nextFromName()}
               className="text-lg py-3"
             />
+            <p className="-mt-4 text-xs text-slate-500">You can use a first name or nickname.</p>
           </div>
         )}
 

@@ -685,6 +685,9 @@ export function NutritionPage() {
             <p className="text-xs text-slate-400">
               Generate a one-day meal plan matching your macro goals ({goals.calories} kcal, {goals.proteinG}g protein).
             </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Beginner tip: choose a plan style first, then keep food preferences simple. You can refine later.
+            </p>
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Choose a guided plan</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -715,10 +718,11 @@ export function NutritionPage() {
                 ))}
               </ul>
             </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Advanced preferences (optional)</p>
             <textarea
               value={mealPlanPrefs}
               onChange={(e) => setMealPlanPrefs(e.target.value)}
-              placeholder="Any dietary preferences or restrictions? (e.g. vegetarian, no gluten, high fiber…)"
+              placeholder="Examples: vegetarian, no gluten, low dairy, quick meals, budget-friendly"
               rows={3}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-brand-500"
             />

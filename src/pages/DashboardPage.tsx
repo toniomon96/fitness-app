@@ -13,7 +13,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { programs } from '../data/programs';
 import { getNextWorkout } from '../utils/programUtils';
-import { getProgramWeekCursor, getCustomPrograms, setUser } from '../utils/localStorage';
+import { getProgramWeekCursor, getCustomPrograms, setUser, getExperienceMode } from '../utils/localStorage';
 import { calculateStreak, getWeekStart } from '../utils/dateUtils';
 import {
   Play,
@@ -24,6 +24,12 @@ import {
   CheckCircle2,
   RefreshCw,
   RotateCcw,
+  Apple,
+  Route,
+  Ruler,
+  Calculator,
+  BookOpen,
+  ClipboardPen,
 } from 'lucide-react';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useProgramGeneration } from '../hooks/useProgramGeneration';
@@ -123,6 +129,8 @@ export function DashboardPage() {
 
   const nextWorkout = program ? getNextWorkout(program) : null;
   const week = program ? getProgramWeekCursor(program.id) : 1;
+  const experienceMode = getExperienceMode(user.id);
+  const isGuidedMode = experienceMode === 'guided';
 
   const sessionDates = state.history.sessions.map(s => s.startedAt);
   const completedSessions = state.history.sessions.filter((s) => s.completedAt);
@@ -253,6 +261,40 @@ export function DashboardPage() {
           />
         )}
 
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button type="button" onClick={() => navigate('/guided-pathways')} className="w-full text-left">
+            <Card hover className="h-full border-brand-400/30 bg-brand-50/40 dark:bg-brand-900/10">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0">
+                  <Route size={16} className="text-brand-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Guided Pathways</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    New to fitness? Pick a simple path and start with clear next actions.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+
+          <button type="button" onClick={() => navigate('/nutrition')} className="w-full text-left">
+            <Card hover className="h-full border-emerald-400/30 bg-emerald-50/40 dark:bg-emerald-900/10">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+                  <Apple size={16} className="text-emerald-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Nutrition Starter</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Build a beginner-friendly meal plan with practical daily tips.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+        </div>
+
         {/* ── Subtle generating placeholder (no spinner card) ──────── */}
         {!activeSession && !program && genStatus === 'generating' && (
           <Card className="border-dashed border-slate-300 dark:border-slate-700">
@@ -349,7 +391,51 @@ export function DashboardPage() {
         <MuscleHeatMap sessions={state.history.sessions} />
 
         {/* ── Weekly recap ──────────────────────────────────────────── */}
-        <WeeklyRecapCard sessions={state.history.sessions} />
+        {!isGuidedMode && <WeeklyRecapCard sessions={state.history.sessions} />}
+
+        {/* ── Feature discovery (surfaces less-visible tools) ───────── */}
+        <Card>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Explore More Features</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Useful tools that are easy to miss if you stay on the main tabs.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              { to: '/measurements', icon: Ruler, label: 'Measurements' },
+              { to: '/tools/plate-calculator', icon: Calculator, label: 'Plate Calculator' },
+              { to: '/library', icon: BookOpen, label: 'Exercise Library' },
+              { to: '/workout/quick', icon: ClipboardPen, label: 'Quick Log' },
+            ].map(({ to, icon: Icon, label }) => (
+              <button
+                key={to}
+                type="button"
+                onClick={() => navigate(to)}
+                className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-left hover:border-brand-300 dark:hover:border-brand-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon size={14} className="text-slate-500" />
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{label}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {isGuidedMode && (
+          <Card className="border-slate-200 dark:border-slate-700">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">Quick Glossary</p>
+            <div className="mt-2 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <p><span className="font-semibold">RPE:</span> effort score from 1-10 (10 means max effort).</p>
+              <p><span className="font-semibold">Deload:</span> a lighter recovery week to reduce fatigue.</p>
+              <p><span className="font-semibold">Split:</span> how workouts are organized across the week.</p>
+              <p><span className="font-semibold">Volume:</span> total work done (sets x reps x weight).</p>
+            </div>
+          </Card>
+        )}
 
         {/* ── Deload warning ────────────────────────────────────────── */}
         {program && week >= 4 && (
@@ -357,10 +443,12 @@ export function DashboardPage() {
             <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                Consider a deload week
+                {isGuidedMode ? 'Consider a lighter recovery week' : 'Consider a deload week'}
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                {week}+ weeks on the same program. A deload helps recovery and prevents burnout.
+                {isGuidedMode
+                  ? `${week}+ weeks on the same program. A lighter week helps your body recover and keeps progress steady.`
+                  : `${week}+ weeks on the same program. A deload helps recovery and prevents burnout.`}
               </p>
               <button
                 onClick={() =>
