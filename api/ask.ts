@@ -57,7 +57,8 @@ End EVERY response with this exact line:
 
 const MAX_HISTORY_ITEMS = 4;
 const MAX_HISTORY_CONTENT = 2000;
-const CLAUDE_TIMEOUT_MS = 9000;
+const CLAUDE_TIMEOUT_MS = 12000;
+const CLAUDE_RETRY_TIMEOUT_MS = 8000;
 
 // ─── Handler ────────────────────────────────────────────────────────────────────
 
@@ -204,17 +205,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const finalUserMessage = contextBlock + userMessage;
     const messages: MessageParam[] = [...history, { role: 'user', content: finalUserMessage }];
 
-    const message = await Promise.race([
-      anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: isPremium ? 2000 : 1024,
-        system: SYSTEM_PROMPT,
-        messages,
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Claude request timed out')), CLAUDE_TIMEOUT_MS),
-      ),
-    ]);
+    const runClaudeCall = async (timeoutMs: number) => {
+      return await Promise.race([
+        anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: isPremium ? 2000 : 1024,
+          system: SYSTEM_PROMPT,
+          messages,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Claude request timed out')), timeoutMs),
+        ),
+      ]);
+    };
+
+    let message;
+    try {
+      message = await runClaudeCall(CLAUDE_TIMEOUT_MS);
+    } catch (err) {
+      const messageText = err instanceof Error ? err.message : '';
+      if (!messageText.includes('Claude request timed out')) {
+        throw err;
+      }
+      // One retry significantly reduces transient timeout fallbacks during upstream spikes.
+      message = await runClaudeCall(CLAUDE_RETRY_TIMEOUT_MS);
+    }
 
     const block = message.content[0];
     if (block.type !== 'text') throw new Error('Unexpected Claude response type');
