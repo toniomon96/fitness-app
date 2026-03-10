@@ -210,19 +210,35 @@ export function InsightsPage() {
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
             Ask a Follow-Up
           </p>
-          <div className="space-y-2">
-            {QUICK_QUESTIONS.map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => navigate('/ask', { state: { prefill: q } })}
-                className="w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
-              >
-                <MessageCircle size={14} className="text-brand-500 shrink-0" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">{q}</span>
-              </button>
-            ))}
-          </div>
+          {user.isGuest ? (
+            <Card className="border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Follow-up coaching from Insights is available with an account.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" onClick={() => navigate('/onboarding')}>
+                  Create Account
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/login')}>
+                  Sign In
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {QUICK_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => navigate('/ask', { state: { prefill: q } })}
+                  className="w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
+                >
+                  <MessageCircle size={14} className="text-brand-500 shrink-0" />
+                  <span className="text-sm text-slate-700 dark:text-slate-300">{q}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Safety notice */}
