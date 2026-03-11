@@ -41,18 +41,14 @@ const PATTERN_LABELS: Record<string, string> = {
 
 interface ExerciseCardProps {
   exercise: Exercise;
-  onSelect?: (id: string) => void;
+  onQuickAdd?: (id: string) => void;
 }
 
-export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: ExerciseCardProps) {
+export const ExerciseCard = memo(function ExerciseCard({ exercise, onQuickAdd }: ExerciseCardProps) {
   const navigate = useNavigate();
 
   function handleClick() {
-    if (onSelect) {
-      onSelect(exercise.id);
-    } else {
-      navigate(`/library/${exercise.id}`);
-    }
+    navigate(`/library/${exercise.id}`);
   }
 
   return (
@@ -81,12 +77,12 @@ export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: E
             ))}
           </div>
         </div>
-        {onSelect && (
+        {onQuickAdd && (
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onSelect(exercise.id);
+              onQuickAdd(exercise.id);
             }}
             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:text-brand-500"
             aria-label={`Add ${exercise.name} to quick workout`}
@@ -95,7 +91,7 @@ export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: E
             Add
           </button>
         )}
-        {!onSelect && <ChevronRight size={16} className="shrink-0 text-slate-400" />}
+        <ChevronRight size={16} className="shrink-0 text-slate-400" />
       </div>
     </Card>
   );

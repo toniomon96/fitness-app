@@ -100,7 +100,7 @@ export function TrainPage() {
             terms={[
               {
                 key: 'quick-log',
-                label: 'Quick Log',
+                label: 'Quick Session',
                 description: 'Start a workout without a full program when you want flexibility.',
               },
               {

@@ -465,7 +465,7 @@ export function DashboardPage() {
               { to: '/measurements', icon: Ruler, label: 'Measurements' },
               { to: '/tools/plate-calculator', icon: Calculator, label: 'Plate Calculator' },
               { to: '/library', icon: BookOpen, label: 'Exercise Library' },
-              { to: '/workout/quick', icon: ClipboardPen, label: 'Quick Log' },
+              { to: '/workout/quick', icon: ClipboardPen, label: 'Quick Session' },
             ].map(({ to, icon: Icon, label }) => (
               <button
                 key={to}

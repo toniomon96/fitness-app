@@ -189,7 +189,7 @@ describe('/api/ask streaming mode', () => {
     } as Response)));
 
     const { default: askHandler } = await import('./ask.js');
-    const { res, getStatusCode, getWrites } = createRes();
+    const { res, getStatusCode } = createRes();
 
     await askHandler(
       createReq({ question: 'token expired', stream: true }, { authorization: 'Bearer stale' }),

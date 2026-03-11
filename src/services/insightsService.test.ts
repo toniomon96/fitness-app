@@ -79,7 +79,7 @@ describe('buildInsightRequest', () => {
         makeSession(`s${i}`, `2025-03-${day}T10:00:00Z`, `2025-03-${day}T11:00:00Z`),
       );
     }
-    const result = await buildInsightRequest(sessions, user);
+    const result = await buildInsightRequest(sessions, user, 'kg');
     // The summary should contain session log lines — count them
     const lines = result!.workoutSummary.split('\n').filter((l) => l.includes('kg volume'));
     expect(lines.length).toBeLessThanOrEqual(20);
@@ -97,7 +97,7 @@ describe('buildInsightRequest', () => {
     const s1 = makeSession('s1', '2025-03-01T10:00:00Z', '2025-03-01T11:00:00Z');
     const s2 = makeSession('s2', '2025-03-02T10:00:00Z', '2025-03-02T11:00:00Z');
     // Each session has totalVolumeKg = 640, avg = 640
-    const result = await buildInsightRequest([s1, s2], user);
+    const result = await buildInsightRequest([s1, s2], user, 'kg');
     expect(result!.workoutSummary).toContain('Average session volume: 640 kg');
   });
 

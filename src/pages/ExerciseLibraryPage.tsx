@@ -82,7 +82,7 @@ export function ExerciseLibraryPage() {
               <ExerciseCard
                 key={ex.id}
                 exercise={ex}
-                onSelect={(id) => navigate('/workout/quick', { state: { preselectedExerciseId: id } })}
+                onQuickAdd={(id) => navigate('/workout/quick', { state: { preselectedExerciseId: id } })}
               />
             ))}
           </div>
