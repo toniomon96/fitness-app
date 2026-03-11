@@ -10,8 +10,9 @@ test.describe('Measurements', () => {
     await page.goto('/measurements');
 
     await expect(page.getByText(/guest entries stay on this device/i)).toBeVisible({ timeout: 5_000 });
+    await page.getByRole('button', { name: /^weight$/i }).click();
 
-    await page.getByLabel(/enter your body weight/i).fill('80.5');
+    await page.getByTestId('measurement-value-input').fill('80.5');
     await page.locator('input[type="date"]').fill('2025-03-15');
     await page.getByRole('button', { name: /add entry/i }).click();
 

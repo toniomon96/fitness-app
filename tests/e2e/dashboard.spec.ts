@@ -86,7 +86,7 @@ test.describe('Dashboard — guest', () => {
     await expect(page).toHaveURL('/programs');
 
     await page.goto('/');
-    await page.getByRole('button', { name: /quick log/i }).click();
+    await page.getByTestId('dashboard-no-program-quick-log').click();
     await expect(page).toHaveURL('/workout/quick');
   });
 

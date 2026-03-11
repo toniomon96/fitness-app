@@ -25,10 +25,22 @@ export async function signIn(page: Page, email = TEST_USER.email, password = TES
   await page.getByLabel('Email').fill(email);
   await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.waitForURL((url) => {
-    const pathname = url.pathname.replace(/\/+$/, '') || '/';
-    return pathname === '/' || pathname === '/onboarding';
-  });
+
+  // Mobile Chrome in CI can take longer to complete auth redirects.
+  try {
+    await page.waitForURL((url) => {
+      const pathname = url.pathname.replace(/\/+$/, '') || '/';
+      return pathname === '/' || pathname === '/onboarding';
+    }, { timeout: 60_000 });
+  } catch {
+    const authError = await page
+      .locator('p')
+      .filter({ hasText: /sign in failed|invalid|too many failed sign-in attempts|email not confirmed/i })
+      .first()
+      .textContent()
+      .catch(() => null);
+    throw new Error(`Sign-in did not navigate from /login. ${authError ? `Visible auth error: ${authError}` : 'No auth error text was detected.'}`);
+  }
 
   if (isOnboardingUrl(page.url())) {
     return 'onboarding' as const;
