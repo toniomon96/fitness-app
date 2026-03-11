@@ -382,7 +382,11 @@ export function DashboardPage() {
             </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button onClick={() => navigate('/programs')}>Browse Programs</Button>
-              <Button variant="secondary" onClick={() => navigate('/workout/quick')}>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/workout/quick')}
+                data-testid="dashboard-no-program-quick-log"
+              >
                 Quick Log
               </Button>
             </div>

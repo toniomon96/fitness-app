@@ -240,7 +240,7 @@ export function TrainPage() {
               Start a quick workout now, or choose a program for guided day-by-day training.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-              <Button onClick={() => navigate('/workout/quick')}>
+              <Button onClick={() => navigate('/workout/quick')} data-testid="train-no-program-quick-log">
                 <Zap size={15} />
                 Quick Log
               </Button>

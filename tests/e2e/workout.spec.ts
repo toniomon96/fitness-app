@@ -245,7 +245,7 @@ test.describe('Quick log workout', () => {
     await page.goto('/train');
     await expect(page.getByText(/no program selected/i)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('button', { name: /browse programs/i })).toBeVisible({ timeout: 5_000 });
-    await page.getByRole('button', { name: /^quick log$/i }).first().click();
+    await page.getByTestId('train-no-program-quick-log').click();
     await expect(page).toHaveURL('/workout/quick');
     await expect(page.getByRole('heading', { name: /^quick log$/i })).toBeVisible({ timeout: 5_000 });
   });

@@ -245,6 +245,7 @@ export function MeasurementsPage() {
                 label={metricCopy[selectedMetric].label}
                 placeholder={metricCopy[selectedMetric].placeholder}
                 hint={metricCopy[selectedMetric].hint}
+                data-testid="measurement-value-input"
                 min={0}
                 step={0.1}
               />
