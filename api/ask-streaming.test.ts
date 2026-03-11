@@ -166,7 +166,7 @@ describe('/api/ask streaming mode', () => {
     expect(getJsonBody()).toEqual({ error: 'AI service is not configured' });
   });
 
-  it('continues as guest when bearer token is invalid', async () => {
+  it('rejects request when bearer token is invalid', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-key';
     process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
@@ -189,14 +189,13 @@ describe('/api/ask streaming mode', () => {
     } as Response)));
 
     const { default: askHandler } = await import('./ask.js');
-    const { res, getStatusCode, getWrites } = createRes();
+    const { res, getStatusCode } = createRes();
 
     await askHandler(
       createReq({ question: 'token expired', stream: true }, { authorization: 'Bearer stale' }),
       res,
     );
 
-    expect(getStatusCode()).toBe(200);
-    expect(getWrites()).toContain('Guest OK');
+    expect(getStatusCode()).toBe(401);
   });
 });

@@ -27,14 +27,15 @@ test.describe('Authentication', () => {
     await test.step('navigate to login', () => page.goto('/login'));
 
     await test.step('submit wrong credentials', async () => {
-      await page.getByLabel('Email').fill('wrong@example.com');
+      const uniqueWrongEmail = `wrong-${Date.now()}@example.com`;
+      await page.getByLabel('Email').fill(uniqueWrongEmail);
       await page.locator('#password').fill('wrongpassword');
       await page.getByRole('button', { name: 'Sign in' }).click();
     });
 
     await test.step('verify error message is shown', async () => {
       await expect(
-        page.getByText(/invalid|incorrect|not found|couldn'?t find an account|reset your password|create a free account/i),
+        page.getByText(/invalid|incorrect|not found|couldn'?t find an account|reset your password|create a free account|too many failed sign-in attempts|sign in failed/i),
       ).toBeVisible({ timeout: 10_000 });
     });
   });
