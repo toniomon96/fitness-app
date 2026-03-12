@@ -7,8 +7,13 @@ import { Card } from '../ui/Card';
 import { ChevronDown, ChevronUp, Timer, Zap, Trophy, Gauge, Pencil, Check, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useWeightUnit } from '../../hooks/useWeightUnit';
 import { formatMass, formatWeightValue, toStoredWeight } from '../../utils/weightUnits';
+import { WorkoutSyncStatusBadge } from '../workout/WorkoutSyncStatusBadge';
+import { canRetryWorkoutSync, getWorkoutSyncStatusCopy } from '../../utils/workoutSync';
+import { useWorkoutSession } from '../../hooks/useWorkoutSession';
+import { RefreshCw } from 'lucide-react';
 
 interface LogCardProps {
   session: WorkoutSession;
@@ -18,9 +23,12 @@ interface LogCardProps {
 export function LogCard({ session, exerciseNames }: LogCardProps) {
   const { dispatch } = useApp();
   const { session: authSession } = useAuth();
+  const { toast } = useToast();
+  const { retryWorkoutSync } = useWorkoutSession();
   const weightUnit = useWeightUnit();
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   // Draft edits: exerciseId -> setIndex -> { weight, reps }
   const [drafts, setDrafts] = useState<Record<string, Record<number, { weight: string; reps: string }>>>({});
 
@@ -29,6 +37,8 @@ export function LogCard({ session, exerciseNames }: LogCardProps) {
   const hasPRs = session.exercises.some((e) =>
     e.sets.some((s) => s.isPersonalRecord),
   );
+  const syncCopy = getWorkoutSyncStatusCopy(session.syncStatus);
+  const canRetrySync = canRetryWorkoutSync(session, Boolean(authSession?.user?.id));
 
   const rpeValues = session.exercises
     .flatMap((e) => e.sets)
@@ -94,6 +104,16 @@ export function LogCard({ session, exerciseNames }: LogCardProps) {
     setDrafts({});
   }
 
+  async function handleRetrySync() {
+    if (!canRetrySync || retrying) return;
+    setRetrying(true);
+    const result = await retryWorkoutSync(session.id);
+    if (!result.ok && result.reason === 'missing-auth') {
+      toast('Sign in again to retry syncing this workout.', 'info');
+    }
+    setRetrying(false);
+  }
+
   return (
     <Card padding="none" className="overflow-hidden">
       <button
@@ -111,7 +131,13 @@ export function LogCard({ session, exerciseNames }: LogCardProps) {
                 <Trophy size={14} className="text-yellow-500 shrink-0" />
               )}
             </div>
-            <p className="text-xs text-slate-400">{formatDate(session.startedAt)}</p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <p>{formatDate(session.startedAt)}</p>
+              {session.syncStatus && <WorkoutSyncStatusBadge status={session.syncStatus} />}
+            </div>
+            {syncCopy?.description && (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{syncCopy.description}</p>
+            )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -161,14 +187,27 @@ export function LogCard({ session, exerciseNames }: LogCardProps) {
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={startEditing}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <Pencil size={13} />
-                Edit
-              </button>
+              <div className="flex items-center gap-2">
+                {canRetrySync && (
+                  <button
+                    type="button"
+                    onClick={() => { void handleRetrySync(); }}
+                    disabled={retrying}
+                    className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200 px-2 py-1 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RefreshCw size={13} className={retrying ? 'animate-spin' : ''} />
+                    {retrying ? 'Retrying…' : 'Retry sync'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Pencil size={13} />
+                  Edit
+                </button>
+              </div>
             )}
           </div>
 

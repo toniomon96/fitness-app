@@ -83,10 +83,12 @@ export function clearUser(): void {
 
 // ─── History ──────────────────────────────────────────────────────────────────
 
-const EMPTY_HISTORY: WorkoutHistory = { sessions: [], personalRecords: [] };
+function createEmptyHistory(): WorkoutHistory {
+  return { sessions: [], personalRecords: [] };
+}
 
 export function getHistory(): WorkoutHistory {
-  return safeRead<WorkoutHistory>(KEYS.HISTORY, EMPTY_HISTORY);
+  return safeRead<WorkoutHistory>(KEYS.HISTORY, createEmptyHistory());
 }
 
 export function appendSession(session: WorkoutSession): void {
@@ -101,6 +103,28 @@ export function updateSession(updated: WorkoutSession): void {
     s.id === updated.id ? updated : s,
   );
   safeWrite(KEYS.HISTORY, history);
+}
+
+export function updateSessionSyncStatus(
+  sessionId: string,
+  syncStatus: WorkoutSession['syncStatus'],
+  syncStatusUpdatedAt = new Date().toISOString(),
+): WorkoutSession | null {
+  const history = getHistory();
+  const existing = history.sessions.find((session) => session.id === sessionId);
+  if (!existing) return null;
+
+  const updatedSession: WorkoutSession = {
+    ...existing,
+    syncStatus,
+    syncStatusUpdatedAt,
+  };
+
+  history.sessions = history.sessions.map((session) =>
+    session.id === sessionId ? updatedSession : session,
+  );
+  safeWrite(KEYS.HISTORY, history);
+  return updatedSession;
 }
 
 export function updatePersonalRecords(prs: PersonalRecord[]): void {
@@ -149,7 +173,7 @@ export function setTheme(theme: 'dark' | 'light'): void {
 
 export function getWeightUnit(): WeightUnit {
   const stored = safeRead<WeightUnit | null>(KEYS.WEIGHT_UNIT, null);
-  return stored === 'lbs' ? 'lbs' : 'kg';
+  return stored === 'kg' ? 'kg' : 'lbs';
 }
 
 export function setWeightUnit(unit: WeightUnit): void {

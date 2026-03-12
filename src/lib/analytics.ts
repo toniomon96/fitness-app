@@ -141,3 +141,33 @@ export function trackReleaseModalEvent(props: {
 }) {
   capture('release_modal_event', props);
 }
+
+export function trackGuestMigrationEvent(props: {
+  action: 'shown' | 'dismissed' | 'started' | 'completed' | 'failed';
+  source: 'modal' | 'profile';
+  sessionCount: number;
+  personalRecordCount: number;
+  learningItemCount: number;
+  customProgramCount: number;
+}) {
+  capture('guest_migration_event', props);
+}
+
+export function trackHydrationRecoveryEvent(props: {
+  guard: 'guest_or_auth' | 'auth_only';
+  state: 'profile_missing' | 'hydration_failed';
+  action: 'shown' | 'continue_onboarding' | 'retry' | 'refresh';
+  path: string;
+}) {
+  capture('hydration_recovery_event', props);
+}
+
+export function trackPrimaryTrainingActionEvent(props: {
+  surface: 'dashboard' | 'train';
+  action: 'shown' | 'clicked';
+  state: 'active_session' | 'program_ready' | 'no_program';
+  target: 'resume_workout' | 'start_workout' | 'browse_programs';
+  isGuidedMode: boolean;
+}) {
+  capture('primary_training_action_event', props);
+}

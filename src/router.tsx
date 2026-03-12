@@ -1,15 +1,26 @@
 import { createBrowserRouter, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
+import { useToast } from './contexts/ToastContext'
 import { useApp } from './store/AppContext'
 import { setUser, setCustomPrograms, getCustomPrograms, getGuestProfile } from './utils/localStorage'
 import { fetchCustomPrograms, fetchHistory, fetchLearningProgress } from './lib/dbHydration'
-import { runMigrationIfNeeded } from './lib/dataMigration'
+import {
+  dismissGuestMigrationPrompt,
+  getGuestMigrationSummary,
+  importGuestDataToAccount,
+  isGuestMigrationDismissed,
+  runMigrationIfNeeded,
+  type GuestMigrationSummary,
+} from './lib/dataMigration'
 import { CookieConsent } from './components/ui/CookieConsent'
 import { GuestBanner } from './components/ui/GuestBanner'
+import { GuestDataMigrationModal } from './components/ui/GuestDataMigrationModal'
 import { AppTutorial } from './components/onboarding/AppTutorial'
 import { resumeIfNeeded, getGenerationState } from './lib/programGeneration'
 import { RouterErrorBoundary } from './components/ui/RouterErrorBoundary'
+import { AuthRecoveryScreen } from './components/ui/AuthRecoveryScreen'
+import { trackGuestMigrationEvent, trackHydrationRecoveryEvent } from './lib/analytics'
 import { ensureProfileUser } from './lib/profileRecovery'
 import { shouldAutoShowTutorial } from './lib/tutorial'
 
@@ -78,6 +89,15 @@ function LoadingScreen() {
   )
 }
 
+type GuardRecoveryState =
+  | { kind: 'profile-missing'; title: string; message: string; primaryLabel: string; primaryPath: string }
+  | { kind: 'hydration-failed'; title: string; message: string; primaryLabel: string; primaryPath: string }
+  | null
+
+function toAnalyticsRecoveryState(kind: NonNullable<GuardRecoveryState>['kind']) {
+  return kind === 'profile-missing' ? 'profile_missing' as const : 'hydration_failed' as const
+}
+
 /**
  * Allows both authenticated Supabase users AND local guest users.
  * Supabase users get full cloud hydration; guests load from localStorage only.
@@ -86,17 +106,73 @@ function LoadingScreen() {
 function GuestOrAuthGuard() {
   const { session, loading: authLoading } = useAuth()
   const { state, dispatch } = useApp()
+  const { toast } = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   const [syncing, setSyncing] = useState(false)
+  const [recoveryState, setRecoveryState] = useState<GuardRecoveryState>(null)
+  const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestMigrationSummary | null>(null)
+  const [showGuestMigrationPrompt, setShowGuestMigrationPrompt] = useState(false)
+  const [importingGuestData, setImportingGuestData] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
   const hydratedRef = useRef(false)
+  const trackedRecoveryKeyRef = useRef<string | null>(null)
+  const trackedMigrationPromptKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (location.pathname !== '/' && showTutorial) {
       setShowTutorial(false)
     }
   }, [location.pathname, showTutorial])
+
+  useEffect(() => {
+    if (!session || !state.user || state.user.isGuest) {
+      setGuestMigrationSummary(null)
+      setShowGuestMigrationPrompt(false)
+      trackedMigrationPromptKeyRef.current = null
+      return
+    }
+
+    const summary = getGuestMigrationSummary(state.user.id)
+    setGuestMigrationSummary(summary)
+    setShowGuestMigrationPrompt(Boolean(summary) && !isGuestMigrationDismissed(state.user.id))
+  }, [session, state.user])
+
+  useEffect(() => {
+    if (!recoveryState) {
+      trackedRecoveryKeyRef.current = null
+      return
+    }
+
+    const key = `${recoveryState.kind}:${location.pathname}`
+    if (trackedRecoveryKeyRef.current === key) return
+    trackedRecoveryKeyRef.current = key
+    trackHydrationRecoveryEvent({
+      guard: 'guest_or_auth',
+      state: toAnalyticsRecoveryState(recoveryState.kind),
+      action: 'shown',
+      path: location.pathname,
+    })
+  }, [recoveryState, location.pathname])
+
+  useEffect(() => {
+    if (!showGuestMigrationPrompt || !guestMigrationSummary) {
+      trackedMigrationPromptKeyRef.current = null
+      return
+    }
+
+    const key = `${state.user?.id}:${guestMigrationSummary.guestId}`
+    if (trackedMigrationPromptKeyRef.current === key) return
+    trackedMigrationPromptKeyRef.current = key
+    trackGuestMigrationEvent({
+      action: 'shown',
+      source: 'modal',
+      sessionCount: guestMigrationSummary.sessionCount,
+      personalRecordCount: guestMigrationSummary.personalRecordCount,
+      learningItemCount: guestMigrationSummary.learningItemCount,
+      customProgramCount: guestMigrationSummary.customProgramCount,
+    })
+  }, [showGuestMigrationPrompt, guestMigrationSummary, state.user?.id])
 
   useEffect(() => {
     if (session || authLoading || state.user) return
@@ -112,6 +188,7 @@ function GuestOrAuthGuard() {
     if (!session && !authLoading && state.user && !state.user.isGuest) {
       dispatch({ type: 'CLEAR_USER' })
       hydratedRef.current = false
+      setRecoveryState(null)
       return
     }
 
@@ -126,13 +203,20 @@ function GuestOrAuthGuard() {
     // BUT: skip this redirect if state.user is already set — the user just
     // completed onboarding and the dispatch has already populated the profile.
     if (sessionsWithNoProfile.has(session.user.id) && !state.user) {
-      navigate('/onboarding', { replace: true })
+      setRecoveryState({
+        kind: 'profile-missing',
+        title: 'Finish setting up your account',
+        message: 'Your sign-in worked, but your profile is not ready yet. Continue onboarding to finish account setup.',
+        primaryLabel: 'Continue onboarding',
+        primaryPath: '/onboarding',
+      })
       return
     }
 
     async function hydrate() {
       if (!session) return
       setSyncing(true)
+      setRecoveryState(null)
       try {
         let user = state.user
 
@@ -143,7 +227,13 @@ function GuestOrAuthGuard() {
             // Remember this session has no profile so remounts skip the 406 query
             sessionsWithNoProfile.add(session.user.id)
             hydratedRef.current = true
-            navigate('/onboarding', { replace: true })
+            setRecoveryState({
+              kind: 'profile-missing',
+              title: 'Finish setting up your account',
+              message: 'We found your sign-in session, but your profile still needs to be completed before the app can load normally.',
+              primaryLabel: 'Continue onboarding',
+              primaryPath: '/onboarding',
+            })
             return
           }
 
@@ -194,6 +284,13 @@ function GuestOrAuthGuard() {
       } catch (err) {
         console.error('[GuestOrAuthGuard] Hydration failed:', err)
         hydratedRef.current = true
+        setRecoveryState({
+          kind: 'hydration-failed',
+          title: 'We could not load your account data',
+          message: 'Your session is active, but the app could not finish loading your profile or history. You can retry now or continue to account setup if this account is new.',
+          primaryLabel: 'Retry loading',
+          primaryPath: location.pathname,
+        })
       } finally {
         setSyncing(false)
       }
@@ -203,6 +300,35 @@ function GuestOrAuthGuard() {
   }, [session, authLoading, dispatch, navigate])
 
   if (authLoading || syncing) return <LoadingScreen />
+
+  if (recoveryState) {
+    return (
+      <AuthRecoveryScreen
+        title={recoveryState.title}
+        message={recoveryState.message}
+        primaryActionLabel={recoveryState.primaryLabel}
+        onPrimaryAction={() => {
+          trackHydrationRecoveryEvent({
+            guard: 'guest_or_auth',
+            state: toAnalyticsRecoveryState(recoveryState.kind),
+            action: recoveryState.kind === 'profile-missing' ? 'continue_onboarding' : 'retry',
+            path: recoveryState.primaryPath,
+          })
+          navigate(recoveryState.primaryPath, { replace: true })
+        }}
+        secondaryActionLabel={recoveryState.kind === 'hydration-failed' ? 'Refresh app' : undefined}
+        onSecondaryAction={recoveryState.kind === 'hydration-failed' ? () => {
+          trackHydrationRecoveryEvent({
+            guard: 'guest_or_auth',
+            state: toAnalyticsRecoveryState(recoveryState.kind),
+            action: 'refresh',
+            path: location.pathname,
+          })
+          window.location.reload()
+        } : undefined}
+      />
+    )
+  }
 
   // No Supabase session — check for guest profile
   if (!session) {
@@ -228,6 +354,64 @@ function GuestOrAuthGuard() {
       <Suspense fallback={<LoadingScreen />}>
         <Outlet />
       </Suspense>
+      {guestMigrationSummary && (
+        <GuestDataMigrationModal
+          open={showGuestMigrationPrompt}
+          summary={guestMigrationSummary}
+          importing={importingGuestData}
+          onDismiss={() => {
+            trackGuestMigrationEvent({
+              action: 'dismissed',
+              source: 'modal',
+              sessionCount: guestMigrationSummary.sessionCount,
+              personalRecordCount: guestMigrationSummary.personalRecordCount,
+              learningItemCount: guestMigrationSummary.learningItemCount,
+              customProgramCount: guestMigrationSummary.customProgramCount,
+            })
+            dismissGuestMigrationPrompt(state.user!.id)
+            setShowGuestMigrationPrompt(false)
+          }}
+          onImport={() => {
+            trackGuestMigrationEvent({
+              action: 'started',
+              source: 'modal',
+              sessionCount: guestMigrationSummary.sessionCount,
+              personalRecordCount: guestMigrationSummary.personalRecordCount,
+              learningItemCount: guestMigrationSummary.learningItemCount,
+              customProgramCount: guestMigrationSummary.customProgramCount,
+            })
+            setImportingGuestData(true)
+            void importGuestDataToAccount(state.user!.id)
+              .then((summary) => {
+                if (summary) {
+                  trackGuestMigrationEvent({
+                    action: 'completed',
+                    source: 'modal',
+                    sessionCount: summary.sessionCount,
+                    personalRecordCount: summary.personalRecordCount,
+                    learningItemCount: summary.learningItemCount,
+                    customProgramCount: summary.customProgramCount,
+                  })
+                  toast('Guest progress imported into your account.', 'success')
+                }
+                setGuestMigrationSummary(null)
+                setShowGuestMigrationPrompt(false)
+              })
+              .catch(() => {
+                trackGuestMigrationEvent({
+                  action: 'failed',
+                  source: 'modal',
+                  sessionCount: guestMigrationSummary.sessionCount,
+                  personalRecordCount: guestMigrationSummary.personalRecordCount,
+                  learningItemCount: guestMigrationSummary.learningItemCount,
+                  customProgramCount: guestMigrationSummary.customProgramCount,
+                })
+                toast('Guest progress could not be imported yet. Your local data is still safe on this device.', 'error')
+              })
+              .finally(() => setImportingGuestData(false))
+          }}
+        />
+      )}
       {showTutorial && location.pathname === '/' && (
         <AppTutorial onDismiss={() => setShowTutorial(false)} />
       )}
@@ -247,26 +431,42 @@ function GuestOrAuthGuard() {
 function AuthOnlyGuard() {
   const { session, loading } = useAuth()
   const { state, dispatch } = useApp()
+  const location = useLocation()
   const navigate = useNavigate()
   const [syncing, setSyncing] = useState(false)
+  const [recoveryState, setRecoveryState] = useState<GuardRecoveryState>(null)
+  const trackedRecoveryKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     // Only hydrate when we have a session but no user yet (direct navigation)
     if (!session || loading || state.user) return
 
     if (sessionsWithNoProfile.has(session.user.id)) {
-      navigate('/onboarding', { replace: true })
+      setRecoveryState({
+        kind: 'profile-missing',
+        title: 'Finish setting up your account',
+        message: 'Your account exists, but your Omnexus profile is not complete yet. Finish onboarding before using community features.',
+        primaryLabel: 'Continue onboarding',
+        primaryPath: '/onboarding',
+      })
       return
     }
 
     async function hydrate() {
       if (!session) return
       setSyncing(true)
+      setRecoveryState(null)
       try {
         const user = await ensureProfileUser(session)
         if (!user) {
           sessionsWithNoProfile.add(session.user.id)
-          navigate('/onboarding', { replace: true })
+          setRecoveryState({
+            kind: 'profile-missing',
+            title: 'Finish setting up your account',
+            message: 'Your community features are ready once onboarding is complete.',
+            primaryLabel: 'Continue onboarding',
+            primaryPath: '/onboarding',
+          })
           return
         }
 
@@ -277,6 +477,13 @@ function AuthOnlyGuard() {
         })
       } catch (err) {
         console.error('[AuthOnlyGuard] Profile fetch failed:', err)
+        setRecoveryState({
+          kind: 'hydration-failed',
+          title: 'We could not load your community profile',
+          message: 'Your session is active, but your profile could not be loaded. Retry now or refresh the app if the problem persists.',
+          primaryLabel: 'Retry loading',
+          primaryPath: location.pathname,
+        })
       } finally {
         setSyncing(false)
       }
@@ -285,7 +492,53 @@ function AuthOnlyGuard() {
     hydrate()
   }, [session, loading, state.user, dispatch, navigate])
 
+  useEffect(() => {
+    if (!recoveryState) {
+      trackedRecoveryKeyRef.current = null
+      return
+    }
+
+    const key = `${recoveryState.kind}:${location.pathname}`
+    if (trackedRecoveryKeyRef.current === key) return
+    trackedRecoveryKeyRef.current = key
+    trackHydrationRecoveryEvent({
+      guard: 'auth_only',
+      state: toAnalyticsRecoveryState(recoveryState.kind),
+      action: 'shown',
+      path: location.pathname,
+    })
+  }, [recoveryState, location.pathname])
+
   if (loading || syncing) return <LoadingScreen />
+
+  if (recoveryState) {
+    return (
+      <AuthRecoveryScreen
+        title={recoveryState.title}
+        message={recoveryState.message}
+        primaryActionLabel={recoveryState.primaryLabel}
+        onPrimaryAction={() => {
+          trackHydrationRecoveryEvent({
+            guard: 'auth_only',
+            state: toAnalyticsRecoveryState(recoveryState.kind),
+            action: recoveryState.kind === 'profile-missing' ? 'continue_onboarding' : 'retry',
+            path: recoveryState.primaryPath,
+          })
+          navigate(recoveryState.primaryPath, { replace: true })
+        }}
+        secondaryActionLabel={recoveryState.kind === 'hydration-failed' ? 'Refresh app' : undefined}
+        onSecondaryAction={recoveryState.kind === 'hydration-failed' ? () => {
+          trackHydrationRecoveryEvent({
+            guard: 'auth_only',
+            state: toAnalyticsRecoveryState(recoveryState.kind),
+            action: 'refresh',
+            path: location.pathname,
+          })
+          window.location.reload()
+        } : undefined}
+      />
+    )
+  }
 
   if (!session) {
     return (

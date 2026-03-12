@@ -296,6 +296,13 @@ In Supabase Dashboard → Authentication → URL Configuration:
 | `docs/RELEASE_CHECKLIST.md` | Release-day execution checklist for `dev -> main` promotions |
 | `docs/ENVIRONMENT_MATRIX.md` | Environment-specific variables, branch mapping, and external service behavior |
 | `docs/CI_RUNBOOK.md` | CI failure triage and recovery playbook |
+| `docs/E2E_TEST_MATRIX.md` | Golden-path vs extended Playwright coverage and CI release-signal policy |
+| `docs/V1_ENHANCEMENT_SPRINT_PLAN.md` | Sprint-by-sprint execution plan for the V1 refinement cycle |
+| `docs/SPRINT_1_BACKLOG.md` | Executable Sprint 1 backlog with epics, stories, acceptance criteria, and test guidance |
+| `docs/SPRINT_1_ISSUE_DRAFTS.md` | Ticket-ready GitHub issue drafts for Sprint 1 implementation |
+| `docs/SPRINT_2_BACKLOG.md` | Executable Sprint 2 backlog for Dashboard and Train core-loop clarity work |
+| `docs/SPRINT_2_ISSUE_DRAFTS.md` | Ticket-ready GitHub issue drafts for Sprint 2 implementation |
+| `docs/SDLC_EXECUTION_PLAYBOOK.md` | TDD, VCS, QA, rollout, and delivery standards for enhancement work |
 | `docs/PLATFORM_SETUP_CHECKLIST.md` | Exact manual admin steps for GitHub, Vercel, Supabase, and Stripe |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System diagram, data models, Supabase schema |
 | [docs/API.md](docs/API.md) | All serverless endpoint reference |

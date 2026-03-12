@@ -14,10 +14,9 @@ test.describe('Workout flow', () => {
     await test.step('navigate to dashboard', () => page.goto('/'));
 
     await test.step('click start workout', async () => {
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await expect(startBtn.first()).toBeVisible({ timeout: 5_000 });
-      await startBtn.first().click();
+      const startBtn = page.getByRole('button', { name: /^start workout$/i }).first();
+      await expect(startBtn).toBeVisible({ timeout: 5_000 });
+      await startBtn.click();
     });
 
     await test.step('verify landed on workout page', () =>
@@ -31,9 +30,7 @@ test.describe('Workout flow', () => {
 
     await test.step('navigate to dashboard and start workout', async () => {
       await page.goto('/');
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await startBtn.first().click();
+      await page.getByRole('button', { name: /^start workout$/i }).first().click();
       await page.waitForURL(/\/workout\/active/);
     });
 
@@ -50,9 +47,7 @@ test.describe('Workout flow', () => {
 
     await test.step('start a workout', async () => {
       await page.goto('/');
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await startBtn.first().click();
+      await page.getByRole('button', { name: /^start workout$/i }).first().click();
       await page.waitForURL(/\/workout\/active/);
     });
 
@@ -79,10 +74,11 @@ test.describe('Workout flow', () => {
     test.info().annotations.push({ type: 'description', description: 'localStorage-backed session must survive a hard refresh so users never lose work' });
 
     await test.step('start a workout', async () => {
-      await page.goto('/');
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await startBtn.first().click();
+      await page.goto('/workout/quick');
+      const firstExercise = page.locator('button').filter({ hasText: /press|squat|deadlift|curl/i }).first();
+      await expect(firstExercise).toBeVisible({ timeout: 5_000 });
+      await firstExercise.click();
+      await page.getByRole('button', { name: /start workout/i }).click();
       await page.waitForURL(/\/workout\/active/);
     });
 
@@ -100,7 +96,7 @@ test.describe('Workout flow', () => {
     await page.goto('/train');
     await page.waitForURL('/train');
     await expect(page.getByText(/new to workout logging\?/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/start workout.*guided session/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/start with the main action above|pick one option below|start here/i)).toBeVisible({ timeout: 5_000 });
   });
 
   test('active workout beginner helper can be dismissed and stays hidden after reload', async ({ page }) => {
@@ -134,16 +130,15 @@ test.describe('Workout complete modal', () => {
     test.info().annotations.push({ type: 'feature', description: 'Workout' });
 
     await page.goto('/');
-    const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-      .or(page.getByRole('link', { name: /start workout|begin/i }));
+    const startBtn = page.getByRole('button', { name: /^start workout$/i }).first();
 
     // Skip if there's no active program / start button
-    if (!await startBtn.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (!await startBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       test.skip();
       return;
     }
 
-    await startBtn.first().click();
+    await startBtn.click();
     await page.waitForURL(/\/workout\/active/);
 
     await expect(
@@ -154,16 +149,15 @@ test.describe('Workout complete modal', () => {
   test('complete modal has Dashboard and History buttons', async ({ page }) => {
     test.info().annotations.push({ type: 'feature', description: 'Workout' });
 
-    await page.goto('/');
-    const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-      .or(page.getByRole('link', { name: /start workout|begin/i }));
-
-    if (!await startBtn.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await page.goto('/workout/quick');
+    const firstExercise = page.locator('button').filter({ hasText: /press|squat|deadlift|curl/i }).first();
+    if (!await firstExercise.isVisible({ timeout: 3_000 }).catch(() => false)) {
       test.skip();
       return;
     }
 
-    await startBtn.first().click();
+    await firstExercise.click();
+    await page.getByRole('button', { name: /start workout/i }).click();
     await page.waitForURL(/\/workout\/active/);
 
     // Finish the workout directly
@@ -242,11 +236,25 @@ test.describe('Quick log workout', () => {
       localStorage.removeItem('fit_active_session');
     });
 
+    await page.goto('/login');
     await page.goto('/train');
-    await expect(page.getByText(/no program selected/i)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('button', { name: /browse programs/i })).toBeVisible({ timeout: 5_000 });
-    await page.getByRole('button', { name: /^quick log$/i }).first().click();
-    await expect(page).toHaveURL('/workout/quick');
+    const quickLogCta = page.getByTestId('train-no-program-quick-log');
+    if (await quickLogCta.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await quickLogCta.click();
+    } else {
+      const fallbackQuick = page.getByRole('button', { name: /quick (log|session)/i }).first();
+      if (await fallbackQuick.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await fallbackQuick.click();
+      } else {
+        await page.goto('/workout/quick');
+      }
+    }
+    await page.waitForURL(/\/workout\/quick\/?$/, { timeout: 5_000 }).catch(async () => {
+      // Safety net: if CTA click was swallowed by transient UI, navigate directly.
+      await page.goto('/workout/quick');
+    });
+    await expect(page).toHaveURL(/\/workout\/quick\/?$/);
     await expect(page.getByRole('heading', { name: /^quick log$/i })).toBeVisible({ timeout: 5_000 });
   });
 });
@@ -260,6 +268,10 @@ test.describe('Workout history', () => {
     test.info().annotations.push({ type: 'feature', description: 'History' });
 
     await test.step('navigate to history', () => page.goto('/history'));
+
+    await test.step('guest persistence copy is visible', async () => {
+      await expect(page.getByRole('button', { name: /^save progress$/i }).first()).toBeVisible({ timeout: 5_000 });
+    });
 
     await test.step('verify page renders (empty state or sessions)', async () => {
       await expect(

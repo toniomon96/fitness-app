@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import type { Exercise } from '../../types';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 
 const equipIcons: Record<string, string> = {
   barbell: '🏋️',
-  dumbbell: '🪄',
+  dumbbell: '🏋️',
   cable: '🔗',
   machine: '⚙️',
   bodyweight: '🧍',
@@ -16,20 +16,39 @@ const equipIcons: Record<string, string> = {
   'cardio-machine': '🚴',
 };
 
+const EQUIPMENT_LABELS: Record<string, string> = {
+  barbell: 'Barbell',
+  dumbbell: 'Dumbbells',
+  cable: 'Cable station',
+  machine: 'Machine',
+  bodyweight: 'Bodyweight',
+  kettlebell: 'Kettlebell',
+  'resistance-band': 'Resistance band',
+  'cardio-machine': 'Cardio machine',
+};
+
+const PATTERN_LABELS: Record<string, string> = {
+  squat: 'Squat pattern',
+  hinge: 'Hip hinge',
+  'push-horizontal': 'Horizontal push',
+  'push-vertical': 'Vertical push',
+  'pull-horizontal': 'Horizontal pull',
+  'pull-vertical': 'Vertical pull',
+  isolation: 'Isolation',
+  carry: 'Carry',
+  cardio: 'Cardio',
+};
+
 interface ExerciseCardProps {
   exercise: Exercise;
-  onSelect?: (id: string) => void;
+  onQuickAdd?: (id: string) => void;
 }
 
-export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: ExerciseCardProps) {
+export const ExerciseCard = memo(function ExerciseCard({ exercise, onQuickAdd }: ExerciseCardProps) {
   const navigate = useNavigate();
 
   function handleClick() {
-    if (onSelect) {
-      onSelect(exercise.id);
-    } else {
-      navigate(`/library/${exercise.id}`);
-    }
+    navigate(`/library/${exercise.id}`);
   }
 
   return (
@@ -42,6 +61,9 @@ export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: E
           <p className="font-semibold text-slate-900 dark:text-white text-sm truncate">
             {exercise.name}
           </p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+            {PATTERN_LABELS[exercise.pattern ?? ''] ?? 'Strength exercise'} · {EQUIPMENT_LABELS[exercise.equipment[0] ?? ''] ?? 'Basic gym equipment'}
+          </p>
           <div className="mt-1 flex flex-wrap gap-1">
             {exercise.primaryMuscles.slice(0, 2).map((m) => (
               <Badge key={m} color="brand" size="sm" >
@@ -50,11 +72,25 @@ export const ExerciseCard = memo(function ExerciseCard({ exercise, onSelect }: E
             ))}
             {exercise.equipment.slice(0, 1).map((e) => (
               <Badge key={e} color="slate" size="sm">
-                {e}
+                {EQUIPMENT_LABELS[e] ?? e}
               </Badge>
             ))}
           </div>
         </div>
+        {onQuickAdd && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onQuickAdd(exercise.id);
+            }}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:text-brand-500"
+            aria-label={`Add ${exercise.name} to quick workout`}
+          >
+            <Plus size={12} />
+            Add
+          </button>
+        )}
         <ChevronRight size={16} className="shrink-0 text-slate-400" />
       </div>
     </Card>

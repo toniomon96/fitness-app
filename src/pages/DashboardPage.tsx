@@ -38,7 +38,11 @@ import { clearGenerationState, getGenerationState } from '../lib/programGenerati
 import { formatDuration } from '../utils/dateUtils';
 import { applyAiProgramLifecycle } from '../utils/programLifecycle';
 import { setCustomPrograms } from '../utils/localStorage';
-import { trackFeatureEntry, trackReleaseModalEvent } from '../lib/analytics';
+import { trackFeatureEntry, trackPrimaryTrainingActionEvent, trackReleaseModalEvent } from '../lib/analytics';
+import {
+  getTrainingPrimaryActionTarget,
+  resolveTrainingPrimaryActionState,
+} from '../lib/trainingPrimaryAction';
 
 const WHATS_NEW_RELEASE = 'guided-release-2026-03-10';
 const WHATS_NEW_KEY = `omnexus_whats_new_seen_${WHATS_NEW_RELEASE}`;
@@ -76,7 +80,9 @@ export function DashboardPage() {
   const { session: activeSession } = useWorkoutSession();
   const { status: genStatus, programId: generatedProgramId, generationState } = useProgramGeneration();
   const repairedMissingProgramRef = useRef(false);
+  const primaryActionTrackedRef = useRef<string | null>(null);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [retryingGeneration, setRetryingGeneration] = useState(false);
 
   const user = state.user;
 
@@ -151,6 +157,11 @@ export function DashboardPage() {
   const week = program ? getProgramWeekCursor(program.id) : 1;
   const experienceMode = getExperienceMode(user.id);
   const isGuidedMode = experienceMode === 'guided';
+  const primaryActionState = resolveTrainingPrimaryActionState({
+    hasActiveSession: Boolean(activeSession),
+    hasProgramWorkout: Boolean(program && nextWorkout),
+    canChooseProgram: !program && genStatus !== 'generating' && genStatus !== 'error',
+  });
 
   const sessionDates = state.history.sessions.map(s => s.startedAt);
   const completedSessions = state.history.sessions.filter((s) => s.completedAt);
@@ -168,11 +179,32 @@ export function DashboardPage() {
     ? state.history.sessions[state.history.sessions.length - 1]
     : null;
 
-  function retryGeneration() {
+  useEffect(() => {
+    if (!primaryActionState) return;
+    const trackingKey = `${user.id}:${primaryActionState}:${isGuidedMode}`;
+    if (primaryActionTrackedRef.current === trackingKey) return;
+
+    trackPrimaryTrainingActionEvent({
+      surface: 'dashboard',
+      action: 'shown',
+      state: primaryActionState,
+      target: getTrainingPrimaryActionTarget(primaryActionState),
+      isGuidedMode,
+    });
+    primaryActionTrackedRef.current = trackingKey;
+  }, [primaryActionState, isGuidedMode, user.id]);
+
+  async function retryGeneration() {
     if (!user) return;
+    if (retryingGeneration || genStatus === 'generating') return;
     const stored = getGenerationState();
     if (!stored) return;
-    void restartProgramGeneration(user.id, stored.profile);
+    setRetryingGeneration(true);
+    try {
+      await restartProgramGeneration(user.id, stored.profile);
+    } finally {
+      setRetryingGeneration(false);
+    }
   }
 
   function dismissWhatsNew() {
@@ -197,6 +229,31 @@ export function DashboardPage() {
     navigate(route);
   }
 
+  function handleDashboardPrimaryAction(target: 'resume_workout' | 'start_workout' | 'browse_programs') {
+    trackPrimaryTrainingActionEvent({
+      surface: 'dashboard',
+      action: 'clicked',
+      state: target === 'resume_workout'
+        ? 'active_session'
+        : target === 'start_workout'
+        ? 'program_ready'
+        : 'no_program',
+      target,
+      isGuidedMode,
+    });
+
+    if (target === 'resume_workout') {
+      navigate('/workout/active');
+      return;
+    }
+    if (target === 'browse_programs') {
+      navigate('/programs');
+      return;
+    }
+
+    navigate('/workout/active');
+  }
+
   return (
     <>
       <AppShell>
@@ -218,6 +275,27 @@ export function DashboardPage() {
             <ProgramContextBar program={program} className="mt-1" />
           )}
         </div>
+
+        {user.isGuest && (
+          <Card
+            className="border-amber-300/70 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/15"
+            data-testid="dashboard-guest-persistence-card"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  Guest progress stays on this device
+                </p>
+                <p className="mt-1 text-sm text-amber-800/85 dark:text-amber-300/85">
+                  Create a free account when you are ready to keep workouts, measurements, and learning progress across devices.
+                </p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => navigate('/onboarding')}>
+                Save Progress
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* ── Program ready banner ──────────────────────────────────── */}
         {genStatus === 'ready' && generatedProgramId && generatedProgramExists && generationState?.activateOnReady && (
@@ -260,34 +338,45 @@ export function DashboardPage() {
             <AlertCircle size={18} className="text-red-500 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-red-700 dark:text-red-300">
-                Program generation failed
+                We had trouble generating your program.
               </p>
               <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">
-                We couldn't build your program. Tap retry to try again.
+                Tap retry and we'll try again. This usually takes about 5-10 seconds.
               </p>
             </div>
             <button
               type="button"
               onClick={retryGeneration}
+              disabled={retryingGeneration}
               className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:underline"
             >
-              <RefreshCw size={13} />
-              Retry
+              <RefreshCw size={13} className={retryingGeneration ? 'animate-spin' : ''} />
+              {retryingGeneration ? 'Retrying...' : 'Retry'}
             </button>
           </div>
         )}
 
-        {/* ── Resume active workout ─────────────────────────────────── */}
+        {/* ── Primary next step ─────────────────────────────────────── */}
         {activeSession && (
-          <Card className="border-brand-400 bg-brand-50 dark:bg-brand-900/20">
+          <Card className="border-brand-400 bg-brand-50 dark:bg-brand-900/20" data-testid="dashboard-primary-action-card">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <AlertCircle size={18} className="text-brand-500 shrink-0" />
-                <p className="text-sm font-medium text-brand-700 dark:text-brand-300">
-                  Workout in progress
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-300">
+                  Next step
                 </p>
+                <div className="mt-2 flex items-center gap-2.5">
+                  <AlertCircle size={18} className="text-brand-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                      Resume your active workout
+                    </p>
+                    <p className="text-xs text-brand-700/80 dark:text-brand-300/80 mt-0.5">
+                      Your session is still open. Pick up where you left off.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <Button size="sm" onClick={() => navigate('/workout/active')}>
+              <Button size="sm" data-testid="dashboard-primary-action-button" onClick={() => handleDashboardPrimaryAction('resume_workout')}>
                 <Play size={14} />
                 Resume
               </Button>
@@ -301,48 +390,10 @@ export function DashboardPage() {
             program={program}
             day={nextWorkout.day}
             dayIndex={nextWorkout.dayIndex}
+            headingLabel="Next Step"
+            onPrimaryActionClick={() => handleDashboardPrimaryAction('start_workout')}
           />
         )}
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => {
-            trackFeatureEntry({ source: 'dashboard_card', destination: '/guided-pathways', label: 'guided_pathways' });
-            navigate('/guided-pathways');
-          }} className="w-full text-left">
-            <Card hover className="h-full border-brand-400/30 bg-brand-50/40 dark:bg-brand-900/10">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0">
-                  <Route size={16} className="text-brand-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Guided Pathways</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    New to fitness? Pick a simple path and start with clear next actions.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </button>
-
-          <button type="button" onClick={() => {
-            trackFeatureEntry({ source: 'dashboard_card', destination: '/nutrition', label: 'nutrition_starter' });
-            navigate('/nutrition');
-          }} className="w-full text-left">
-            <Card hover className="h-full border-emerald-400/30 bg-emerald-50/40 dark:bg-emerald-900/10">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
-                  <Apple size={16} className="text-emerald-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Nutrition Starter</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Build a beginner-friendly meal plan with practical daily tips.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </button>
-        </div>
 
         {/* ── Subtle generating placeholder (no spinner card) ──────── */}
         {!activeSession && !program && genStatus === 'generating' && (
@@ -357,24 +408,31 @@ export function DashboardPage() {
               </div>
             </div>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
-              Building your program in the background…
+              Building your personalized plan... this usually takes about 5-10 seconds.
             </p>
           </Card>
         )}
 
         {/* ── No program — prompt to get started ───────────────────── */}
         {!activeSession && !program && genStatus !== 'generating' && genStatus !== 'error' && (
-          <Card className="py-6 text-center">
+          <Card className="py-6 text-center" data-testid="dashboard-primary-action-card">
             <Dumbbell size={28} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Next step
+            </p>
             <p className="mb-1 text-sm font-semibold text-slate-900 dark:text-white">
-              Pick your training setup
+              Choose a program first
             </p>
             <p className="mx-auto mb-4 max-w-xs text-sm text-slate-500 dark:text-slate-400">
-              Choose a program for guided sessions, or jump into Quick Log if you want to train right now.
+              Guided training works best when you pick a plan first. Quick Session stays available if you need something flexible today.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-              <Button onClick={() => navigate('/programs')}>Browse Programs</Button>
-              <Button variant="secondary" onClick={() => navigate('/workout/quick')}>
+              <Button onClick={() => handleDashboardPrimaryAction('browse_programs')} data-testid="dashboard-primary-action-button">Browse Programs</Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/workout/quick')}
+                data-testid="dashboard-no-program-quick-log"
+              >
                 Quick Log
               </Button>
             </div>
@@ -442,6 +500,47 @@ export function DashboardPage() {
         {/* ── Weekly recap ──────────────────────────────────────────── */}
         {!isGuidedMode && <WeeklyRecapCard sessions={state.history.sessions} />}
 
+        {/* ── Secondary discovery actions ───────────────────────────── */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button type="button" onClick={() => {
+            trackFeatureEntry({ source: 'dashboard_card', destination: '/guided-pathways', label: 'guided_pathways' });
+            navigate('/guided-pathways');
+          }} className="w-full text-left">
+            <Card hover className="h-full border-brand-400/30 bg-brand-50/40 dark:bg-brand-900/10">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0">
+                  <Route size={16} className="text-brand-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Guided Pathways</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    New to fitness? Pick a simple path and start with clear next actions.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+
+          <button type="button" onClick={() => {
+            trackFeatureEntry({ source: 'dashboard_card', destination: '/nutrition', label: 'nutrition_starter' });
+            navigate('/nutrition');
+          }} className="w-full text-left">
+            <Card hover className="h-full border-emerald-400/30 bg-emerald-50/40 dark:bg-emerald-900/10">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+                  <Apple size={16} className="text-emerald-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Nutrition Starter</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Build a beginner-friendly meal plan with practical daily tips.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+        </div>
+
         {/* ── Feature discovery (surfaces less-visible tools) ───────── */}
         <Card>
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -452,12 +551,12 @@ export function DashboardPage() {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { to: '/measurements', icon: Ruler, label: 'Measurements' },
               { to: '/tools/plate-calculator', icon: Calculator, label: 'Plate Calculator' },
               { to: '/library', icon: BookOpen, label: 'Exercise Library' },
-              { to: '/workout/quick', icon: ClipboardPen, label: 'Quick Log' },
+              { to: '/workout/quick', icon: ClipboardPen, label: 'Quick Session' },
             ].map(({ to, icon: Icon, label }) => (
               <button
                 key={to}
@@ -466,11 +565,11 @@ export function DashboardPage() {
                   trackFeatureEntry({ source: 'dashboard_explore_more', destination: to, label });
                   navigate(to);
                 }}
-                className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-left hover:border-brand-300 dark:hover:border-brand-700 transition-colors"
+                className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-left hover:border-brand-300 dark:hover:border-brand-700 transition-colors min-h-[52px]"
               >
                 <div className="flex items-center gap-2">
                   <Icon size={14} className="text-slate-500" />
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{label}</span>
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-snug">{label}</span>
                 </div>
               </button>
             ))}

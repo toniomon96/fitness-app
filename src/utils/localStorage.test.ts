@@ -24,6 +24,8 @@ import {
   clearUser,
   getHistory,
   appendSession,
+  updateSession,
+  updateSessionSyncStatus,
   updatePersonalRecords,
   getActiveSession,
   setActiveSession,
@@ -140,6 +142,24 @@ describe('History storage', () => {
     expect(getHistory().sessions).toHaveLength(2);
   });
 
+  it('updates an existing session by id', () => {
+    appendSession(mockSession('s1'));
+    updateSession({ ...mockSession('s1'), totalVolumeKg: 900 });
+    expect(getHistory().sessions[0].totalVolumeKg).toBe(900);
+  });
+
+  it('updates workout sync status for an existing session', () => {
+    appendSession(mockSession('s1'));
+    const updated = updateSessionSyncStatus('s1', 'needs_attention', '2026-03-11T00:00:00Z');
+    expect(updated?.syncStatus).toBe('needs_attention');
+    expect(getHistory().sessions[0].syncStatus).toBe('needs_attention');
+    expect(getHistory().sessions[0].syncStatusUpdatedAt).toBe('2026-03-11T00:00:00Z');
+  });
+
+  it('returns null when updating sync status for a missing session', () => {
+    expect(updateSessionSyncStatus('missing', 'synced')).toBeNull();
+  });
+
   it('merges personal records — replaces existing for same exercise', () => {
     const pr1: PersonalRecord = {
       exerciseId: 'bench',
@@ -213,8 +233,8 @@ describe('Theme storage', () => {
 });
 
 describe('Weight unit storage', () => {
-  it('defaults to kg', () => {
-    expect(getWeightUnit()).toBe('kg');
+  it('defaults to lbs', () => {
+    expect(getWeightUnit()).toBe('lbs');
   });
 
   it('stores and retrieves weight unit', () => {
@@ -222,9 +242,9 @@ describe('Weight unit storage', () => {
     expect(getWeightUnit()).toBe('lbs');
   });
 
-  it('falls back to kg for invalid stored values', () => {
+  it('falls back to lbs for invalid stored values', () => {
     localStorageMock.setItem('omnexus_weight_unit', JSON.stringify('stone'));
-    expect(getWeightUnit()).toBe('kg');
+    expect(getWeightUnit()).toBe('lbs');
   });
 });
 
