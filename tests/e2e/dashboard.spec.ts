@@ -67,6 +67,13 @@ test.describe('Dashboard — guest', () => {
     await enterAsGuest(page);
   });
 
+  test('shows guest persistence messaging with account-save CTA', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('dashboard-guest-persistence-card')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/guest progress stays on this device/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('button', { name: /save progress/i })).toBeVisible({ timeout: 5_000 });
+  });
+
   test('no-program dashboard state routes to programs and quick log', async ({ page }) => {
     await page.evaluate(() => {
       const raw = localStorage.getItem('fit_user');
@@ -133,8 +140,7 @@ test.describe('Dashboard — guest', () => {
   test('today\'s workout card is visible for guest with program', async ({ page }) => {
     // Guest setup auto-assigns a program, so TodayCard should render
     await page.goto('/');
-    await expect(
-      page.getByText(/today|workout/i).first(),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('today-card')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('today-card-start-workout')).toBeVisible({ timeout: 5_000 });
   });
 });

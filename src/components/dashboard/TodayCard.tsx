@@ -87,7 +87,7 @@ export function TodayCard({ program, day, dayIndex }: TodayCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden p-0">
+    <Card className="overflow-hidden p-0" data-testid="today-card">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700/60">
         <Calendar size={13} className="text-slate-400" />
@@ -149,7 +149,7 @@ export function TodayCard({ program, day, dayIndex }: TodayCardProps) {
               )}
             </ul>
 
-            <Button onClick={handleStartWorkout} fullWidth size="sm">
+            <Button onClick={handleStartWorkout} fullWidth size="sm" data-testid="today-card-start-workout">
               <Play size={13} />
               Start Workout
             </Button>

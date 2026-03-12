@@ -5,14 +5,14 @@ import { getProfileById } from './dbHydration';
 import { markTutorialSeen } from './tutorial';
 import { getGuestProfile, getTheme, setWeightUnit } from '../utils/localStorage';
 
-function syncWeightUnitFromMetadata(session: Session): void {
+export function syncWeightUnitFromMetadata(session: Session): void {
   const raw = session.user.user_metadata?.weight_unit;
   if (raw === 'kg' || raw === 'lbs') {
     setWeightUnit(raw);
   }
 }
 
-function fallbackName(session: Session) {
+export function fallbackName(session: Session) {
   const guestProfile = getGuestProfile();
   if (guestProfile?.name?.trim()) {
     return guestProfile.name.trim();
@@ -33,15 +33,15 @@ function fallbackName(session: Session) {
   return 'Omnexus User';
 }
 
-function fallbackGoal(): Goal {
+export function fallbackGoal(): Goal {
   return getGuestProfile()?.goal ?? 'general-fitness';
 }
 
-function fallbackExperienceLevel(): ExperienceLevel {
+export function fallbackExperienceLevel(): ExperienceLevel {
   return getGuestProfile()?.experienceLevel ?? 'beginner';
 }
 
-function mapProfileToUser(profile: NonNullable<Awaited<ReturnType<typeof getProfileById>>>): User {
+export function mapProfileToUser(profile: NonNullable<Awaited<ReturnType<typeof getProfileById>>>): User {
   return {
     id: profile.id,
     name: profile.name,

@@ -12,6 +12,26 @@ export const TEST_USER = {
 
 export type SignInDestination = 'dashboard' | 'onboarding' | 'unavailable';
 
+const DEFAULT_GUEST_USER = {
+  id: 'guest_e2e',
+  name: 'Guest',
+  goal: 'hypertrophy',
+  experienceLevel: 'intermediate',
+  activeProgramId: 'hyp-intermediate-4day',
+  onboardedAt: '2026-03-01T12:00:00.000Z',
+  theme: 'dark',
+  isGuest: true,
+} as const;
+
+const EMPTY_HISTORY = { sessions: [], personalRecords: [] };
+const EMPTY_LEARNING_PROGRESS = {
+  completedLessons: [],
+  completedModules: [],
+  completedCourses: [],
+  quizScores: {},
+  lastActivityAt: '',
+};
+
 function normalizePathname(rawUrl: string) {
   const pathname = new URL(rawUrl).pathname.replace(/\/+$/, '');
   return pathname || '/';
@@ -81,22 +101,30 @@ export async function signOut(page: Page) {
   });
 }
 
-/** Enter the app as a guest (no Supabase account). */
-export async function enterAsGuest(page: Page) {
-  // Ensure each test starts from a clean unauthenticated state.
+async function seedGuestState(page: Page) {
   await page.goto('/login');
-  await page.evaluate(() => {
+  await page.evaluate(({ guestUser, history, learningProgress }) => {
     localStorage.clear();
     sessionStorage.clear();
     localStorage.setItem('omnexus_cookie_consent', 'accepted');
+    localStorage.setItem('fit_user', JSON.stringify(guestUser));
+    localStorage.setItem('omnexus_guest', JSON.stringify(guestUser));
+    localStorage.setItem('fit_history', JSON.stringify(history));
+    localStorage.setItem('omnexus_learning_progress', JSON.stringify(learningProgress));
+    localStorage.setItem('omnexus_weight_unit', JSON.stringify('lbs'));
+    localStorage.setItem('fit_theme', JSON.stringify('dark'));
+    localStorage.setItem('omnexus_experience_mode', JSON.stringify({ [guestUser.id]: 'guided' }));
+  }, {
+    guestUser: DEFAULT_GUEST_USER,
+    history: EMPTY_HISTORY,
+    learningProgress: EMPTY_LEARNING_PROGRESS,
   });
+}
 
-  await page.goto('/guest');
-  // Step 0: select a goal, then advance to step 1 with "Next"
-  await page.getByRole('button', { name: /build muscle/i }).first().click();
-  await page.getByRole('button', { name: /^next$/i }).click();
-  // Step 1: select experience level, then finish
-  await page.getByRole('button', { name: /intermediate/i }).first().click();
-  await page.getByRole('button', { name: /start training/i }).click();
+/** Enter the app as a guest (no Supabase account). */
+export async function enterAsGuest(page: Page) {
+  await seedGuestState(page);
+  await page.goto('/');
   await page.waitForURL('/');
+  await page.getByTestId('dashboard-guest-persistence-card').waitFor({ timeout: 10_000 });
 }

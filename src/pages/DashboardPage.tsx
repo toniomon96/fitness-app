@@ -226,6 +226,27 @@ export function DashboardPage() {
           )}
         </div>
 
+        {user.isGuest && (
+          <Card
+            className="border-amber-300/70 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/15"
+            data-testid="dashboard-guest-persistence-card"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  Guest progress stays on this device
+                </p>
+                <p className="mt-1 text-sm text-amber-800/85 dark:text-amber-300/85">
+                  Create a free account when you are ready to keep workouts, measurements, and learning progress across devices.
+                </p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => navigate('/onboarding')}>
+                Save Progress
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* ── Program ready banner ──────────────────────────────────── */}
         {genStatus === 'ready' && generatedProgramId && generatedProgramExists && generationState?.activateOnReady && (
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/50 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">

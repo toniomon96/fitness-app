@@ -3,16 +3,18 @@ import { v4 as uuid } from 'uuid';
 import { useApp } from '../store/AppContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiBase } from '../lib/api';
-import type { WorkoutSession, LoggedExercise, LoggedSet, Program, BlockMission } from '../types';
+import type { WorkoutSession, LoggedExercise, LoggedSet, Program, BlockMission, PersonalRecord } from '../types';
 import {
   setActiveSession,
   clearActiveSession,
   appendSession,
+  updateSessionSyncStatus,
   updatePersonalRecords,
 } from '../utils/localStorage';
 import { calculateTotalVolume, detectPersonalRecords } from '../utils/volumeUtils';
 import { advanceProgramCursor } from '../utils/programUtils';
 import { trackWorkoutCompleted } from '../lib/analytics';
+import { getSessionPersonalRecords } from '../utils/workoutSync';
 
 // ─── Block mission progress helper ────────────────────────────────────────────
 
@@ -85,6 +87,54 @@ async function updateBlockMissions(
 export function useWorkoutSession() {
   const { state, dispatch } = useApp();
   const { toast } = useToast();
+
+  const syncWorkoutToCloud = useCallback(
+    async (
+      session: WorkoutSession,
+      prs: PersonalRecord[],
+      options?: { onSuccess?: () => void; onError?: () => void; successMessage?: string; errorMessage?: string },
+    ) => {
+      if (!state.user || state.user.isGuest) {
+        return { ok: false as const, reason: 'missing-auth' as const };
+      }
+
+      const syncingSession = updateSessionSyncStatus(session.id, 'syncing');
+      if (syncingSession) {
+        dispatch({ type: 'UPDATE_SESSION', payload: syncingSession });
+      }
+
+      try {
+        const { upsertSession, upsertPersonalRecords } = await import('../lib/db');
+        await Promise.all([
+          upsertSession(session, state.user.id),
+          upsertPersonalRecords(prs, state.user.id),
+        ]);
+
+        const syncedSession = updateSessionSyncStatus(session.id, 'synced');
+        if (syncedSession) {
+          dispatch({ type: 'UPDATE_SESSION', payload: syncedSession });
+        }
+
+        options?.onSuccess?.();
+        if (options?.successMessage) {
+          toast(options.successMessage, 'success');
+        }
+
+        return { ok: true as const };
+      } catch (err) {
+        console.error('[useWorkoutSession] Supabase sync failed:', err);
+        const failedSession = updateSessionSyncStatus(session.id, 'needs_attention');
+        if (failedSession) {
+          dispatch({ type: 'UPDATE_SESSION', payload: failedSession });
+        }
+
+        options?.onError?.();
+        toast(options?.errorMessage ?? 'Workout saved locally, but cloud sync needs attention.', 'error');
+        return { ok: false as const, reason: 'sync-failed' as const };
+      }
+    },
+    [dispatch, state.user, toast],
+  );
 
   const startWorkout = useCallback(
     (program: Program, dayIndex: number) => {
@@ -237,6 +287,8 @@ export function useWorkoutSession() {
         completedAt: now,
         durationSeconds,
         totalVolumeKg: calculateTotalVolume(state.activeSession),
+        syncStatus: state.user && !state.user.isGuest ? 'syncing' : 'saved_on_device',
+        syncStatusUpdatedAt: now,
       };
 
       const prs = detectPersonalRecords(completed, state.history);
@@ -275,15 +327,7 @@ export function useWorkoutSession() {
         const userId = state.user.id;
         const activeProgramId = state.user.activeProgramId;
 
-        import('../lib/db').then(({ upsertSession, upsertPersonalRecords }) =>
-          Promise.all([
-            upsertSession(completed, userId),
-            upsertPersonalRecords(prs, userId),
-          ]),
-        ).catch((err) => {
-          console.error('[useWorkoutSession] Supabase sync failed:', err);
-          toast('Workout saved locally, but cloud sync failed. It will retry on next login.', 'error');
-        });
+        void syncWorkoutToCloud(completed, prs);
 
         import('../lib/supabase').then(({ supabase }) => supabase.auth.getSession()).then(({ data: { session } }) => {
           if (session) {
@@ -310,6 +354,28 @@ export function useWorkoutSession() {
     [state.activeSession, state.history, state.user, dispatch, toast],
   );
 
+  const retryWorkoutSync = useCallback(
+    async (sessionId: string) => {
+      if (!state.user || state.user.isGuest) {
+        toast('Sign in to retry cloud sync for this workout.', 'info');
+        return { ok: false as const, reason: 'missing-auth' as const };
+      }
+
+      const sessionToRetry = state.history.sessions.find((entry) => entry.id === sessionId);
+      if (!sessionToRetry) {
+        toast('We could not find that workout to retry.', 'error');
+        return { ok: false as const, reason: 'missing-session' as const };
+      }
+
+      const prs = getSessionPersonalRecords(sessionId, state.history.personalRecords);
+      return syncWorkoutToCloud(sessionToRetry, prs, {
+        successMessage: 'Workout sync completed.',
+        errorMessage: 'Workout is still saved locally, but cloud sync needs attention.',
+      });
+    },
+    [state.user, state.history.sessions, state.history.personalRecords, syncWorkoutToCloud, toast],
+  );
+
   const discardWorkout = useCallback(() => {
     clearActiveSession();
     dispatch({ type: 'CLEAR_ACTIVE_SESSION' });
@@ -324,6 +390,7 @@ export function useWorkoutSession() {
     removeSet,
     addExercise,
     completeWorkout,
+    retryWorkoutSync,
     discardWorkout,
   };
 }

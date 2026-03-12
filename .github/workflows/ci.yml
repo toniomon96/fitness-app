@@ -128,7 +128,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run full dev verification suite
+      - name: Run golden-path dev verification suite
         run: npm run verify:dev
         env:
           E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}

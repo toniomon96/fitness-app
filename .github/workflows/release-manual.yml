@@ -1,4 +1,4 @@
-name: Release Verification
+name: Release Verification Matrix
 
 permissions:
   contents: read
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   verify-release:
-    name: Manual Release Verification
+    name: Manual Release Verification (${{ inputs.target }})
     runs-on: ubuntu-latest
 
     steps:
@@ -59,12 +59,26 @@ jobs:
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
+      - name: Publish release matrix summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Release verification summary"
+            echo ""
+            echo "- Target: ${{ inputs.target }}"
+            echo "- Command: npm run ${{ steps.verify-command.outputs.script }}"
+            echo "- Base URL override supplied: ${{ inputs.base_url != '' }}"
+            echo "- Golden-path policy reference: docs/E2E_TEST_MATRIX.md"
+            echo "- Manual QA references: docs/RELEASE_CHECKLIST.md and docs/RELEASE_DAY.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish release verification summary
         uses: mikepenz/action-junit-report@v4
         if: always()
         with:
           report_paths: 'test-results/junit.xml'
-          check_name: 'Manual Release Verification Results'
+          check_name: 'Manual Release Verification Results (${{ inputs.target }})'
           fail_on_failure: true
 
       - name: Upload release report on failure

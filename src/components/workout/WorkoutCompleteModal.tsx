@@ -14,6 +14,8 @@ import { getAdaptation } from '../../services/adaptService';
 import { useApp } from '../../store/AppContext';
 import { useWeightUnit } from '../../hooks/useWeightUnit';
 import { formatMass, formatWeightValue, toDisplayWeight } from '../../utils/weightUnits';
+import { WorkoutSyncStatusBadge } from './WorkoutSyncStatusBadge';
+import { getWorkoutSyncStatusCopy } from '../../utils/workoutSync';
 
 interface WorkoutCompleteModalProps {
   open: boolean;
@@ -96,6 +98,8 @@ export function WorkoutCompleteModal({
   const navigate = useNavigate();
   const { state } = useApp();
   const weightUnit = useWeightUnit();
+  const latestSession = state.history.sessions.find((entry) => entry.id === session.id) ?? session;
+  const syncCopy = getWorkoutSyncStatusCopy(latestSession.syncStatus);
   const hasPRs = prs.length > 0;
   useConfetti(open && hasPRs);
 
@@ -193,12 +197,12 @@ export function WorkoutCompleteModal({
                 {
                   icon: <Timer size={18} className="text-brand-500" />,
                   label: 'Duration',
-                  value: formatDuration(session.durationSeconds ?? 0),
+                  value: formatDuration(latestSession.durationSeconds ?? 0),
                 },
                 {
                   icon: <Zap size={18} className="text-orange-500" />,
                   label: 'Volume',
-                  value: formatMass(session.totalVolumeKg, weightUnit),
+                  value: formatMass(latestSession.totalVolumeKg, weightUnit),
                 },
                 {
                   icon: <Trophy size={18} className="text-yellow-500" />,
@@ -219,12 +223,21 @@ export function WorkoutCompleteModal({
               ))}
             </div>
 
+            {syncCopy && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800/70">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900 dark:text-white">Save status</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{syncCopy.description}</p>
+                  </div>
+                  <WorkoutSyncStatusBadge status={latestSession.syncStatus} />
+                </div>
+              </div>
+            )}
+
             {/* PRs */}
             {hasPRs && (
-              <div
-                className="rounded-2xl border-2 border-yellow-400 dark:border-yellow-500 overflow-hidden"
-                style={{ animation: 'prGlow 0.6s ease-out' }}
-              >
+              <div className="animate-pr-glow overflow-hidden rounded-2xl border-2 border-yellow-400 dark:border-yellow-500">
                 {/* Header */}
                 <div className="flex items-center justify-center gap-2 bg-yellow-400 dark:bg-yellow-500 px-4 py-2.5">
                   <Star size={16} className="text-yellow-900 fill-yellow-900" />
@@ -236,13 +249,12 @@ export function WorkoutCompleteModal({
 
                 {/* PR rows */}
                 <ul className="divide-y divide-yellow-200 dark:divide-yellow-800/40 bg-yellow-50 dark:bg-yellow-900/20">
-                  {prs.map((pr, i) => {
+                  {prs.map((pr) => {
                     const ex = getExerciseById(pr.exerciseId);
                     return (
                       <li
                         key={pr.exerciseId}
-                        className="flex items-center justify-between px-4 py-2.5"
-                        style={{ animation: `prSlideIn 0.35s ease-out ${i * 80}ms both` }}
+                        className="animate-pr-slide-in flex items-center justify-between px-4 py-2.5"
                       >
                         <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
                           {ex?.name ?? pr.exerciseId}

@@ -8,6 +8,11 @@ Thank you for your interest in contributing. Here's everything you need to get s
 
 See the [README](README.md#local-development) for full setup instructions.
 
+For planned product refinement work, also read:
+
+- [docs/V1_ENHANCEMENT_SPRINT_PLAN.md](docs/V1_ENHANCEMENT_SPRINT_PLAN.md)
+- [docs/SDLC_EXECUTION_PLAYBOOK.md](docs/SDLC_EXECUTION_PLAYBOOK.md)
+
 Quick start:
 
 ```bash
@@ -71,6 +76,8 @@ test: add E2E spec for nutrition quick log
 6. Review the Vercel preview deployment and require the preview release gate to pass
 7. Merge into `main` only after preview signoff and required approvals
 
+For enhancement work, PRs should map back to a sprint ticket with explicit acceptance criteria and a test plan.
+
 ```bash
 git checkout dev
 git pull
@@ -130,6 +137,14 @@ gh pr create --base main --label hotfix
 - **Utilities**: grouped by domain in `src/utils/`
 - **Supabase write helpers** in `db.ts` throw `Error('[fnName] ${error.message}')` — callers catch and use `toast()`
 - **API endpoints**: always call `setCorsHeaders()` and `checkRateLimit()` at the top; never expose API keys in responses
+
+## Execution Standards
+
+- Prefer vertical slices over broad cross-cutting refactors.
+- For regressions or state-flow changes, write the failing test first when practical.
+- Every user-facing change must define guest, authenticated, and premium behavior if applicable.
+- Any change touching localStorage or Supabase sync must document failure and recovery behavior.
+- Large UX changes should demo the full user journey in the PR, not just the isolated component.
 
 ---
 

@@ -2,6 +2,12 @@
 
 This repo should promote changes through `local -> dev -> preview -> prod`.
 
+For the current V1 refinement cycle, use these companion documents:
+
+- [V1 enhancement sprint plan](V1_ENHANCEMENT_SPRINT_PLAN.md)
+- [SDLC execution playbook](SDLC_EXECUTION_PLAYBOOK.md)
+- [E2E test matrix](E2E_TEST_MATRIX.md)
+
 ## Environment model
 
 | Stage | Branch source | Purpose | Required checks | Deployment target |
@@ -35,8 +41,16 @@ git checkout -b bug/stale-bottom-nav-content
 | Command | Purpose |
 |---|---|
 | `npm run verify:local` | Lint, typecheck, unit tests, and production build |
-| `npm run verify:dev` | Local gate plus Chromium smoke E2E coverage for integration safety |
+| `npm run verify:dev` | Local gate plus deterministic Chromium golden-path E2E coverage |
 | `npm run verify:preview` | Local gate plus full Playwright suite for release candidates |
+
+Golden-path note:
+
+- `verify:dev` is intentionally narrower than preview and production verification.
+- The `dev` gate is meant to catch deterministic regressions in the core user journeys, not every environment-sensitive auth or mobile path.
+- Use the [E2E test matrix](E2E_TEST_MATRIX.md) to decide whether a failing spec is blocking signal or extended coverage.
+
+Enhancement work should not be considered releasable unless the affected user journey has both automated coverage and manual QA notes.
 
 ## CI policy
 
@@ -49,6 +63,11 @@ The GitHub Actions workflow enforces:
 - `push` to `main`: `Quality Gate` and `Dev Smoke Gate`
 - manual `Release Verification` runs for preview or production targets
 - manual `Promote dev to main` creates or refreshes the release PR
+
+Interpretation:
+
+- `Dev Smoke Gate` should only fail on golden-path regressions.
+- Preview and production verification are where broader Playwright coverage should remain authoritative.
 
 Recommended GitHub branch protection:
 

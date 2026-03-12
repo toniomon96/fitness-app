@@ -6,7 +6,7 @@ import { OnboardingChat } from './OnboardingChat';
 import { ProfileSummaryCard } from './ProfileSummaryCard';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { setUser, resetProgramCursors, getHistory } from '../../utils/localStorage';
+import { setUser, resetProgramCursors } from '../../utils/localStorage';
 import { apiBase } from '../../lib/api';
 import { MIN_PASSWORD_LENGTH, passwordLengthError } from '../../lib/passwordPolicy';
 import { useApp } from '../../store/AppContext';
@@ -30,24 +30,6 @@ async function resendSignupConfirmation(email: string) {
 async function upsertTrainingProfileToDb(userId: string, profile: UserTrainingProfile) {
   const { upsertTrainingProfile } = await import('../../lib/db');
   return upsertTrainingProfile(userId, profile);
-}
-
-async function migrateGuestHistory(userId: string): Promise<void> {
-  const history = getHistory();
-  if (history.sessions.length === 0 && history.personalRecords.length === 0) return;
-
-  const { upsertSession, upsertPersonalRecords } = await import('../../lib/db');
-  await Promise.all([
-    ...history.sessions.map((session) => upsertSession(session, userId)),
-    upsertPersonalRecords(history.personalRecords, userId),
-  ]);
-}
-
-/** Migrate any guest workout history + PRs to Supabase after account creation. Fire-and-forget. */
-function migrateGuestData(userId: string): void {
-  void migrateGuestHistory(userId).catch((err) => {
-    console.warn('[OnboardingForm] Guest data migration failed:', err);
-  });
 }
 
 // Step 0: Account, Step 1: Name, Step 2: AI Chat, Step 3: Profile summary + kick-off
@@ -249,9 +231,6 @@ export function OnboardingForm() {
       resetProgramCursors('');
       dispatch({ type: 'SET_USER', payload: user });
       dispatch({ type: 'SET_THEME', payload: 'dark' });
-
-      // Migrate any guest workout data to Supabase (fire-and-forget)
-      migrateGuestData(userId);
 
       navigate('/');
     } finally {

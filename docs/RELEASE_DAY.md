@@ -6,6 +6,7 @@ Use with:
 - `docs/RELEASE_CHECKLIST.md` for pass/fail criteria
 - `docs/ENVIRONMENT_MATRIX.md` for expected values per environment
 - `docs/CI_RUNBOOK.md` for troubleshooting failed gates
+- `docs/E2E_TEST_MATRIX.md` for golden-path vs extended coverage expectations
 
 ## Roles
 
@@ -25,11 +26,13 @@ Use with:
 Run from repo root:
 
 ```bash
+npm run verify:dev
 npm run verify:prod
 npm audit --omit=dev
 ```
 
 Expected:
+- `verify:dev` confirms the deterministic Chromium golden path is green
 - `verify:prod` exits `0`
 - `npm audit --omit=dev` has no untriaged critical/high runtime vulnerabilities
 
@@ -75,17 +78,25 @@ Use preview URL and run these paths:
 
 - `/login`: wrong credentials shows actionable guidance
 - `/guest` -> `/`: guest onboarding and dashboard
+- `/` and `/history`: guest device-only persistence messaging is visible and points to account creation
 - `/ask`: stream response and loading state
 - `/insights`: guest account CTA and no raw backend errors
 - `/train` -> active workout -> finish/discard flow
+- `/train` -> finish workout: verify visible save-state outcome (`Saved on device`, `Syncing`, `Synced`, or `Needs attention`)
+- authenticated login with guest data present: verify migration prompt content, dismiss behavior, and profile recovery entrypoint
+- simulated or forced hydration failure: verify recovery screen exposes retry/refresh actions instead of silent looping
 - `/subscription`: checkout/portal redirects
 - `/profile`: notification settings save
 
 Pass condition:
 - No blocker behavior, no raw stack traces, no broken navigation.
+- Trust-critical flows expose clear recovery states instead of silent failure.
 
 Evidence to capture:
 - short QA note in PR with pass/fail per route
+- note which sync state was observed after workout completion
+- note whether guest migration was imported or dismissed during QA
+- note whether hydration recovery UI was exercised or intentionally not applicable
 
 ## 5. Production promotion
 
@@ -131,6 +142,7 @@ Evidence to capture:
 ## Quick command block
 
 ```bash
+npm run verify:dev
 npm run verify:prod
 npm audit --omit=dev
 npm run test:e2e -- tests/e2e/auth.spec.ts --project=chromium

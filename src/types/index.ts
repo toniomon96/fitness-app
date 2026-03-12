@@ -52,6 +52,8 @@ export type DayType =
 
 export type WeightUnit = 'kg' | 'lbs';
 
+export type WorkoutSyncStatus = 'saved_on_device' | 'syncing' | 'synced' | 'needs_attention';
+
 // ─── User ────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -204,6 +206,8 @@ export interface WorkoutSession {
   exercises: LoggedExercise[];
   totalVolumeKg: number;
   notes?: string;
+  syncStatus?: WorkoutSyncStatus;
+  syncStatusUpdatedAt?: string;
 }
 
 // ─── History & Analytics ──────────────────────────────────────────────────────
