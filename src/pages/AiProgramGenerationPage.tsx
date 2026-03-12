@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { AiDegradedStateCard } from '../components/ui/AiDegradedStateCard';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { useProgramGeneration } from '../hooks/useProgramGeneration';
-import { clearGenerationState, startGeneration } from '../lib/programGeneration';
+import { startGeneration } from '../lib/programGeneration';
 import { getCustomPrograms } from '../utils/localStorage';
 import type { Program, UserTrainingProfile } from '../types';
-import { Loader2, Sparkles, Calendar, Clock3, Target, Layers, AlertCircle } from 'lucide-react';
+import { Loader2, Sparkles, Calendar, Clock3, Target, Layers } from 'lucide-react';
 import { programs as builtInPrograms } from '../data/programs';
+import { normalizeAiError } from '../lib/aiErrorHandling';
+import { trackAiDegradedStateEvent } from '../lib/analytics';
 
 async function loadTrainingProfile(userId: string) {
   const { fetchTrainingProfile } = await import('../lib/db');
@@ -46,6 +49,7 @@ export function AiProgramGenerationPage() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const lastDegradedErrorKindRef = useRef<'auth' | 'upgrade' | 'network' | 'rate_limit' | 'server' | 'unknown' | null>(null);
 
   const user = state.user;
   const allPrograms = [...builtInPrograms, ...getCustomPrograms()];
@@ -82,14 +86,6 @@ export function AiProgramGenerationPage() {
     return () => { cancelled = true; };
   }, [user?.id, user?.goal, user?.experienceLevel, session?.access_token, activeProgram]);
 
-  useEffect(() => {
-    if (!user || !generationState || generationState.userId !== user.id) return;
-    if (generationStatus !== 'ready' || generationState.activateOnReady) return;
-
-    clearGenerationState();
-    navigate(`/programs/${programId}`, { replace: true });
-  }, [generationStatus, generationState, navigate, programId, user?.id]);
-
   if (!user || user.isGuest) {
     return (
       <AppShell>
@@ -106,6 +102,18 @@ export function AiProgramGenerationPage() {
   }
 
   const monthlyLimitReached = !!subscriptionStatus && subscriptionStatus.programGenCount >= subscriptionStatus.programGenLimit;
+  const isDraftReady = Boolean(
+    user
+    && generationStatus === 'ready'
+    && generationState?.userId === user.id
+    && generationState?.activateOnReady === false
+    && programId,
+  );
+
+  function handleReviewDraft() {
+    if (!programId) return;
+    navigate(`/programs/${programId}`);
+  }
 
   async function handleGenerate() {
     if (!profile || !user) return;
@@ -116,14 +124,39 @@ export function AiProgramGenerationPage() {
         activateOnReady: false,
         countAgainstQuota: true,
       });
+      if (lastDegradedErrorKindRef.current) {
+        trackAiDegradedStateEvent({
+          surface: 'program_generation',
+          action: 'recovered',
+          errorKind: lastDegradedErrorKindRef.current,
+        });
+        lastDegradedErrorKindRef.current = null;
+      }
       refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to generate a new AI program.';
-      setError(message);
-      toast(message, 'error');
+      const normalized = normalizeAiError(err, { surface: 'program_generation' });
+      setError(normalized.message);
+      lastDegradedErrorKindRef.current = normalized.kind;
+      trackAiDegradedStateEvent({
+        surface: 'program_generation',
+        action: 'shown',
+        errorKind: normalized.kind,
+      });
+      toast(normalized.message, 'error');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleRetryGenerate() {
+    if (lastDegradedErrorKindRef.current) {
+      trackAiDegradedStateEvent({
+        surface: 'program_generation',
+        action: 'retry_clicked',
+        errorKind: lastDegradedErrorKindRef.current,
+      });
+    }
+    void handleGenerate();
   }
 
   return (
@@ -173,6 +206,24 @@ export function AiProgramGenerationPage() {
           </Card>
         )}
 
+        {isDraftReady && (
+          <Card className="border-emerald-300/60 bg-emerald-50 dark:border-emerald-700/50 dark:bg-emerald-900/20" data-testid="program-generation-draft-ready-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Draft ready</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">Your new AI draft is ready to review</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+              Your current active program remains unchanged until you explicitly start the new draft from its detail page.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Button size="sm" onClick={handleReviewDraft} data-testid="program-generation-review-draft-action">
+                Review draft
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => navigate('/')}>
+                Keep current program
+              </Button>
+            </div>
+          </Card>
+        )}
+
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Generation Context</p>
           {loadingProfile || !profile ? (
@@ -203,12 +254,13 @@ export function AiProgramGenerationPage() {
         </Card>
 
         {error && (
-          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-700 dark:text-amber-300">{error}</p>
-            </div>
-          </Card>
+          <AiDegradedStateCard
+            title="Program generation is temporarily unavailable"
+            message={error}
+            onRetry={profile && !loadingProfile ? handleRetryGenerate : undefined}
+            retryDisabled={submitting || monthlyLimitReached || generationStatus === 'generating'}
+            testId="program-generation-degraded-state"
+          />
         )}
 
         {generationStatus === 'generating' && generationState?.userId === user.id && !generationState.activateOnReady && (
@@ -224,10 +276,12 @@ export function AiProgramGenerationPage() {
           fullWidth
           size="lg"
           onClick={handleGenerate}
-          disabled={loadingProfile || !profile || submitting || monthlyLimitReached || (generationStatus === 'generating' && generationState?.userId === user.id)}
+          disabled={loadingProfile || !profile || submitting || monthlyLimitReached || (generationStatus === 'generating' && generationState?.userId === user.id) || isDraftReady}
         >
           {submitting || (generationStatus === 'generating' && generationState?.userId === user.id)
             ? 'Generating draft…'
+            : isDraftReady
+              ? 'Draft ready — review above'
             : monthlyLimitReached
               ? 'Monthly AI limit reached'
               : 'Generate New AI Draft'}

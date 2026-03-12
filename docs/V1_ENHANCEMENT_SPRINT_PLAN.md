@@ -238,6 +238,9 @@ Execution backlog:
 
 Duration: 2 weeks
 
+Status:
+Started in repo as of 2026-03-12. Shared AI error normalization, a unified degraded-state/retry panel, fallback analytics instrumentation, Ask/Insights next-step cohesion, explicit AI draft-ready handoff flows, and degraded-path spot tests are implemented across primary AI surfaces. Remaining scope is manual QA/release-owner signoff.
+
 Goal:
 Improve AI trust, clarity, and integration without expanding surface area.
 
@@ -276,6 +279,12 @@ Exit criteria:
 
 - AI paths are understandable under both normal and degraded conditions.
 - AI outputs consistently end in actionable product guidance.
+
+Execution backlog:
+
+- [Sprint 4 backlog](SPRINT_4_BACKLOG.md)
+- [Sprint 4 issue drafts](SPRINT_4_ISSUE_DRAFTS.md)
+- [Sprint 4 QA checklist](SPRINT_4_QA_CHECKLIST.md)
 
 ## Sprint 5: Launch Readiness Sweep
 

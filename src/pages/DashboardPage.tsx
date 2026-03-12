@@ -323,6 +323,26 @@ export function DashboardPage() {
           </div>
         )}
 
+        {genStatus === 'ready' && generatedProgramId && generatedProgramExists && generationState?.activateOnReady === false && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/50 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3" data-testid="dashboard-ai-draft-ready-banner">
+            <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                Your AI draft is ready to review
+              </p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                Your current program stays active until you explicitly start the new draft.
+              </p>
+            </div>
+            <Link
+              to={`/programs/${generatedProgramId}`}
+              className="shrink-0 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              Review →
+            </Link>
+          </div>
+        )}
+
         {genStatus === 'ready' && generatedProgramId && !generatedProgramExists && generationState?.activateOnReady && (
           <div className="flex items-center gap-3 rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-900/15 dark:border-amber-700/40 px-4 py-3">
             <AlertTriangle size={18} className="text-amber-500 shrink-0" />

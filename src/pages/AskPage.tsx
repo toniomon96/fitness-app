@@ -4,18 +4,20 @@ import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { AiDegradedStateCard } from '../components/ui/AiDegradedStateCard';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../hooks/useSubscription';
-import { askOmnexusStream, ApiError } from '../services/claudeService';
+import { askOmnexusStream } from '../services/claudeService';
 import type { ConversationMessage, Citation } from '../services/claudeService';
+import { normalizeAiError } from '../lib/aiErrorHandling';
 import {
   appendInsightSession,
   getInsightSessions,
 } from '../utils/localStorage';
 import type { InsightSession } from '../types';
-import { trackAskSubmitted } from '../lib/analytics';
+import { trackAiDegradedStateEvent, trackAskSubmitted } from '../lib/analytics';
 import { v4 as uuidv4 } from 'uuid';
 import {
   MessageCircle,
@@ -35,6 +37,12 @@ const SUGGESTED = [
   'How does sleep affect muscle recovery?',
   'Is creatine safe and effective?',
 ];
+
+interface AskNextStepRecommendation {
+  label: string;
+  description: string;
+  destination: '/insights' | '/train' | '/onboarding';
+}
 
 // Topic keyword → follow-up chips
 const FOLLOW_UP_MAP: Record<string, string[]> = {
@@ -75,9 +83,28 @@ export function AskPage() {
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [followUps, setFollowUps] = useState<string[]>([]);
   const [currentCitations, setCurrentCitations] = useState<Citation[]>([]);
+  const lastDegradedErrorKindRef = useRef<'auth' | 'upgrade' | 'network' | 'rate_limit' | 'server' | 'unknown' | null>(null);
 
   const answerRef = useRef<HTMLDivElement>(null);
   const CONVO_KEY = 'omnexus_ask_conversation';
+
+  const recommendation: AskNextStepRecommendation = state.user?.isGuest
+    ? {
+        label: 'Create account to save AI guidance across devices',
+        description: 'Keep Ask history and insights available when you switch devices.',
+        destination: '/onboarding',
+      }
+    : currentAnswer
+    ? {
+        label: 'Apply this in your next workout',
+        description: 'Use Train to turn this guidance into your next concrete session.',
+        destination: '/train',
+      }
+    : {
+        label: 'Review your workout insight trends',
+        description: 'Use Insights to connect Ask guidance with your recent training patterns.',
+        destination: '/insights',
+      };
 
   // Restore persisted conversation on mount (only when no prefill is driving a new context)
   useEffect(() => {
@@ -152,6 +179,14 @@ export function AskPage() {
 
       setCurrentAnswer(answer);
       setCurrentCitations(citations ?? []);
+      if (lastDegradedErrorKindRef.current) {
+        trackAiDegradedStateEvent({
+          surface: 'ask',
+          action: 'recovered',
+          errorKind: lastDegradedErrorKindRef.current,
+        });
+        lastDegradedErrorKindRef.current = null;
+      }
       trackAskSubmitted({ hasRagContext: (citations?.length ?? 0) > 0, isFollowUp: conversationHistory.length > 0 });
 
       const newHistory: ConversationMessage[] = [
@@ -175,18 +210,17 @@ export function AskPage() {
       setSessions(getInsightSessions().slice(0, 5));
       setQuestion('');
     } catch (err) {
-      // BUG-23: Use HTTP status code (403) rather than string matching to detect upgrade prompts.
-      if (err instanceof ApiError && err.status === 403) {
+      const normalized = normalizeAiError(err, { surface: 'ask' });
+      if (normalized.kind === 'upgrade') {
         setUpgradeRequired(true);
-      } else if (err instanceof Error) {
-        const msg = err.message;
-        if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-          setError('We could not reach the AI service right now. Check your connection and try again.');
-        } else {
-          setError(msg);
-        }
       } else {
-        setError('Something went wrong.');
+        setError(normalized.message);
+        lastDegradedErrorKindRef.current = normalized.kind;
+        trackAiDegradedStateEvent({
+          surface: 'ask',
+          action: 'shown',
+          errorKind: normalized.kind,
+        });
       }
     } finally {
       setLoading(false);
@@ -213,6 +247,30 @@ export function AskPage() {
     setCurrentCitations([]);
     setUpgradeRequired(false);
     try { sessionStorage.removeItem(CONVO_KEY); } catch { /* ignore */ }
+  }
+
+  function retryAsk() {
+    if (lastDegradedErrorKindRef.current) {
+      trackAiDegradedStateEvent({
+        surface: 'ask',
+        action: 'retry_clicked',
+        errorKind: lastDegradedErrorKindRef.current,
+      });
+    }
+    if (currentQuestion) {
+      void handleSubmit(currentQuestion);
+      return;
+    }
+    void handleSubmit();
+  }
+
+  function handleRecommendationAction() {
+    trackFeatureEntry({
+      source: 'ask_recommendation',
+      destination: recommendation.destination,
+      label: 'ai_next_step_continue',
+    });
+    navigate(recommendation.destination);
   }
 
   return (
@@ -294,9 +352,13 @@ export function AskPage() {
 
         {/* Error */}
         {error && (
-          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-          </Card>
+          <AiDegradedStateCard
+            title="Ask is temporarily unavailable"
+            message={error}
+            onRetry={retryAsk}
+            retryDisabled={loading}
+            testId="ask-degraded-state"
+          />
         )}
 
         {/* Upgrade prompt when daily limit reached */}
@@ -466,14 +528,19 @@ export function AskPage() {
           </div>
         </Card>
 
-        {/* Link to insights */}
-        <button
-          type="button"
-          onClick={() => navigate('/insights')}
-          className="w-full text-center text-xs text-brand-500 hover:underline"
-        >
-          View AI insights on your workouts →
-        </button>
+        <Card className="border-brand-200 bg-brand-50/60 dark:border-brand-800 dark:bg-brand-900/20" data-testid="ask-next-step-card">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-300">Recommended next step</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{recommendation.label}</p>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{recommendation.description}</p>
+          <Button
+            size="sm"
+            className="mt-3"
+            onClick={handleRecommendationAction}
+            data-testid="ask-next-step-action"
+          >
+            Continue
+          </Button>
+        </Card>
 
       </div>
     </AppShell>

@@ -4,6 +4,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { AiDegradedStateCard } from '../components/ui/AiDegradedStateCard';
 import { TermHelpChips } from '../components/ui/TermHelpChips';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { ArticleFeed } from '../components/insights/ArticleFeed';
@@ -11,14 +12,15 @@ import { AdaptationCard } from '../components/insights/AdaptationCard';
 import { PeerInsightsCard } from '../components/insights/PeerInsightsCard';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiError, getWorkoutInsights } from '../services/claudeService';
+import { getWorkoutInsights } from '../services/claudeService';
 import { buildInsightRequest } from '../services/insightsService';
 import { Sparkles, Loader, Shield, MessageCircle, BarChart2, Newspaper, Play } from 'lucide-react';
 import type { LearningCategory, Goal } from '../types';
 import { useWeightUnit } from '../hooks/useWeightUnit';
 import { getExperienceMode } from '../utils/localStorage';
 import { getWeekStart } from '../utils/dateUtils';
-import { trackFeatureEntry, trackInsightRecommendationEvent } from '../lib/analytics';
+import { trackAiDegradedStateEvent, trackFeatureEntry, trackInsightRecommendationEvent } from '../lib/analytics';
+import { normalizeAiError } from '../lib/aiErrorHandling';
 
 const GOAL_CATEGORY: Record<Goal, LearningCategory> = {
   'hypertrophy': 'strength-training',
@@ -50,6 +52,7 @@ export function InsightsPage() {
   const [insight, setInsight] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recommendationTrackedRef = useRef<string | null>(null);
+  const lastDegradedErrorKindRef = useRef<'auth' | 'upgrade' | 'network' | 'rate_limit' | 'server' | 'unknown' | null>(null);
 
   if (!user) return null;
   const userId = user.id;
@@ -115,7 +118,7 @@ export function InsightsPage() {
     });
 
     if (recommendation.destination === '/ask') {
-      trackFeatureEntry({ source: 'insights_recommendation', destination: '/ask', label: 'insight_follow_up' });
+      trackFeatureEntry({ source: 'insights_recommendation', destination: '/ask', label: 'ai_next_step_follow_up' });
       navigate('/ask', {
         state: {
           prefill: 'Based on my latest insights, what should I prioritize in my next workout?',
@@ -124,7 +127,7 @@ export function InsightsPage() {
       return;
     }
 
-    trackFeatureEntry({ source: 'insights_recommendation', destination: recommendation.destination, label: 'insight_next_step' });
+    trackFeatureEntry({ source: 'insights_recommendation', destination: recommendation.destination, label: 'ai_next_step_continue' });
     navigate(recommendation.destination);
   }
 
@@ -150,20 +153,38 @@ export function InsightsPage() {
 
       const { insight: text } = await getWorkoutInsights(request);
       setInsight(text);
+      if (lastDegradedErrorKindRef.current) {
+        trackAiDegradedStateEvent({
+          surface: 'insights',
+          action: 'recovered',
+          errorKind: lastDegradedErrorKindRef.current,
+        });
+        lastDegradedErrorKindRef.current = null;
+      }
     } catch (err) {
       console.error('[InsightsPage] Failed to generate insights:', err);
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        setError('Insights require an account because they analyze your workout history.');
-      } else if (err instanceof Error && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-        setError(
-          'We could not reach the insights service right now. Check your connection and try again.',
-        );
-      } else {
-        setError('We couldn\'t generate insights right now. Please try again.');
-      }
+      const normalized = normalizeAiError(err, { surface: 'insights' });
+      setError(normalized.message);
+      lastDegradedErrorKindRef.current = normalized.kind;
+      trackAiDegradedStateEvent({
+        surface: 'insights',
+        action: 'shown',
+        errorKind: normalized.kind,
+      });
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleRetryAnalyze() {
+    if (lastDegradedErrorKindRef.current) {
+      trackAiDegradedStateEvent({
+        surface: 'insights',
+        action: 'retry_clicked',
+        errorKind: lastDegradedErrorKindRef.current,
+      });
+    }
+    void handleAnalyze();
   }
 
   return (
@@ -288,18 +309,13 @@ export function InsightsPage() {
 
         {/* Error */}
         {error && (
-          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            {!user.isGuest && (
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                className="mt-2 text-sm font-medium text-brand-500 hover:underline"
-              >
-                Retry
-              </button>
-            )}
-          </Card>
+          <AiDegradedStateCard
+            title="Insights are temporarily unavailable"
+            message={error}
+            onRetry={!user.isGuest ? handleRetryAnalyze : undefined}
+            retryDisabled={loading}
+            testId="insights-degraded-state"
+          />
         )}
 
         {/* Insight result */}
