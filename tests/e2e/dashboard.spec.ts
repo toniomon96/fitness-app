@@ -72,7 +72,7 @@ test.describe('Dashboard — guest', () => {
     await expect(page.getByRole('button', { name: /^save progress$/i }).first()).toBeVisible({ timeout: 5_000 });
   });
 
-  test('no-program dashboard state routes to programs and quick log', async ({ page }) => {
+  test('no-program dashboard state routes to programs and quick session', async ({ page }) => {
     await page.evaluate(() => {
       const raw = localStorage.getItem('fit_user');
       if (!raw) return;

@@ -180,18 +180,18 @@ test.describe('Workout complete modal', () => {
   });
 });
 
-test.describe('Quick log workout', () => {
+test.describe('Quick session workout', () => {
   test.beforeEach(async ({ page }) => {
     await enterAsGuest(page);
     await page.evaluate(() => localStorage.removeItem('fit_active_session'));
   });
 
-  test('quick-log workout can be started and finished', async ({ page }) => {
-    test.info().annotations.push({ type: 'feature', description: 'Quick Log' });
+  test('quick-session workout can be started and finished', async ({ page }) => {
+    test.info().annotations.push({ type: 'feature', description: 'Quick Session' });
     test.info().annotations.push({ type: 'severity', description: 'critical' });
-    test.info().annotations.push({ type: 'description', description: 'Regression: quick-log "Finish" button was a no-op because program lookup returned undefined' });
+    test.info().annotations.push({ type: 'description', description: 'Regression: quick-session finish flow was a no-op because program lookup returned undefined' });
 
-    await test.step('navigate to quick log page', () => page.goto('/workout/quick'));
+    await test.step('navigate to quick session page', () => page.goto('/workout/quick'));
 
     await test.step('select at least one exercise', async () => {
       const firstExercise = page.locator('button').filter({ hasText: /press|squat|deadlift|curl/i }).first();
@@ -216,16 +216,16 @@ test.describe('Quick log workout', () => {
     });
   });
 
-  test('quick-log page shows step-by-step help and disabled start until selection', async ({ page }) => {
+  test('quick-session page shows step-by-step help and disabled start until selection', async ({ page }) => {
     await signOut(page);
     await enterAsGuest(page);
     await page.goto('/workout/quick');
     await page.waitForURL('/workout/quick');
-    await expect(page.getByRole('heading', { name: /how quick log works/i })).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: /how quick session works/i })).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('button', { name: /select at least 1 exercise to start/i })).toBeDisabled();
   });
 
-  test('train page routes users without a program into quick log instead of a dead end', async ({ page }) => {
+  test('train page routes users without a program into quick session instead of a dead end', async ({ page }) => {
     await page.evaluate(() => {
       const raw = localStorage.getItem('fit_user');
       if (!raw) return;
@@ -255,7 +255,7 @@ test.describe('Quick log workout', () => {
       await page.goto('/workout/quick');
     });
     await expect(page).toHaveURL(/\/workout\/quick\/?$/);
-    await expect(page.getByRole('heading', { name: /^quick log$/i })).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: /^quick session$/i })).toBeVisible({ timeout: 5_000 });
   });
 });
 
