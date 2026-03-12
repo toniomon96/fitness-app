@@ -135,7 +135,7 @@ Execution backlog:
 Duration: 2 weeks
 
 Status:
-Ready for execution after Sprint 1 verification signoff.
+Implementation complete in repo as of 2026-03-12. Primary CTA hierarchy, dominant CTA analytics, Dashboard secondary-action deconfliction, and cross-surface Quick Session label alignment are implemented. Manual QA and release-owner verification remain signoff tasks.
 
 Goal:
 Make the app's primary next action obvious on Dashboard and Train.
@@ -143,14 +143,14 @@ Make the app's primary next action obvious on Dashboard and Train.
 Primary outcomes:
 
 - Users always see one dominant next step.
-- Quick Log and program-based training no longer compete equally in confusing ways.
+- Quick Session and program-based training no longer compete equally in confusing ways.
 - No-program states are clearer and more intentional.
 
 Product work:
 
 - Redesign Dashboard hero and no-program state.
 - Restructure Train page around next session readiness.
-- Simplify duplicate CTA surfaces for Quick Log, Browse Programs, Start Workout.
+- Simplify duplicate CTA surfaces for Quick Session, Browse Programs, Start Workout.
 
 Engineering work:
 
@@ -169,7 +169,7 @@ Suggested ticket slices:
 Test strategy:
 
 - Snapshot or component tests for action hierarchy branches
-- E2E flows for guest no-program, active program, and quick-log fallback
+- E2E flows for guest no-program, active program, and Quick Session fallback
 
 Exit criteria:
 
@@ -180,6 +180,7 @@ Execution backlog:
 
 - [Sprint 2 backlog](SPRINT_2_BACKLOG.md)
 - [Sprint 2 issue drafts](SPRINT_2_ISSUE_DRAFTS.md)
+- [Sprint 2 QA checklist](SPRINT_2_QA_CHECKLIST.md)
 
 ## Sprint 3: Motivation and Retention
 
