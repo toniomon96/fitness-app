@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const guestProfileState = {
-  current: null as null | {
-    name?: string;
-    goal?: 'hypertrophy' | 'fat-loss' | 'general-fitness';
-    experienceLevel?: 'beginner' | 'intermediate' | 'advanced';
+const { guestProfileState, weightUnitSpy } = vi.hoisted(() => ({
+  guestProfileState: {
+    current: null as null | {
+      name?: string;
+      goal?: 'hypertrophy' | 'fat-loss' | 'general-fitness';
+      experienceLevel?: 'beginner' | 'intermediate' | 'advanced';
+    },
   },
-};
-
-const weightUnitSpy = vi.fn();
+  weightUnitSpy: vi.fn(),
+}));
 
 vi.mock('./api', () => ({ apiBase: '' }));
 vi.mock('./tutorial', () => ({ markTutorialSeen: vi.fn() }));
