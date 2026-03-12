@@ -103,7 +103,8 @@ export async function signOut(page: Page) {
 
 async function seedGuestState(page: Page) {
   await page.context().clearCookies();
-  await page.addInitScript(({ guestUser, history, learningProgress }) => {
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(({ guestUser, history, learningProgress }) => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     window.localStorage.setItem('omnexus_cookie_consent', 'accepted');
