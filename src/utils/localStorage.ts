@@ -83,10 +83,12 @@ export function clearUser(): void {
 
 // ─── History ──────────────────────────────────────────────────────────────────
 
-const EMPTY_HISTORY: WorkoutHistory = { sessions: [], personalRecords: [] };
+function createEmptyHistory(): WorkoutHistory {
+  return { sessions: [], personalRecords: [] };
+}
 
 export function getHistory(): WorkoutHistory {
-  return safeRead<WorkoutHistory>(KEYS.HISTORY, EMPTY_HISTORY);
+  return safeRead<WorkoutHistory>(KEYS.HISTORY, createEmptyHistory());
 }
 
 export function appendSession(session: WorkoutSession): void {

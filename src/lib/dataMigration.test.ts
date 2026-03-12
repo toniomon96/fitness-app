@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const updateUserMock = vi.fn().mockResolvedValue({ data: {}, error: null });
-const upsertSessionMock = vi.fn().mockResolvedValue(undefined);
-const upsertPersonalRecordsMock = vi.fn().mockResolvedValue(undefined);
-const upsertLearningProgressMock = vi.fn().mockResolvedValue(undefined);
-const upsertCustomProgramMock = vi.fn().mockResolvedValue(undefined);
+const {
+  updateUserMock,
+  upsertSessionMock,
+  upsertPersonalRecordsMock,
+  upsertLearningProgressMock,
+  upsertCustomProgramMock,
+} = vi.hoisted(() => ({
+  updateUserMock: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  upsertSessionMock: vi.fn().mockResolvedValue(undefined),
+  upsertPersonalRecordsMock: vi.fn().mockResolvedValue(undefined),
+  upsertLearningProgressMock: vi.fn().mockResolvedValue(undefined),
+  upsertCustomProgramMock: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('./supabase', () => ({
   supabase: {
