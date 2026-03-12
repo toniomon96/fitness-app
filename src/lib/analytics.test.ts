@@ -161,4 +161,25 @@ describe('analytics helpers', () => {
       },
     });
   });
+
+  it('captures AI degraded-state analytics events', async () => {
+    const { trackAiDegradedStateEvent } = await import('./analytics');
+
+    trackAiDegradedStateEvent({
+      surface: 'insights',
+      action: 'retry_clicked',
+      errorKind: 'network',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      event: 'ai_degraded_state_event',
+      properties: {
+        surface: 'insights',
+        action: 'retry_clicked',
+        errorKind: 'network',
+      },
+    });
+  });
 });

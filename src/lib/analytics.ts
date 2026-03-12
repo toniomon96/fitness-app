@@ -201,3 +201,11 @@ export function trackInsightRecommendationEvent(props: {
 }) {
   capture('insight_recommendation_event', props);
 }
+
+export function trackAiDegradedStateEvent(props: {
+  surface: 'ask' | 'insights' | 'program_generation';
+  action: 'shown' | 'retry_clicked' | 'recovered';
+  errorKind: 'auth' | 'upgrade' | 'network' | 'rate_limit' | 'server' | 'unknown';
+}) {
+  capture('ai_degraded_state_event', props);
+}

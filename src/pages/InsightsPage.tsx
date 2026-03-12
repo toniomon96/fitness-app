@@ -4,6 +4,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { AiDegradedStateCard } from '../components/ui/AiDegradedStateCard';
 import { TermHelpChips } from '../components/ui/TermHelpChips';
 import { MarkdownText } from '../components/ui/MarkdownText';
 import { ArticleFeed } from '../components/insights/ArticleFeed';
@@ -11,14 +12,15 @@ import { AdaptationCard } from '../components/insights/AdaptationCard';
 import { PeerInsightsCard } from '../components/insights/PeerInsightsCard';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiError, getWorkoutInsights } from '../services/claudeService';
+import { getWorkoutInsights } from '../services/claudeService';
 import { buildInsightRequest } from '../services/insightsService';
 import { Sparkles, Loader, Shield, MessageCircle, BarChart2, Newspaper, Play } from 'lucide-react';
 import type { LearningCategory, Goal } from '../types';
 import { useWeightUnit } from '../hooks/useWeightUnit';
 import { getExperienceMode } from '../utils/localStorage';
 import { getWeekStart } from '../utils/dateUtils';
-import { trackFeatureEntry, trackInsightRecommendationEvent } from '../lib/analytics';
+import { trackAiDegradedStateEvent, trackFeatureEntry, trackInsightRecommendationEvent } from '../lib/analytics';
+import { normalizeAiError } from '../lib/aiErrorHandling';
 
 const GOAL_CATEGORY: Record<Goal, LearningCategory> = {
   'hypertrophy': 'strength-training',
@@ -50,6 +52,7 @@ export function InsightsPage() {
   const [insight, setInsight] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recommendationTrackedRef = useRef<string | null>(null);
+  const lastDegradedErrorKindRef = useRef<'auth' | 'upgrade' | 'network' | 'rate_limit' | 'server' | 'unknown' | null>(null);
 
   if (!user) return null;
   const userId = user.id;
@@ -64,8 +67,8 @@ export function InsightsPage() {
 
   const recommendation: InsightNextStepRecommendation = user.isGuest
     ? {
-        label: 'Create account to unlock personalized next steps',
-        description: 'Insights-driven recommendations require your workout history in an account.',
+        label: 'Create an account to unlock personalized next steps',
+        description: 'Insights recommendations need workout history saved to your account.',
         destination: '/onboarding' as const,
       }
     : !hasHistory
@@ -76,8 +79,8 @@ export function InsightsPage() {
       }
     : insight
     ? {
-        label: 'Turn this into a focused Ask',
-        description: 'Use Ask Omnexus to get one concrete plan for your next session based on this analysis.',
+        label: 'Turn this into a focused Ask prompt',
+        description: 'Use Ask Omnexus to get one concrete plan for your next session from this analysis.',
         destination: '/ask' as const,
       }
     : sessionsThisWeek < 3
@@ -88,7 +91,7 @@ export function InsightsPage() {
       }
     : {
         label: 'Review workout history patterns',
-        description: 'Compare your recent sessions and use the trends to decide your next focus.',
+        description: 'Compare recent sessions and use trend changes to choose your next focus.',
         destination: '/history' as const,
       };
 
@@ -115,7 +118,7 @@ export function InsightsPage() {
     });
 
     if (recommendation.destination === '/ask') {
-      trackFeatureEntry({ source: 'insights_recommendation', destination: '/ask', label: 'insight_follow_up' });
+      trackFeatureEntry({ source: 'insights_recommendation', destination: '/ask', label: 'ai_next_step_follow_up' });
       navigate('/ask', {
         state: {
           prefill: 'Based on my latest insights, what should I prioritize in my next workout?',
@@ -124,7 +127,7 @@ export function InsightsPage() {
       return;
     }
 
-    trackFeatureEntry({ source: 'insights_recommendation', destination: recommendation.destination, label: 'insight_next_step' });
+    trackFeatureEntry({ source: 'insights_recommendation', destination: recommendation.destination, label: 'ai_next_step_continue' });
     navigate(recommendation.destination);
   }
 
@@ -150,20 +153,38 @@ export function InsightsPage() {
 
       const { insight: text } = await getWorkoutInsights(request);
       setInsight(text);
+      if (lastDegradedErrorKindRef.current) {
+        trackAiDegradedStateEvent({
+          surface: 'insights',
+          action: 'recovered',
+          errorKind: lastDegradedErrorKindRef.current,
+        });
+        lastDegradedErrorKindRef.current = null;
+      }
     } catch (err) {
       console.error('[InsightsPage] Failed to generate insights:', err);
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        setError('Insights require an account because they analyze your workout history.');
-      } else if (err instanceof Error && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-        setError(
-          'We could not reach the insights service right now. Check your connection and try again.',
-        );
-      } else {
-        setError('We couldn\'t generate insights right now. Please try again.');
-      }
+      const normalized = normalizeAiError(err, { surface: 'insights' });
+      setError(normalized.message);
+      lastDegradedErrorKindRef.current = normalized.kind;
+      trackAiDegradedStateEvent({
+        surface: 'insights',
+        action: 'shown',
+        errorKind: normalized.kind,
+      });
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleRetryAnalyze() {
+    if (lastDegradedErrorKindRef.current) {
+      trackAiDegradedStateEvent({
+        surface: 'insights',
+        action: 'retry_clicked',
+        errorKind: lastDegradedErrorKindRef.current,
+      });
+    }
+    void handleAnalyze();
   }
 
   return (
@@ -181,7 +202,7 @@ export function InsightsPage() {
               AI-Powered Insights
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Your data × science × Claude
+              Patterns from your workouts, grounded in evidence
             </p>
           </div>
         </div>
@@ -218,10 +239,7 @@ export function InsightsPage() {
           {user.isGuest ? (
             <div className="flex flex-col items-center gap-3 py-2 text-center">
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Insights require an account because they analyze your workout history.
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Create an account to unlock personalized training insights.
+                Insights analyze your workout history. Create an account to unlock personalized recommendations.
               </p>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => navigate('/onboarding')}>
@@ -235,7 +253,7 @@ export function InsightsPage() {
           ) : !hasHistory ? (
             <div className="flex flex-col items-center gap-3 py-2 text-center">
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Insights appear after you complete workouts. Log a few sessions and Omnexus will analyze your progress.
+                Insights appear after completed workouts. Log a few sessions, then analyze your trends.
               </p>
               <Button variant="secondary" size="sm" onClick={() => navigate('/train')}>
                 <Play size={14} />
@@ -288,18 +306,13 @@ export function InsightsPage() {
 
         {/* Error */}
         {error && (
-          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            {!user.isGuest && (
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                className="mt-2 text-sm font-medium text-brand-500 hover:underline"
-              >
-                Retry
-              </button>
-            )}
-          </Card>
+          <AiDegradedStateCard
+            title="Insights are temporarily unavailable"
+            message={error}
+            onRetry={!user.isGuest ? handleRetryAnalyze : undefined}
+            retryDisabled={loading}
+            testId="insights-degraded-state"
+          />
         )}
 
         {/* Insight result */}
@@ -329,7 +342,7 @@ export function InsightsPage() {
         {/* Quick questions → AskPage */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Ask a Follow-Up
+            Ask a follow-up
           </p>
           {user.isGuest ? (
             <Card className="border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -352,7 +365,7 @@ export function InsightsPage() {
                   key={q}
                   type="button"
                   onClick={() => navigate('/ask', { state: { prefill: q } })}
-                  className="w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
+                  className="w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 transition-colors"
                 >
                   <MessageCircle size={14} className="text-brand-500 shrink-0" />
                   <span className="text-sm text-slate-700 dark:text-slate-300">{q}</span>
