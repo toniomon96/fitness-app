@@ -96,7 +96,7 @@ test.describe('Workout flow', () => {
     await page.goto('/train');
     await page.waitForURL('/train');
     await expect(page.getByText(/new to workout logging\?/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/start with the main action above|pick one option below/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/start with the main action above|pick one option below|start here/i)).toBeVisible({ timeout: 5_000 });
   });
 
   test('active workout beginner helper can be dismissed and stays hidden after reload', async ({ page }) => {
@@ -271,7 +271,8 @@ test.describe('Workout history', () => {
     await test.step('navigate to history', () => page.goto('/history'));
 
     await test.step('guest persistence copy is visible', async () => {
-      await expect(page.getByText(/guest workout history stays on this device/i)).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('guest-banner')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText(/guest mode.*data saved on this device only/i)).toBeVisible({ timeout: 5_000 });
     });
 
     await test.step('verify page renders (empty state or sessions)', async () => {

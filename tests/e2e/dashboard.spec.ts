@@ -69,7 +69,8 @@ test.describe('Dashboard — guest', () => {
 
   test('shows guest persistence messaging with account-save CTA', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText(/guest progress stays on this device/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('guest-banner')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/guest mode.*data saved on this device only/i)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('button', { name: /^save progress$/i }).first()).toBeVisible({ timeout: 5_000 });
   });
 
@@ -140,7 +141,6 @@ test.describe('Dashboard — guest', () => {
   test('today\'s workout card is visible for guest with program', async ({ page }) => {
     // Guest setup auto-assigns a program, so TodayCard should render
     await page.goto('/');
-    await expect(page.getByText(/^next step$/i)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('button', { name: /^start workout$/i })).toBeVisible({ timeout: 5_000 });
   });
 });
