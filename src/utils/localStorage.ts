@@ -103,6 +103,28 @@ export function updateSession(updated: WorkoutSession): void {
   safeWrite(KEYS.HISTORY, history);
 }
 
+export function updateSessionSyncStatus(
+  sessionId: string,
+  syncStatus: WorkoutSession['syncStatus'],
+  syncStatusUpdatedAt = new Date().toISOString(),
+): WorkoutSession | null {
+  const history = getHistory();
+  const existing = history.sessions.find((session) => session.id === sessionId);
+  if (!existing) return null;
+
+  const updatedSession: WorkoutSession = {
+    ...existing,
+    syncStatus,
+    syncStatusUpdatedAt,
+  };
+
+  history.sessions = history.sessions.map((session) =>
+    session.id === sessionId ? updatedSession : session,
+  );
+  safeWrite(KEYS.HISTORY, history);
+  return updatedSession;
+}
+
 export function updatePersonalRecords(prs: PersonalRecord[]): void {
   const history = getHistory();
   // Merge: for each PR, replace existing record for that exercise if new one is better

@@ -24,6 +24,8 @@ import {
   clearUser,
   getHistory,
   appendSession,
+  updateSession,
+  updateSessionSyncStatus,
   updatePersonalRecords,
   getActiveSession,
   setActiveSession,
@@ -138,6 +140,24 @@ describe('History storage', () => {
     appendSession(mockSession('s1'));
     appendSession(mockSession('s2'));
     expect(getHistory().sessions).toHaveLength(2);
+  });
+
+  it('updates an existing session by id', () => {
+    appendSession(mockSession('s1'));
+    updateSession({ ...mockSession('s1'), totalVolumeKg: 900 });
+    expect(getHistory().sessions[0].totalVolumeKg).toBe(900);
+  });
+
+  it('updates workout sync status for an existing session', () => {
+    appendSession(mockSession('s1'));
+    const updated = updateSessionSyncStatus('s1', 'needs_attention', '2026-03-11T00:00:00Z');
+    expect(updated?.syncStatus).toBe('needs_attention');
+    expect(getHistory().sessions[0].syncStatus).toBe('needs_attention');
+    expect(getHistory().sessions[0].syncStatusUpdatedAt).toBe('2026-03-11T00:00:00Z');
+  });
+
+  it('returns null when updating sync status for a missing session', () => {
+    expect(updateSessionSyncStatus('missing', 'synced')).toBeNull();
   });
 
   it('merges personal records — replaces existing for same exercise', () => {

@@ -141,3 +141,23 @@ export function trackReleaseModalEvent(props: {
 }) {
   capture('release_modal_event', props);
 }
+
+export function trackGuestMigrationEvent(props: {
+  action: 'shown' | 'dismissed' | 'started' | 'completed' | 'failed';
+  source: 'modal' | 'profile';
+  sessionCount: number;
+  personalRecordCount: number;
+  learningItemCount: number;
+  customProgramCount: number;
+}) {
+  capture('guest_migration_event', props);
+}
+
+export function trackHydrationRecoveryEvent(props: {
+  guard: 'guest_or_auth' | 'auth_only';
+  state: 'profile_missing' | 'hydration_failed';
+  action: 'shown' | 'continue_onboarding' | 'retry' | 'refresh';
+  path: string;
+}) {
+  capture('hydration_recovery_event', props);
+}

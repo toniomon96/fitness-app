@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, AlertCircle } from 'lucide-react';
-import { getHistory } from '../utils/localStorage';
 
 type Status = 'loading' | 'confirmed' | 'recovery' | 'error';
 
@@ -9,17 +8,6 @@ export function isRecoveryCallbackUrl(href: string): boolean {
   const url = new URL(href);
   const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash);
   return url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
-}
-
-async function migrateGuestHistory(userId: string): Promise<void> {
-  const history = getHistory();
-  if (history.sessions.length === 0 && history.personalRecords.length === 0) return;
-
-  const { upsertSession, upsertPersonalRecords } = await import('../lib/db');
-  await Promise.all([
-    ...history.sessions.map((session) => upsertSession(session, userId)),
-    upsertPersonalRecords(history.personalRecords, userId),
-  ]);
 }
 
 async function subscribeToAuthCallback(
@@ -32,13 +20,6 @@ async function subscribeToAuthCallback(
 async function getAuthCallbackSession() {
   const { supabase } = await import('../lib/supabase');
   return supabase.auth.getSession();
-}
-
-/** Sync any guest workout history + PRs to Supabase after email confirmation. Fire-and-forget. */
-function migrateGuestData(userId: string): void {
-  void migrateGuestHistory(userId).catch((err) => {
-    console.warn('[AuthCallbackPage] Guest data migration failed:', err);
-  });
 }
 
 export function AuthCallbackPage() {
@@ -61,7 +42,6 @@ export function AuthCallbackPage() {
         setTimeout(() => navigate('/reset-password', { replace: true }), 1200);
       } else if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
         setStatus('confirmed');
-        migrateGuestData(session.user.id);
         setTimeout(() => navigate('/', { replace: true }), 2000);
       }
     }).then(({ data: { subscription } }) => {

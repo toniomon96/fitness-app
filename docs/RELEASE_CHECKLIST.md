@@ -9,6 +9,7 @@ Security ops tracker: see `docs/PLATFORM_SECURITY_OPS.md`.
 
 - [ ] Changes are already merged into `dev`
 - [ ] `npm run verify:local` passes on the release candidate branch
+- [ ] `npm run verify:dev` is green for the deterministic Chromium golden path
 - [ ] `npm run verify:prod` passes locally or on CI against preview-like env
 - [ ] Release notes / PR summary are current
 - [ ] No known Sev 1 or Sev 2 bugs are open for this release
@@ -46,12 +47,21 @@ Security ops tracker: see `docs/PLATFORM_SECURITY_OPS.md`.
 
 - [ ] Login and sign out flows work
 - [ ] Guest mode works and guest gating is consistent
+- [ ] Dashboard and History show guest device-only persistence messaging with an account-save CTA
 - [ ] Dashboard and Today card load correctly
-- [ ] Workout start, active session, finish, and history work
+- [ ] Workout start, active session, finish, history, and visible save-state status work
+- [ ] Simulated workout sync failure shows `Needs attention` and manual retry recovers or preserves local data
 - [ ] Ask streaming works and degraded fallback messaging looks correct
 - [ ] Insights load and follow-up behavior is correct for guest vs account users
 - [ ] Learn and Nutrition flows work
+- [ ] Guest-to-account migration prompt appears when eligible, dismisses safely, and remains recoverable from Profile
+- [ ] Hydration recovery UI shows clear retry/refresh actions when profile loading is intentionally broken
 - [ ] Subscription upgrade and customer portal redirects work
+
+Evidence to capture:
+- [ ] QA note includes whether the workout sync state tested was `Saved on device`, `Syncing`, `Synced`, or `Needs attention`
+- [ ] QA note records whether guest migration was confirmed or intentionally dismissed
+- [ ] QA note records any hydration recovery event observed during verification
 
 ## 5. Monitoring and alerts
 
@@ -96,5 +106,5 @@ Security ops tracker: see `docs/PLATFORM_SECURITY_OPS.md`.
 - [ ] `main` required checks are green
 - [ ] Merge to `main`
 - [ ] Vercel Production deployment completes successfully
-- [ ] Production smoke test passes for critical paths
+- [ ] Production smoke test passes for critical paths and trust-critical journeys
 - [ ] No new error spike in first 30 minutes after release

@@ -10,7 +10,19 @@ This runbook is for fast triage when GitHub Actions gates fail.
 - Preview gate: `npm run verify:preview`
 - Production gate: `npm run verify:prod`
 
+Golden-path references:
+
+- Golden-path local run: `npm run test:e2e:golden`
+- Golden-path CI run: `npm run test:e2e:golden:ci`
+- Matrix definition: [E2E test matrix](E2E_TEST_MATRIX.md)
+
 `verify:*` commands enforce unit test coverage thresholds via `npm run test:coverage`.
+
+## Release Signal Model
+
+- `verify:dev` is the deterministic Chromium golden-path gate.
+- `verify:preview` and `verify:prod` keep the broader Playwright coverage.
+- Authenticated mobile flows and other environment-constrained paths should not be treated as primary `dev` gate signal.
 
 ## Quick Triage Order
 
@@ -19,6 +31,8 @@ This runbook is for fast triage when GitHub Actions gates fail.
 3. Confirm target URL is reachable and points to the expected environment.
 4. Review Playwright artifacts in CI (`playwright-report/`, `test-results/`).
 5. Fix deterministic issues first (selectors, test setup, auth/session assumptions).
+
+If the failure is outside the golden-path matrix, decide whether it belongs in `dev` gate signal or should remain preview-only or manually validated coverage.
 
 ## Required Secrets
 
@@ -51,8 +65,14 @@ Typical causes:
 
 Fix patterns:
 - Prefer role-based selectors over exact free text when possible.
-- Reset state with shared helpers (for example `signOut` + `enterAsGuest`) before assertions.
+- Reset state with shared helpers and deterministic storage seeding before assertions.
 - Wait for route and key UI anchors before asserting details.
+
+Golden-path guidance:
+
+- Keep the `dev` gate focused on deterministic Chromium coverage.
+- Move environment-sensitive flows out of the merge gate before expanding retries or timeouts.
+- Treat `tests/e2e/reliability.spec.ts` and authenticated mobile paths as extended coverage until they are consistently green in CI.
 
 ### 4) Password reset flow issues
 
@@ -80,5 +100,7 @@ These usually identify selector mismatch, unexpected route, or auth state mismat
 
 1. Run targeted failing spec locally.
 2. Run related suite (for example `tests/e2e/workout.spec.ts`).
-3. Run full gate command (`verify:dev` or `verify:prod`).
+3. Run the appropriate gate command:
+  - `verify:dev` for golden-path confidence
+  - `verify:preview` or `verify:prod` for broader release validation
 4. Push only after full gate passes locally.

@@ -14,10 +14,9 @@ test.describe('Workout flow', () => {
     await test.step('navigate to dashboard', () => page.goto('/'));
 
     await test.step('click start workout', async () => {
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await expect(startBtn.first()).toBeVisible({ timeout: 5_000 });
-      await startBtn.first().click();
+      const startBtn = page.getByTestId('today-card-start-workout');
+      await expect(startBtn).toBeVisible({ timeout: 5_000 });
+      await startBtn.click();
     });
 
     await test.step('verify landed on workout page', () =>
@@ -31,9 +30,7 @@ test.describe('Workout flow', () => {
 
     await test.step('navigate to dashboard and start workout', async () => {
       await page.goto('/');
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await startBtn.first().click();
+      await page.getByTestId('today-card-start-workout').click();
       await page.waitForURL(/\/workout\/active/);
     });
 
@@ -50,9 +47,7 @@ test.describe('Workout flow', () => {
 
     await test.step('start a workout', async () => {
       await page.goto('/');
-      const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-        .or(page.getByRole('link', { name: /start workout|begin/i }));
-      await startBtn.first().click();
+      await page.getByTestId('today-card-start-workout').click();
       await page.waitForURL(/\/workout\/active/);
     });
 
@@ -135,16 +130,15 @@ test.describe('Workout complete modal', () => {
     test.info().annotations.push({ type: 'feature', description: 'Workout' });
 
     await page.goto('/');
-    const startBtn = page.getByRole('button', { name: /start workout|begin/i })
-      .or(page.getByRole('link', { name: /start workout|begin/i }));
+    const startBtn = page.getByTestId('today-card-start-workout');
 
     // Skip if there's no active program / start button
-    if (!await startBtn.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (!await startBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       test.skip();
       return;
     }
 
-    await startBtn.first().click();
+    await startBtn.click();
     await page.waitForURL(/\/workout\/active/);
 
     await expect(
@@ -274,6 +268,11 @@ test.describe('Workout history', () => {
     test.info().annotations.push({ type: 'feature', description: 'History' });
 
     await test.step('navigate to history', () => page.goto('/history'));
+
+    await test.step('guest persistence copy is visible', async () => {
+      await expect(page.getByTestId('history-guest-persistence-card')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText(/guest workout history stays on this device/i)).toBeVisible({ timeout: 5_000 });
+    });
 
     await test.step('verify page renders (empty state or sessions)', async () => {
       await expect(

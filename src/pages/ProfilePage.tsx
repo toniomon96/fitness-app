@@ -3,6 +3,13 @@ import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock, Camera, Zap, HelpCircle, ChevronRight } from 'lucide-react';
 import { apiBase } from '../lib/api';
 import { MIN_PASSWORD_LENGTH, passwordLengthError } from '../lib/passwordPolicy';
+import {
+  getGuestMigrationSummary,
+  importGuestDataToAccount,
+  isGuestMigrationDismissed,
+  type GuestMigrationSummary,
+} from '../lib/dataMigration';
+import { trackGuestMigrationEvent } from '../lib/analytics';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -131,6 +138,9 @@ export function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestMigrationSummary | null>(null);
+  const [guestImporting, setGuestImporting] = useState(false);
+  const trackedGuestMigrationKeyRef = useRef<string | null>(null);
 
   const isGuest = !!currentUser?.isGuest;
 
@@ -181,6 +191,35 @@ export function ProfilePage() {
 
     return () => clearTimeout(timer);
   }, [isGuest, currentUser, pushEnabled, prefsDirty, notificationPrefs]);
+
+  useEffect(() => {
+    if (!currentUser || isGuest) {
+      setGuestMigrationSummary(null);
+      trackedGuestMigrationKeyRef.current = null;
+      return;
+    }
+
+    setGuestMigrationSummary(getGuestMigrationSummary(currentUser.id));
+  }, [currentUser, isGuest]);
+
+  useEffect(() => {
+    if (!currentUser || isGuest || !guestMigrationSummary) {
+      trackedGuestMigrationKeyRef.current = null;
+      return;
+    }
+
+    const key = `${currentUser.id}:${guestMigrationSummary.guestId}`;
+    if (trackedGuestMigrationKeyRef.current === key) return;
+    trackedGuestMigrationKeyRef.current = key;
+    trackGuestMigrationEvent({
+      action: 'shown',
+      source: 'profile',
+      sessionCount: guestMigrationSummary.sessionCount,
+      personalRecordCount: guestMigrationSummary.personalRecordCount,
+      learningItemCount: guestMigrationSummary.learningItemCount,
+      customProgramCount: guestMigrationSummary.customProgramCount,
+    });
+  }, [currentUser, isGuest, guestMigrationSummary]);
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -411,6 +450,54 @@ export function ProfilePage() {
       toast('Failed to save notification preferences', 'error');
     } finally {
       setSavingPrefs(false);
+    }
+  }
+
+  async function handleImportGuestProgress() {
+    if (!currentUser || isGuest || guestImporting) return;
+    setGuestImporting(true);
+    if (guestMigrationSummary) {
+      trackGuestMigrationEvent({
+        action: 'started',
+        source: 'profile',
+        sessionCount: guestMigrationSummary.sessionCount,
+        personalRecordCount: guestMigrationSummary.personalRecordCount,
+        learningItemCount: guestMigrationSummary.learningItemCount,
+        customProgramCount: guestMigrationSummary.customProgramCount,
+      });
+    }
+    try {
+      const summary = await importGuestDataToAccount(currentUser.id);
+      if (!summary) {
+        setGuestMigrationSummary(null);
+        toast('No guest progress is waiting to be imported.', 'info');
+        return;
+      }
+
+      trackGuestMigrationEvent({
+        action: 'completed',
+        source: 'profile',
+        sessionCount: summary.sessionCount,
+        personalRecordCount: summary.personalRecordCount,
+        learningItemCount: summary.learningItemCount,
+        customProgramCount: summary.customProgramCount,
+      });
+      setGuestMigrationSummary(null);
+      toast('Guest progress imported into your account.', 'success');
+    } catch {
+      if (guestMigrationSummary) {
+        trackGuestMigrationEvent({
+          action: 'failed',
+          source: 'profile',
+          sessionCount: guestMigrationSummary.sessionCount,
+          personalRecordCount: guestMigrationSummary.personalRecordCount,
+          learningItemCount: guestMigrationSummary.learningItemCount,
+          customProgramCount: guestMigrationSummary.customProgramCount,
+        });
+      }
+      toast('Guest progress could not be imported yet. Your data is still safe on this device.', 'error');
+    } finally {
+      setGuestImporting(false);
     }
   }
 
@@ -666,6 +753,24 @@ export function ProfilePage() {
               fullWidth
             >
               Create Free Account
+            </Button>
+          </Card>
+        )}
+
+        {!isGuest && guestMigrationSummary && (
+          <Card className="border-brand-500/30 bg-brand-500/5">
+            <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider mb-1">
+              Guest Progress Found
+            </p>
+            <p className="text-xs text-slate-400 mb-3">
+              There is still guest progress saved on this device. You can import {guestMigrationSummary.sessionCount} workouts, {guestMigrationSummary.personalRecordCount} personal records, and {guestMigrationSummary.learningItemCount} learning items into your account.
+            </p>
+            <Button
+              onClick={handleImportGuestProgress}
+              disabled={guestImporting}
+              fullWidth
+            >
+              {guestImporting ? 'Importing…' : isGuestMigrationDismissed(currentUser.id) ? 'Import Guest Progress' : 'Import Progress Now'}
             </Button>
           </Card>
         )}

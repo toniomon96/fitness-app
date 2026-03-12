@@ -151,6 +151,20 @@ export function HistoryPage() {
         }
       />
       <div className="px-4 pb-6 mt-2 space-y-4">
+        {state.user?.isGuest && (
+          <Card
+            className="border-amber-300/70 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/15"
+            data-testid="history-guest-persistence-card"
+          >
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              Guest workout history stays on this device
+            </p>
+            <p className="mt-1 text-sm text-amber-800/85 dark:text-amber-300/85">
+              Create a free account to keep your workout log across devices and protect it if this browser storage is cleared.
+            </p>
+          </Card>
+        )}
+
         {!ready && (
           <>
             <div className="grid grid-cols-2 gap-3">
