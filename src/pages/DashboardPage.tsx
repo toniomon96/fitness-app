@@ -159,6 +159,7 @@ export function DashboardPage() {
   const week = program ? getProgramWeekCursor(program.id) : 1;
   const experienceMode = getExperienceMode(user.id);
   const isGuidedMode = experienceMode === 'guided';
+  const shouldShowQuickSessionExploreAction = Boolean(activeSession || program);
   const primaryActionState = resolveTrainingPrimaryActionState({
     hasActiveSession: Boolean(activeSession),
     hasProgramWorkout: Boolean(program && nextWorkout),
@@ -557,9 +558,9 @@ export function DashboardPage() {
         <Card>
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">Explore More Features</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Other Tools</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Useful tools that are easy to miss if you stay on the main tabs.
+                Useful tools that support training without competing with your next step.
               </p>
             </div>
           </div>
@@ -568,7 +569,9 @@ export function DashboardPage() {
               { to: '/measurements', icon: Ruler, label: 'Measurements' },
               { to: '/tools/plate-calculator', icon: Calculator, label: 'Plate Calculator' },
               { to: '/library', icon: BookOpen, label: 'Exercise Library' },
-              { to: '/workout/quick', icon: ClipboardPen, label: 'Quick Session' },
+              ...(shouldShowQuickSessionExploreAction
+                ? [{ to: '/workout/quick', icon: ClipboardPen, label: QUICK_SESSION_LABEL }]
+                : []),
             ].map(({ to, icon: Icon, label }) => (
               <button
                 key={to}

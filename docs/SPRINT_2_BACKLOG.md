@@ -15,10 +15,12 @@ Sprint 1 implementation is complete in the repo, with final Actions validation a
 Current implementation status:
 
 - Story 1.1 is implemented in repo: Dashboard now resolves one dominant next step for active-session, program-ready, and no-program states.
+- Story 1.2 is in progress in repo: secondary Dashboard discovery actions have been visually softened, and duplicate Quick Session exposure is reduced when the no-program hero already presents that option.
 - Story 2.1 is implemented in repo: Train now resolves one dominant next step for active-session, program-ready, and no-program states.
 - Story 2.2 is partially implemented in repo: no-program CTA ordering and copy are aligned across Dashboard and Train, with final release-owner verification still pending.
 - Story 3.2 is implemented in repo: dominant CTA shown and clicked analytics exist for Dashboard and Train.
-- Remaining Sprint 2 work is concentrated in Story 1.2 and Story 3.1 follow-through beyond the primary action surfaces.
+- Story 3.1 is in progress in repo: shared training labels now extend beyond Dashboard and Train into supporting entry surfaces, with final wording cleanup still pending.
+- Remaining Sprint 2 work is concentrated in Story 1.2 and the final Story 3.1 cleanup pass.
 
 ## Sprint Goal
 
@@ -186,7 +188,7 @@ Labels:
 Goal:
 Ensure the simplified loop is understandable and measurable.
 
-### Story 3.1: Normalize guided-mode language across Dashboard and Train
+### Story 3.1: Normalize guided-mode language across primary training surfaces
 
 Problem:
 Guided-mode language currently varies enough that the product can feel inconsistent even when the flows work.
@@ -197,6 +199,7 @@ As a newer user, I want the app to describe my next step in plain, consistent la
 Acceptance criteria:
 
 - Guided-mode labels and explanatory copy match across Dashboard and Train.
+- Supporting entry surfaces such as Help, Quick Session, and guided pathways do not reintroduce conflicting training labels.
 - Quick Log, Browse Programs, Start Workout, and Resume labels are used intentionally and consistently.
 - Copy avoids advanced terminology when a simpler phrase exists.
 

@@ -135,7 +135,7 @@ Execution backlog:
 Duration: 2 weeks
 
 Status:
-In progress in repo as of 2026-03-12. Primary CTA hierarchy, dominant CTA analytics, and cross-surface training label alignment are implemented; remaining Sprint 2 work is secondary-surface polish, guided-language cleanup outside Dashboard and Train, and release-owner verification.
+In progress in repo as of 2026-03-12. Primary CTA hierarchy, dominant CTA analytics, and cross-surface training label alignment are implemented; guided-language cleanup is now extended through supporting surfaces such as Help, Quick Session, and guided pathways. Remaining Sprint 2 work is secondary-surface polish, any final wording cleanup, and release-owner verification.
 
 Goal:
 Make the app's primary next action obvious on Dashboard and Train.
