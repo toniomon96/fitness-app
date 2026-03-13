@@ -77,18 +77,31 @@ The following sprints remain from the implementation plan. Listed in execution o
 
 ---
 
-### Sprint I — Exercise Discovery Engine
-**Epic 1** · 2 weeks · **Can start now (Sprint B complete)**
+### Sprint I — Exercise Discovery Engine ✅
+**Epic 1** · **COMPLETE**
 
-Replaces the flat exercise list with five discovery modes:
+Replaces the flat exercise list with five discovery modes. **Shipped in `ExerciseLibraryPage`**.
 
-1. **Browse by Movement Pattern** — 9 patterns (squat, hinge, push-horizontal, push-vertical, pull-horizontal, pull-vertical, isolation, carry, cardio)
-2. **Browse by Muscle** — text-based muscle selector; all exercises with that muscle in primary or secondary
-3. **Browse by Equipment** — filtered to user's saved equipment profile from onboarding
-4. **Browse by Difficulty** — filter slider 1–5
-5. **Natural Language Search** — semantic search via existing `/api/ask` RAG infrastructure
+**Discovery modes implemented:**
 
-The `Movement Pattern Library Button` added in Sprint B is the entry point — it passes `filterPattern` state to `/library`. Sprint I needs to consume this to filter the list.
+| Tab | Description | Filter |
+|---|---|---|
+| 🔍 Search | Fuzzy text search with trigram similarity + aliases | `query` |
+| 🔄 Pattern | 3×3 grid of 9 movement pattern tiles | `pattern` |
+| 💪 Muscle | Horizontal-scroll muscle group pills | `muscle` |
+| 🏋️ Equipment | Equipment pills + optional "My Gym" button from training profile | `equipment` |
+| ⭐ Level | Beginner / Intermediate / Advanced selector with star indicators | `difficulty` |
+
+**"My Gym" button**: fetches the user's `training_profile` from Supabase on mount (authenticated users only). When the profile contains equipment, a "My Gym" chip appears in the Equipment tab that filters to exercises matching any of the user's equipment types.
+
+**filterPattern deep-link**: `ExerciseDetailPage`'s "Movement Pattern Library Button" navigates to `/library` with `{ state: { filterPattern } }`. The library page reads this state on mount and auto-activates the Pattern tab with the correct pattern pre-selected.
+
+**New files:**
+- `src/components/exercise-library/MovementPatternGrid.tsx`
+- `src/components/exercise-library/DifficultyFilter.tsx`
+
+**Modified files:**
+- `src/pages/ExerciseLibraryPage.tsx` — full redesign
 
 ---
 
@@ -192,7 +205,7 @@ The `Movement Pattern Library Button` added in Sprint B is the entry point — i
 ## Priority Order Recommendation
 
 ```
-Sprint I  → Exercise Discovery (can start immediately, depends on Sprint B ✓)
+Sprint I  → Exercise Discovery ✅ COMPLETE
 Sprint C  → Gamification + Learning DB (parallel candidate with Sprint I)
 Sprint D  → Courses + Quiz
 Sprint E  → Remaining Courses + Spaced Repetition
