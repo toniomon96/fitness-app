@@ -3,6 +3,13 @@ import { exercises as legacyExercises, getExerciseYouTubeId as legacyGetYouTubeI
 import { barbellExercises } from './barbell';
 import { dumbbellExercises } from './dumbbell';
 import { bodyweightExercises } from './bodyweight';
+import { cableExercises } from './cable';
+import { machineExercises } from './machine';
+import { kettlebellExercises } from './kettlebell';
+import { ezBarExercises } from './ez-bar';
+import { resistanceBandExercises } from './resistance-band';
+import { trxExercises } from './trx';
+import { mobilityExercises } from './mobility';
 
 // ─── Merged Exercise Library ──────────────────────────────────────────────────
 // New files are placed first so that their richer schema takes precedence over
@@ -13,6 +20,13 @@ const rawCombined: Exercise[] = [
   ...barbellExercises,
   ...dumbbellExercises,
   ...bodyweightExercises,
+  ...cableExercises,
+  ...machineExercises,
+  ...kettlebellExercises,
+  ...ezBarExercises,
+  ...resistanceBandExercises,
+  ...trxExercises,
+  ...mobilityExercises,
   ...legacyExercises,
 ];
 
