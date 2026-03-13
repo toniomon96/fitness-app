@@ -15,6 +15,7 @@ export interface ExerciseSummary {
 
 function createEmptyWeeklyVolume(): Record<MuscleGroup, number[]> {
   return {
+    // Legacy broad groups
     chest: [],
     back: [],
     shoulders: [],
@@ -26,6 +27,27 @@ function createEmptyWeeklyVolume(): Record<MuscleGroup, number[]> {
     calves: [],
     core: [],
     cardio: [],
+    // Granular lower body
+    adductors: [],
+    abductors: [],
+    'hip-flexors': [],
+    tibialis: [],
+    // Granular shoulders
+    'front-deltoid': [],
+    'side-deltoid': [],
+    'rear-deltoid': [],
+    'rotator-cuff': [],
+    // Granular arms
+    forearms: [],
+    // Granular back
+    lats: [],
+    traps: [],
+    rhomboids: [],
+    serratus: [],
+    erectors: [],
+    // Granular core
+    abs: [],
+    obliques: [],
   };
 }
 

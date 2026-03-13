@@ -5,6 +5,7 @@ export type Goal = 'hypertrophy' | 'fat-loss' | 'general-fitness';
 export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export type MuscleGroup =
+  // Broad legacy groups — kept for backward compatibility with existing exercises
   | 'chest'
   | 'back'
   | 'shoulders'
@@ -15,7 +16,28 @@ export type MuscleGroup =
   | 'glutes'
   | 'calves'
   | 'core'
-  | 'cardio';
+  | 'cardio'
+  // Lower body (granular)
+  | 'adductors'
+  | 'abductors'
+  | 'hip-flexors'
+  | 'tibialis'
+  // Shoulders (granular)
+  | 'front-deltoid'
+  | 'side-deltoid'
+  | 'rear-deltoid'
+  | 'rotator-cuff'
+  // Arms (granular)
+  | 'forearms'
+  // Back (granular)
+  | 'lats'
+  | 'traps'
+  | 'rhomboids'
+  | 'serratus'
+  | 'erectors'
+  // Core (granular)
+  | 'abs'
+  | 'obliques';
 
 export type ExerciseCategory = 'strength' | 'cardio' | 'mobility';
 
@@ -31,6 +53,7 @@ export type MovementPattern =
   | 'cardio';
 
 export type Equipment =
+  // Original equipment types
   | 'barbell'
   | 'dumbbell'
   | 'cable'
@@ -38,7 +61,17 @@ export type Equipment =
   | 'bodyweight'
   | 'kettlebell'
   | 'resistance-band'
-  | 'cardio-machine';
+  | 'cardio-machine'
+  // Expanded equipment types
+  | 'ez-bar'
+  | 'suspension-trainer'
+  | 'smith-machine'
+  | 'trap-bar'
+  | 'dip-bars'
+  | 'rings'
+  | 'bench'
+  | 'pull-up-bar'
+  | 'box';
 
 export type DayType =
   | 'full-body'
@@ -144,6 +177,16 @@ export interface WorkoutFeedback {
 
 // ─── Exercise Library ─────────────────────────────────────────────────────────
 
+export interface ExerciseMistake {
+  mistake: string;
+  why: string;
+}
+
+export interface ExerciseProgressionPath {
+  easier?: string;
+  harder?: string;
+}
+
 export interface Exercise {
   id: string;
   name: string;
@@ -158,6 +201,20 @@ export interface Exercise {
   difficulty?: ExperienceLevel;
   /** Variant links for equipment-swap: other exercise IDs sharing the same pattern+muscles */
   exerciseVariants?: string[];
+  /** Step-by-step execution walkthrough (expanded version of instructions) */
+  steps?: string[];
+  /** Common mistakes made when performing this exercise */
+  commonMistakes?: ExerciseMistake[];
+  /** Short verbal cues a trainer would say during the lift */
+  coachingCues?: string[];
+  /** Intermediate and advanced technique refinements */
+  proTips?: string[];
+  /** Easier/harder progression links */
+  progressionPath?: ExerciseProgressionPath;
+  /** Tags for discovery and filtering */
+  tags?: string[];
+  /** Relative popularity derived from program generation frequency */
+  popularityScore?: number;
 }
 
 // ─── Program Structure ────────────────────────────────────────────────────────
