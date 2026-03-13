@@ -10,6 +10,7 @@ interface VolumeChartProps {
 const TOP_MUSCLES: MuscleGroup[] = ['chest', 'back', 'quads', 'hamstrings', 'shoulders'];
 
 const muscleColors: Record<MuscleGroup, string> = {
+  // Legacy broad groups
   chest: 'bg-blue-500',
   back: 'bg-purple-500',
   quads: 'bg-green-500',
@@ -21,6 +22,27 @@ const muscleColors: Record<MuscleGroup, string> = {
   calves: 'bg-teal-500',
   core: 'bg-slate-500',
   cardio: 'bg-emerald-500',
+  // Lower body (granular)
+  adductors: 'bg-lime-500',
+  abductors: 'bg-cyan-500',
+  'hip-flexors': 'bg-violet-500',
+  tibialis: 'bg-teal-400',
+  // Shoulders (granular)
+  'front-deltoid': 'bg-brand-400',
+  'side-deltoid': 'bg-brand-500',
+  'rear-deltoid': 'bg-brand-600',
+  'rotator-cuff': 'bg-indigo-400',
+  // Arms (granular)
+  forearms: 'bg-amber-500',
+  // Back (granular)
+  lats: 'bg-purple-500',
+  traps: 'bg-purple-400',
+  rhomboids: 'bg-purple-600',
+  serratus: 'bg-indigo-500',
+  erectors: 'bg-violet-600',
+  // Core (granular)
+  abs: 'bg-slate-400',
+  obliques: 'bg-slate-600',
 };
 
 function getWeekLabel(weeksAgo: number): string {

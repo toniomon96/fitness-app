@@ -1,11 +1,23 @@
 import type { MuscleGroup } from '../../types';
 
 const ALL_MUSCLES: MuscleGroup[] = [
+  // Broad legacy groups (shown in filter for existing exercises)
   'chest', 'back', 'shoulders', 'biceps', 'triceps',
-  'quads', 'hamstrings', 'glutes', 'calves', 'core', 'cardio',
+  'quads', 'hamstrings', 'glutes', 'calves', 'core',
+  // Granular lower body
+  'adductors', 'abductors', 'hip-flexors',
+  // Granular shoulders
+  'front-deltoid', 'side-deltoid', 'rear-deltoid',
+  // Granular back
+  'lats', 'traps', 'rhomboids', 'erectors',
+  // Granular arms
+  'forearms',
+  // Granular core
+  'abs', 'obliques',
 ];
 
 const labels: Record<MuscleGroup, string> = {
+  // Legacy groups
   chest: 'Chest',
   back: 'Back',
   shoulders: 'Shoulders',
@@ -17,6 +29,27 @@ const labels: Record<MuscleGroup, string> = {
   calves: 'Calves',
   core: 'Core',
   cardio: 'Cardio',
+  // Granular lower body
+  adductors: 'Adductors',
+  abductors: 'Abductors',
+  'hip-flexors': 'Hip Flexors',
+  tibialis: 'Tibialis',
+  // Granular shoulders
+  'front-deltoid': 'Front Delt',
+  'side-deltoid': 'Side Delt',
+  'rear-deltoid': 'Rear Delt',
+  'rotator-cuff': 'Rotator Cuff',
+  // Granular arms
+  forearms: 'Forearms',
+  // Granular back
+  lats: 'Lats',
+  traps: 'Traps',
+  rhomboids: 'Rhomboids',
+  serratus: 'Serratus',
+  erectors: 'Erectors',
+  // Granular core
+  abs: 'Abs',
+  obliques: 'Obliques',
 };
 
 interface MuscleGroupFilterProps {
