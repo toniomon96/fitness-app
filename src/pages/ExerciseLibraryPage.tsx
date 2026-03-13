@@ -140,7 +140,6 @@ export function ExerciseLibraryPage() {
     if (nlDebounceRef.current) clearTimeout(nlDebounceRef.current);
     nlDebounceRef.current = setTimeout(() => { void runNLSearch(query); }, 500);
     return () => { if (nlDebounceRef.current) clearTimeout(nlDebounceRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, isNLQuery]);
 
   // ── Filtered exercise list ──────────────────────────────────────────────────
