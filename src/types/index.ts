@@ -242,7 +242,7 @@ export interface ContentReference {
   journal?: string;
   year?: number;
   url?: string;
-  type: 'journal' | 'guideline' | 'book' | 'organization' | 'meta-analysis';
+  type: 'journal' | 'guideline' | 'book' | 'organization' | 'meta-analysis' | 'review';
 }
 
 export interface QuizQuestion {
