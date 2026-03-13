@@ -5,10 +5,11 @@ import { AppShell } from '../components/layout/AppShell';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { TermHelpChips } from '../components/ui/TermHelpChips';
-import { GraduationCap, Sparkles, Search, BookOpen, Dumbbell, Loader2, Zap, CalendarCheck } from 'lucide-react';
+import { GraduationCap, Sparkles, Search, BookOpen, Dumbbell, Loader2, Zap, CalendarCheck, Brain } from 'lucide-react';
 import { courses } from '../data/courses';
 import { CourseCard } from '../components/learn/CourseCard';
 import { MicroLessonModal } from '../components/learn/MicroLessonModal';
+import { SpacedRepReviewModal } from '../components/learn/SpacedRepReviewModal';
 import { useLearningProgress } from '../hooks/useLearningProgress';
 import { getContentRecommendations } from '../services/learningService';
 import type { ContentRecommendation } from '../types';
@@ -32,13 +33,17 @@ function typeLabel(type: ContentRecommendation['type']) {
 
 export function LearnPage() {
   const { state } = useApp();
-  const { progress } = useLearningProgress();
+  const { progress, getDueCards } = useLearningProgress();
   const navigate = useNavigate();
   const hasActivity = progress.lastActivityAt !== '';
 
   const goal = state.user?.goal;
   const level = state.user?.experienceLevel;
   const isGuidedMode = state.user ? getExperienceMode(state.user.id) === 'guided' : true;
+
+  // ── Due for Review ────────────────────────────────────────────────────────
+  const dueCards = getDueCards();
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // ── Recommended (rule-based, unchanged) ──────────────────────────────────
   const recommended = goal
@@ -219,6 +224,37 @@ export function LearnPage() {
           </div>
         )}
 
+        {/* Due for Review */}
+        {!searchQuery.trim() && dueCards.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-3">
+              <Brain size={13} className="text-purple-500" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Due for Review
+              </p>
+            </div>
+            <div className="rounded-2xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">
+                    {dueCards.length} {dueCards.length === 1 ? 'lesson' : 'lessons'} ready for review
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Spaced repetition keeps knowledge fresh. Takes ~{Math.ceil(dueCards.length * 0.5)} min.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowReviewModal(true)}
+                  className="shrink-0 flex items-center gap-1.5 rounded-lg bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-purple-600 transition-colors"
+                >
+                  <Brain size={12} />
+                  Review
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Search results */}
         {searchQuery.trim() && searchResults !== null && (
           <div>
@@ -342,6 +378,14 @@ export function LearnPage() {
         <MicroLessonModal
           topic={searchQuery.trim()}
           onClose={() => setShowMicroLesson(false)}
+        />
+      )}
+
+      {/* Spaced repetition review modal */}
+      {showReviewModal && (
+        <SpacedRepReviewModal
+          cards={dueCards}
+          onClose={() => setShowReviewModal(false)}
         />
       )}
     </AppShell>

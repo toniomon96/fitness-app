@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { WorkoutSession, PersonalRecord, AdaptationResult } from '../../types';
 import { Modal } from '../ui/Modal';
@@ -8,7 +8,7 @@ import { NextSessionTab } from './NextSessionTab';
 import { formatDuration, getWeekStart, calculateStreak } from '../../utils/dateUtils';
 import { getExerciseById } from '../../data/exercises';
 import { generatePRCard } from '../../utils/shareCard';
-import { Trophy, Timer, Zap, Star, Share2, ChevronRight, Loader2, History, MessageCircle, Flame, CalendarDays, ArrowRight, ThumbsUp } from 'lucide-react';
+import { Trophy, Timer, Zap, Star, Share2, ChevronRight, Loader2, History, MessageCircle, Flame, CalendarDays, ArrowRight, ThumbsUp, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { triggerHapticNotification } from '../../lib/capacitor';
 import { getAdaptation } from '../../services/adaptService';
 import { useApp } from '../../store/AppContext';
@@ -17,8 +17,10 @@ import { formatMass, formatWeightValue, toDisplayWeight } from '../../utils/weig
 import { WorkoutSyncStatusBadge } from './WorkoutSyncStatusBadge';
 import { getWorkoutSyncStatusCopy } from '../../utils/workoutSync';
 import { trackWorkoutCompletionNextStepEvent } from '../../lib/analytics';
-import { saveWorkoutFeedback } from '../../utils/localStorage';
+import { saveWorkoutFeedback, getCustomPrograms } from '../../utils/localStorage';
 import type { WorkoutFeedback } from '../../types';
+import { programs } from '../../data/programs';
+import { recommendProgression, parseRepRange, progressionActionColour } from '../../lib/progressiveOverload';
 
 interface WorkoutCompleteModalProps {
   open: boolean;
@@ -92,6 +94,19 @@ function useConfetti(active: boolean) {
 }
 
 type Tab = 'summary' | 'next';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Look up the rep scheme string from the active program for a given exercise. */
+function getProgramRepScheme(programId: string, dayIndex: number, exerciseId: string): string {
+  const allPrograms = [...programs, ...getCustomPrograms()];
+  const program = allPrograms.find((p) => p.id === programId);
+  if (!program) return '8-12';
+  const day = program.schedule[dayIndex];
+  if (!day) return '8-12';
+  const ex = day.exercises.find((e) => e.exerciseId === exerciseId);
+  return ex?.scheme.reps ?? '8-12';
+}
 
 interface NextStepConfig {
   label: string;
@@ -195,6 +210,58 @@ export function WorkoutCompleteModal({
   const streak = calculateStreak(state.history.sessions.map((entry) => entry.startedAt));
   const isQuickSession = latestSession.programId === 'quick-log';
   const completedExercises = latestSession.exercises.filter((exercise) => exercise.sets.some((set) => set.completed)).length;
+
+  // ── Volume delta vs previous session ──────────────────────────────────────
+  const volumeDelta = useMemo(() => {
+    const sorted = state.history.sessions
+      .filter((s) => s.id !== session.id && Boolean(s.completedAt) && s.totalVolumeKg > 0)
+      .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+    const prev = sorted[0];
+    if (!prev || latestSession.totalVolumeKg === 0) return null;
+    return ((latestSession.totalVolumeKg - prev.totalVolumeKg) / prev.totalVolumeKg) * 100;
+  }, [state.history.sessions, session.id, latestSession.totalVolumeKg]);
+
+  // ── Algorithmic progression cues (surfaces progressiveOverload engine) ────
+  const progressionCues = useMemo(() => {
+    const previousSessions = state.history.sessions
+      .filter((s) => s.id !== session.id && Boolean(s.completedAt))
+      .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+
+    return latestSession.exercises
+      .filter((e) => e.sets.some((s) => s.completed))
+      .map((e) => {
+        const prevSets = previousSessions
+          .flatMap((ps) => ps.exercises.filter((pe) => pe.exerciseId === e.exerciseId))
+          .slice(0, 1)
+          .flatMap((pe) => pe.sets)
+          .filter((s) => s.completed);
+
+        const repScheme = getProgramRepScheme(
+          latestSession.programId,
+          latestSession.trainingDayIndex,
+          e.exerciseId,
+        );
+        const [targetMin, targetMax] = parseRepRange(repScheme);
+        const previousTopLoad = prevSets.length > 0
+          ? Math.max(...prevSets.map((s) => s.weight))
+          : undefined;
+
+        return recommendProgression({
+          exerciseId: e.exerciseId,
+          exerciseName: getExerciseById(e.exerciseId)?.name ?? e.exerciseId,
+          targetRepsMin: targetMin,
+          targetRepsMax: targetMax,
+          recentSets: e.sets.map((s) => ({
+            setNumber: s.setNumber,
+            weight: s.weight,
+            reps: s.reps,
+            completed: s.completed,
+            rpe: s.rpe,
+          })),
+          previousTopLoadKg: previousTopLoad,
+        });
+      });
+  }, [state.history.sessions, session.id, latestSession]);
 
   const headline = hasPRs
     ? `You set ${prs.length} personal record${prs.length === 1 ? '' : 's'}`
@@ -347,34 +414,50 @@ export function WorkoutCompleteModal({
           <>
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3">
-              {[
-                {
-                  icon: <Timer size={18} className="text-brand-500" />,
-                  label: 'Duration',
-                  value: formatDuration(latestSession.durationSeconds ?? 0),
-                },
-                {
-                  icon: <Zap size={18} className="text-orange-500" />,
-                  label: 'Volume',
-                  value: formatMass(latestSession.totalVolumeKg, weightUnit),
-                },
-                {
-                  icon: <Trophy size={18} className="text-yellow-500" />,
-                  label: 'Sets',
-                  value: String(totalSets),
-                },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3"
-                >
-                  {stat.icon}
-                  <span className="text-lg font-bold text-slate-900 dark:text-white">
-                    {stat.value}
+              <div className="flex flex-col items-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
+                <Timer size={18} className="text-brand-500" />
+                <span className="text-lg font-bold text-slate-900 dark:text-white">
+                  {formatDuration(latestSession.durationSeconds ?? 0)}
+                </span>
+                <span className="text-xs text-slate-400">Duration</span>
+              </div>
+
+              {/* Volume tile with delta badge */}
+              <div className="flex flex-col items-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
+                <Zap size={18} className="text-orange-500" />
+                <span className="text-lg font-bold text-slate-900 dark:text-white">
+                  {formatMass(latestSession.totalVolumeKg, weightUnit)}
+                </span>
+                <span className="text-xs text-slate-400">Volume</span>
+                {volumeDelta !== null && (
+                  <span
+                    className={`flex items-center gap-0.5 text-[10px] font-semibold ${
+                      volumeDelta > 0
+                        ? 'text-emerald-500'
+                        : volumeDelta < 0
+                        ? 'text-red-400'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {volumeDelta > 0 ? (
+                      <TrendingUp size={10} />
+                    ) : volumeDelta < 0 ? (
+                      <TrendingDown size={10} />
+                    ) : (
+                      <Minus size={10} />
+                    )}
+                    {volumeDelta > 0 ? '+' : ''}{volumeDelta.toFixed(0)}% vs last
                   </span>
-                  <span className="text-xs text-slate-400">{stat.label}</span>
-                </div>
-              ))}
+                )}
+              </div>
+
+              <div className="flex flex-col items-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
+                <Trophy size={18} className="text-yellow-500" />
+                <span className="text-lg font-bold text-slate-900 dark:text-white">
+                  {String(totalSets)}
+                </span>
+                <span className="text-xs text-slate-400">Sets</span>
+              </div>
             </div>
 
             {syncCopy && (
@@ -444,6 +527,31 @@ export function WorkoutCompleteModal({
                 <span>View next session suggestions</span>
                 <ChevronRight size={16} />
               </button>
+            )}
+
+            {/* Progression cues — algorithmic, instant, available for all users */}
+            {progressionCues.length > 0 && (
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1.5">
+                  <TrendingUp size={12} />
+                  Next session tips
+                </p>
+                <ul className="space-y-1.5">
+                  {progressionCues.map((cue) => (
+                    <li key={cue.exerciseId} className="flex items-start gap-2">
+                      <span className={`text-xs font-bold shrink-0 mt-0.5 ${progressionActionColour(cue.action)}`}>
+                        {cue.action === 'increase_load' ? '↑ Load' :
+                         cue.action === 'increase_reps' ? '↑ Reps' :
+                         cue.action === 'hold' ? '= Hold' : '↓ Deload'}
+                      </span>
+                      <span className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">{cue.exerciseName}</span>
+                        {' — '}{cue.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {/* Ask AI about this workout */}

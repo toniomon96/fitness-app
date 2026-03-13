@@ -14,6 +14,7 @@ import type {
   WeightUnit,
   WorkoutFeedback,
   GamificationData,
+  SpacedRepCard,
 } from '../types';
 
 const KEYS = {
@@ -38,6 +39,7 @@ const KEYS = {
   WORKOUT_FEEDBACK: 'omnexus_workout_feedback',
   GAMIFICATION: 'omnexus_gamification',
   DAILY_CHALLENGE: 'omnexus_daily_challenge',
+  SPACED_REP_CARDS: 'omnexus_spaced_rep_cards',
 } as const;
 
 export const WEIGHT_UNIT_CHANGED_EVENT = 'omnexus:weight-unit-changed';
@@ -467,4 +469,25 @@ export function getDailyChallengeState(): DailyChallengeState | null {
 
 export function setDailyChallengeState(state: DailyChallengeState): void {
   safeWrite(KEYS.DAILY_CHALLENGE, state);
+}
+
+// ─── Spaced Repetition Cards (local fallback for guests + offline) ─────────────
+
+export function getSpacedRepCards(): SpacedRepCard[] {
+  return safeRead<SpacedRepCard[]>(KEYS.SPACED_REP_CARDS, []);
+}
+
+export function setSpacedRepCards(cards: SpacedRepCard[]): void {
+  safeWrite(KEYS.SPACED_REP_CARDS, cards);
+}
+
+export function upsertSpacedRepCardLocal(card: SpacedRepCard): void {
+  const cards = getSpacedRepCards();
+  const idx = cards.findIndex((c) => c.cardId === card.cardId);
+  if (idx !== -1) {
+    cards[idx] = card;
+  } else {
+    cards.push(card);
+  }
+  setSpacedRepCards(cards);
 }

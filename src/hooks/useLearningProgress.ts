@@ -1,8 +1,9 @@
 import { useApp } from '../store/AppContext';
 import type { QuizAttempt } from '../types';
 import { computeNewStreak } from '../utils/streakUtils';
-import { getGamificationData, getDailyChallengeState, setDailyChallengeState } from '../utils/localStorage';
+import { getGamificationData, getDailyChallengeState, setDailyChallengeState, upsertSpacedRepCardLocal, getSpacedRepCards } from '../utils/localStorage';
 import { todayUTC } from '../utils/streakUtils';
+import { createCard, applyReview, scoreToQuality, isCardDue } from '../utils/spacedRep';
 
 export function useLearningProgress() {
   const { state, dispatch } = useApp();
@@ -31,6 +32,16 @@ export function useLearningProgress() {
         setDailyChallengeState({ ...challenge, completed: true });
         // Bonus for completing the daily challenge
         dispatch({ type: 'AWARD_XP', payload: { eventType: 'daily_checkin' } });
+      }
+      // Enqueue lesson card in spaced repetition queue (create if new, skip if already exists).
+      // Note: guest cards are stored with userId='guest'. On authentication, the Supabase sync
+      // in reviewSpacedRepCard will use the real userId going forward; the local cards remain
+      // under 'guest' and are not automatically migrated (acceptable — they will regenerate as
+      // the user re-completes lessons under their account).
+      const userId = state.user?.id ?? 'guest';
+      const existing = getSpacedRepCards().find((c) => c.cardId === lessonId);
+      if (!existing) {
+        upsertSpacedRepCardLocal(createCard(lessonId, userId));
       }
     }
     triggerStreakUpdate();
@@ -72,6 +83,26 @@ export function useLearningProgress() {
     return lessonIds.filter((id) => progress.completedLessons.includes(id)).length;
   }
 
+  /** Update a spaced-rep card after a review session. quality: 0–5 per SM-2 scale. */
+  function reviewSpacedRepCard(cardId: string, quality: Parameters<typeof applyReview>[1]) {
+    const cards = getSpacedRepCards();
+    const card = cards.find((c) => c.cardId === cardId);
+    if (!card) return;
+    const updated = applyReview(card, quality);
+    upsertSpacedRepCardLocal(updated);
+    // Fire-and-forget sync to Supabase for authenticated users
+    if (state.user?.id) {
+      import('../lib/db').then(({ upsertSpacedRepCard }) => {
+        upsertSpacedRepCard(updated).catch(() => {/* silent */});
+      });
+    }
+  }
+
+  /** Returns all cards that are due for review today. */
+  function getDueCards() {
+    return getSpacedRepCards().filter(isCardDue);
+  }
+
   return {
     progress,
     completeLesson,
@@ -82,5 +113,8 @@ export function useLearningProgress() {
     isModuleComplete,
     isCourseComplete,
     countCompletedLessons,
+    reviewSpacedRepCard,
+    getDueCards,
+    scoreToQuality,
   };
 }

@@ -348,6 +348,17 @@ export interface Lesson {
   keyPoints: string[];
   references: ContentReference[];
   estimatedMinutes: number;
+  /** Optional inline checkpoint questions. Each question is placed after the paragraph at `afterParagraphIndex`. */
+  checkpoints?: CheckpointQuestion[];
+}
+
+export interface CheckpointQuestion {
+  /** Which paragraph index (0-based) this question appears after. */
+  afterParagraphIndex: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
 }
 
 export interface ContentRecommendation {
