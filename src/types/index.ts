@@ -242,6 +242,15 @@ export interface ContentReference {
   journal?: string;
   year?: number;
   url?: string;
+  /**
+   * Reference publication type:
+   * - 'journal'      — primary research article
+   * - 'meta-analysis' — quantitative synthesis of multiple studies
+   * - 'review'       — narrative or systematic review (non-meta-analytic)
+   * - 'guideline'    — clinical or professional body recommendation
+   * - 'book'         — textbook or monograph chapter
+   * - 'organization' — position statement or resource from a professional org
+   */
   type: 'journal' | 'guideline' | 'book' | 'organization' | 'meta-analysis' | 'review';
 }
 

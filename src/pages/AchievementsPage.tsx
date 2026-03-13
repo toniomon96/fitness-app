@@ -83,7 +83,7 @@ export function AchievementsPage() {
         </div>
 
         {/* Progress bar */}
-        <div className="bg-zinc-800 rounded-full h-2 mb-6" role="progressbar" aria-valuenow={earnedCount} aria-valuemax={ACHIEVEMENTS.length}>
+        <div className="bg-zinc-800 rounded-full h-2 mb-6" role="progressbar" aria-valuenow={earnedCount} aria-valuemin={0} aria-valuemax={ACHIEVEMENTS.length}>
           <div
             className="bg-emerald-500 h-2 rounded-full transition-all"
             style={{ width: `${(earnedCount / ACHIEVEMENTS.length) * 100}%` }}

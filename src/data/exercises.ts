@@ -1054,7 +1054,7 @@ export const exercises: Exercise[] = [
       'Lower with control to full extension.',
     ],
     tips: [
-      'A wider grip shortens the lat\'s range of motion but increases width stimulus; combine with close-grip variations for complete development.',
+      "A wider grip shortens the lat's range of motion but increases width stimulus; combine with close-grip variations for complete development.",
       'Avoid kipping — controlled reps with a full hang and a 2-second negative build more lat mass.',
     ],
     pattern: 'pull-vertical',
@@ -1212,7 +1212,7 @@ export const exercises: Exercise[] = [
     ],
     tips: [
       'Use a load that challenges your grip and core — if you are not fighting to stay upright, go heavier.',
-      'Farmer\'s carries build grip strength, core stability, and loaded walking capacity that carry over to nearly every other lift.',
+      "Farmer's carries build grip strength, core stability, and loaded walking capacity that carry over to nearly every other lift.",
     ],
     pattern: 'carry',
   },
