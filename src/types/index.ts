@@ -329,6 +329,8 @@ export interface ContentReference {
 export interface QuizQuestion {
   id: string;
   question: string;
+  /** Defaults to 'multiple-choice' when omitted. */
+  type?: 'multiple-choice' | 'true-false';
   options: string[];
   correctIndex: number;
   explanation: string;
@@ -433,6 +435,8 @@ export interface QuizAttempt {
   correctCount: number;
   totalQuestions: number;
   attemptedAt: string;
+  /** Longest consecutive-correct streak within this attempt (used for combo multiplier). */
+  maxCorrectStreak?: number;
 }
 
 export interface LearningProgress {
@@ -691,6 +695,45 @@ export interface XpProfile {
   xpInCurrentLevel: number;
   /** Rank label for the current level */
   rankLabel: string;
+}
+
+// ─── Achievements ────────────────────────────────────────────────────────────
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold';
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  tier: AchievementTier;
+  /** Emoji icon shown in the badge */
+  icon: string;
+  /** XP bonus awarded on first unlock */
+  xpReward: number;
+  /** Human-readable unlock condition summary */
+  conditionSummary: string;
+}
+
+export interface UserAchievement {
+  achievementId: string;
+  unlockedAt: string;
+}
+
+/** Persisted gamification state (localStorage + Supabase sync). */
+export interface GamificationData {
+  totalXp: number;
+  /** Current training streak in days */
+  streak: number;
+  /** YYYY-MM-DD of the last day that was counted towards the streak */
+  streakUpdatedDate: string;
+  /** Virtual currency balance */
+  sparks: number;
+  /** IDs of achievements the user has unlocked */
+  unlockedAchievementIds: string[];
+  /** XP earned in the current ISO week (resets each Monday UTC) */
+  weeklyXp: number;
+  /** YYYY-MM-DD of the Monday when weeklyXp was last reset */
+  weeklyXpResetDate: string;
 }
 
 // ─── Streak Freeze ───────────────────────────────────────────────────────────

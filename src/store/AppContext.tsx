@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { identify } from '../lib/analytics';
-import type { User, WorkoutSession, WorkoutHistory, LearningProgress, QuizAttempt } from '../types';
+import type { User, WorkoutSession, WorkoutHistory, LearningProgress, QuizAttempt, XpProfile, GamificationData } from '../types';
 import {
   getUser,
   getHistory,
@@ -18,7 +18,13 @@ import {
   setLearningProgress,
   clearUser,
   clearActiveSession,
+  getGamificationData,
+  setGamificationData,
 } from '../utils/localStorage';
+import { buildXpProfile, createXpEvent } from '../lib/xpEngine';
+import { evaluateAchievements } from '../data/achievements';
+import { currentMondayUTC } from '../utils/streakUtils';
+import type { XpEventType } from '../types';
 
 async function syncLearningProgress(progress: LearningProgress, userId: string) {
   const { upsertLearningProgress } = await import('../lib/db');
@@ -33,6 +39,10 @@ export interface AppState {
   activeSession: WorkoutSession | null;
   theme: 'dark' | 'light';
   learningProgress: LearningProgress;
+  xpProfile: XpProfile | null;
+  streak: number;
+  sparks: number;
+  unlockedAchievementIds: string[];
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -52,15 +62,26 @@ export type Action =
   | { type: 'COMPLETE_LESSON'; payload: string }
   | { type: 'COMPLETE_MODULE'; payload: string }
   | { type: 'COMPLETE_COURSE'; payload: string }
-  | { type: 'RECORD_QUIZ_ATTEMPT'; payload: { moduleId: string; attempt: QuizAttempt } };
+  | { type: 'RECORD_QUIZ_ATTEMPT'; payload: { moduleId: string; attempt: QuizAttempt } }
+  | { type: 'AWARD_XP'; payload: { eventType: XpEventType; referenceId?: string; amountOverride?: number } }
+  | { type: 'SET_GAMIFICATION'; payload: GamificationData }
+  | { type: 'SET_STREAK'; payload: number }
+  | { type: 'AWARD_SPARKS'; payload: number }
+  | { type: 'UNLOCK_ACHIEVEMENT'; payload: string };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 /** @internal Exported for unit testing */
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'SET_USER':
-      return { ...state, user: action.payload };
+    case 'SET_USER': {
+      const gamification = getGamificationData();
+      return {
+        ...state,
+        user: action.payload,
+        xpProfile: buildXpProfile(action.payload.id, gamification.totalXp),
+      };
+    }
     case 'CLEAR_USER': {
       clearUser();
       clearActiveSession();
@@ -148,6 +169,89 @@ export function reducer(state: AppState, action: Action): AppState {
       setLearningProgress(updated);
       return { ...state, learningProgress: updated };
     }
+    case 'AWARD_XP': {
+      if (!state.user) return state;
+      const { eventType, referenceId, amountOverride } = action.payload;
+      const event = createXpEvent({ userId: state.user.id, type: eventType, referenceId, amountOverride });
+      const newTotal = (state.xpProfile?.totalXp ?? 0) + event.amount;
+      const newProfile = buildXpProfile(state.user.id, newTotal);
+
+      // Achievement check
+      const newUnlocks = evaluateAchievements({
+        totalXp: newTotal,
+        streak: state.streak,
+        workoutCount: state.history.sessions.length,
+        prCount: state.history.personalRecords.length,
+        completedLessons: state.learningProgress.completedLessons.length,
+        completedCourses: state.learningProgress.completedCourses.length,
+        alreadyUnlocked: state.unlockedAchievementIds,
+      });
+      const newAchievementIds = [
+        ...state.unlockedAchievementIds,
+        ...newUnlocks.map((a) => a.id),
+      ];
+      // Stack XP bonus from any unlocked achievements
+      const achievementXp = newUnlocks.reduce((sum, a) => sum + a.xpReward, 0);
+      const finalTotal = newTotal + achievementXp;
+      const finalProfile = achievementXp > 0 ? buildXpProfile(state.user.id, finalTotal) : newProfile;
+
+      // Weekly XP tracking — reset each Monday UTC
+      const thisMonday = currentMondayUTC();
+      const prevGamification = getGamificationData();
+      const weeklyBase = prevGamification.weeklyXpResetDate === thisMonday
+        ? (prevGamification.weeklyXp ?? 0)
+        : 0;
+      const newWeeklyXp = weeklyBase + event.amount + achievementXp;
+
+      const gamification: GamificationData = {
+        totalXp: finalTotal,
+        streak: state.streak,
+        streakUpdatedDate: prevGamification.streakUpdatedDate,
+        sparks: state.sparks,
+        unlockedAchievementIds: newAchievementIds,
+        weeklyXp: newWeeklyXp,
+        weeklyXpResetDate: thisMonday,
+      };
+      setGamificationData(gamification);
+
+      // Fire-and-forget sync to Supabase
+      if (!state.user.isGuest) {
+        void import('../lib/db')
+          .then(({ recordXpEvent }) => recordXpEvent(state.user!.id, event))
+          .catch((err) => { if (import.meta.env.DEV) console.error('[AppContext] recordXpEvent failed:', err); });
+      }
+
+      return {
+        ...state,
+        xpProfile: finalProfile,
+        unlockedAchievementIds: newAchievementIds,
+      };
+    }
+    case 'SET_GAMIFICATION': {
+      const { totalXp, streak, sparks, unlockedAchievementIds } = action.payload;
+      const profile = state.user ? buildXpProfile(state.user.id, totalXp) : null;
+      return { ...state, xpProfile: profile, streak, sparks, unlockedAchievementIds };
+    }
+    case 'SET_STREAK': {
+      const today = new Date().toISOString().split('T')[0];
+      const existing = getGamificationData();
+      const updated: GamificationData = { ...existing, streak: action.payload, streakUpdatedDate: today };
+      setGamificationData(updated);
+      return { ...state, streak: action.payload };
+    }
+    case 'AWARD_SPARKS': {
+      const newSparks = state.sparks + action.payload;
+      const existing = getGamificationData();
+      setGamificationData({ ...existing, sparks: newSparks });
+      return { ...state, sparks: newSparks };
+    }
+    case 'UNLOCK_ACHIEVEMENT': {
+      if (state.unlockedAchievementIds.includes(action.payload)) return state;
+      const newIds = [...state.unlockedAchievementIds, action.payload];
+      const existing = getGamificationData();
+      setGamificationData({ ...existing, unlockedAchievementIds: newIds });
+      return { ...state, unlockedAchievementIds: newIds };
+    }
     default:
       return state;
   }
@@ -165,12 +269,18 @@ const AppContext = createContext<AppContextValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 function getInitialState(): AppState {
+  const user = getUser();
+  const gamification = getGamificationData();
   return {
-    user: getUser(),
+    user,
     history: getHistory(),
     activeSession: getActiveSession(),
     theme: getTheme(),
     learningProgress: getLearningProgress(),
+    xpProfile: user ? buildXpProfile(user.id, gamification.totalXp) : null,
+    streak: gamification.streak,
+    sparks: gamification.sparks,
+    unlockedAchievementIds: gamification.unlockedAchievementIds,
   };
 }
 

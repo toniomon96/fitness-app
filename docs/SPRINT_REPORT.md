@@ -77,36 +77,67 @@ The following sprints remain from the implementation plan. Listed in execution o
 
 ---
 
-### Sprint I — Exercise Discovery Engine
-**Epic 1** · 2 weeks · **Can start now (Sprint B complete)**
+### Sprint I — Exercise Discovery Engine ✅
+**Epic 1** · **COMPLETE**
 
-Replaces the flat exercise list with five discovery modes:
+Replaces the flat exercise list with five discovery modes. **Shipped in `ExerciseLibraryPage`**.
 
-1. **Browse by Movement Pattern** — 9 patterns (squat, hinge, push-horizontal, push-vertical, pull-horizontal, pull-vertical, isolation, carry, cardio)
-2. **Browse by Muscle** — text-based muscle selector; all exercises with that muscle in primary or secondary
-3. **Browse by Equipment** — filtered to user's saved equipment profile from onboarding
-4. **Browse by Difficulty** — filter slider 1–5
-5. **Natural Language Search** — semantic search via existing `/api/ask` RAG infrastructure
+**Discovery modes implemented:**
 
-The `Movement Pattern Library Button` added in Sprint B is the entry point — it passes `filterPattern` state to `/library`. Sprint I needs to consume this to filter the list.
+| Tab | Description | Filter |
+|---|---|---|
+| 🔍 Search | Fuzzy text search with trigram similarity + aliases | `query` |
+| 🔄 Pattern | 3×3 grid of 9 movement pattern tiles | `pattern` |
+| 💪 Muscle | Horizontal-scroll muscle group pills | `muscle` |
+| 🏋️ Equipment | Equipment pills + optional "My Gym" button from training profile | `equipment` |
+| ⭐ Level | Beginner / Intermediate / Advanced selector with star indicators | `difficulty` |
+
+**"My Gym" button**: fetches the user's `training_profile` from Supabase on mount (authenticated users only). When the profile contains equipment, a "My Gym" chip appears in the Equipment tab that filters to exercises matching any of the user's equipment types.
+
+**filterPattern deep-link**: `ExerciseDetailPage`'s "Movement Pattern Library Button" navigates to `/library` with `{ state: { filterPattern } }`. The library page reads this state on mount and auto-activates the Pattern tab with the correct pattern pre-selected.
+
+**New files:**
+- `src/components/exercise-library/MovementPatternGrid.tsx`
+- `src/components/exercise-library/DifficultyFilter.tsx`
+
+**Modified files:**
+- `src/pages/ExerciseLibraryPage.tsx` — full redesign
 
 ---
 
-### Sprint C — Gamification Foundation + Learning Database
-**Epic 2 + Epic 3** · 2 weeks
+### Sprint C — Gamification Foundation + Learning Database ✅
+**Epic 2 + Epic 3** · **COMPLETE**
 
 **Gamification (Epic 2):**
-- 6 Supabase tables: `user_xp`, `learning_streaks`, `achievements`, `user_achievements`, `user_sparks`, `xp_events`
-- Seed 18 achievements (6 Bronze / 6 Silver / 6 Gold)
-- `AppContext` reducer: XP updates, rank thresholds, streak increments, achievement unlock checks, Sparks balance
-- Wire XP to existing actions: +25 XP workout complete, +15 XP PR, +10 XP lesson
-- Rank badge component on Profile page
-- Streak counter in app header
+- **`GamificationData` type** — `totalXp`, `streak`, `streakUpdatedDate`, `sparks`, `unlockedAchievementIds` persisted in localStorage + synced to Supabase
+- **`Achievement` + `UserAchievement` types** added to `src/types/index.ts`
+- **18 achievements seeded** in `src/data/achievements.ts` (6 Bronze / 6 Silver / 6 Gold) with `evaluateAchievements()` evaluation function
+- **`AppContext` extended** — `xpProfile`, `streak`, `sparks`, `unlockedAchievementIds` in `AppState`; new actions: `AWARD_XP`, `SET_GAMIFICATION`, `SET_STREAK`, `AWARD_SPARKS`, `UNLOCK_ACHIEVEMENT`
+- **XP wired** to existing actions: workout complete (+50 XP), PR (+100 XP), lesson complete (+30 XP), quiz pass (+60 XP)
+- **Achievement auto-unlock** evaluated on every `AWARD_XP` dispatch with XP bonus stacking
+- **`RankBadge` component** — `src/components/gamification/RankBadge.tsx` — shows level, rank label, XP progress bar; supports `compact` pill mode
+- **Rank badge on Profile page** — displayed below avatar
+- **Streak counter in app header** — 🔥 N shown in `TopBar` when streak > 0
 
 **Learning Database (Epic 3):**
-- 2 Supabase tables: `learning_battles`, `learning_review_queue`
-- 20 JSON course scaffold files under `src/data/courses/`
-- `src/types/course.ts` TypeScript interface
+- **`learning_review_queue` DB functions** — `fetchSpacedRepCards`, `upsertSpacedRepCard` added to `src/lib/db.ts`
+- **`xp_events` DB function** — `recordXpEvent` added to `src/lib/db.ts` (fire-and-forget sync)
+- **20 course entries** — 2 fully detailed courses (strength-foundations, nutrition-foundations) + 18 scaffold entries covering: Foundations (3), Nutrition (4), Science (4), Technique (4), Mind (3)
+
+**New files:**
+- `src/data/achievements.ts`
+- `src/components/gamification/RankBadge.tsx`
+
+**Modified files:**
+- `src/types/index.ts` — Achievement, UserAchievement, GamificationData types
+- `src/utils/localStorage.ts` — getGamificationData / setGamificationData
+- `src/store/AppContext.tsx` — XP/gamification state + actions
+- `src/lib/db.ts` — recordXpEvent, fetchSpacedRepCards, upsertSpacedRepCard
+- `src/hooks/useWorkoutSession.ts` — dispatch AWARD_XP on completion + PRs
+- `src/hooks/useLearningProgress.ts` — dispatch AWARD_XP on lesson/quiz
+- `src/components/layout/TopBar.tsx` — streak counter
+- `src/pages/ProfilePage.tsx` — RankBadge card
+- `src/data/courses.ts` — 18 scaffold courses added
 
 ---
 
@@ -192,8 +223,8 @@ The `Movement Pattern Library Button` added in Sprint B is the entry point — i
 ## Priority Order Recommendation
 
 ```
-Sprint I  → Exercise Discovery (can start immediately, depends on Sprint B ✓)
-Sprint C  → Gamification + Learning DB (parallel candidate with Sprint I)
+Sprint I  → Exercise Discovery ✅ COMPLETE
+Sprint C  → Gamification + Learning DB ✅ COMPLETE
 Sprint D  → Courses + Quiz
 Sprint E  → Remaining Courses + Spaced Repetition
 Sprint F  → Social + Leaderboard

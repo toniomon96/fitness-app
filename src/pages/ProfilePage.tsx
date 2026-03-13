@@ -30,6 +30,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Avatar } from '../components/ui/Avatar';
+import { RankBadge } from '../components/gamification/RankBadge';
 import {
   getPushPermission,
   isSubscribed,
@@ -559,6 +560,16 @@ export function ProfilePage() {
             </p>
             <p className="text-sm text-slate-300">{authUser.email}</p>
           </Card>
+        )}
+
+        {/* Rank & XP */}
+        {state.xpProfile && (
+          <div>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 px-0.5">
+              Rank &amp; Progress
+            </p>
+            <RankBadge xpProfile={state.xpProfile} />
+          </div>
         )}
 
         {/* Subscription */}

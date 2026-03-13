@@ -13,6 +13,7 @@ import type {
   HealthArticle,
   WeightUnit,
   WorkoutFeedback,
+  GamificationData,
 } from '../types';
 
 const KEYS = {
@@ -35,6 +36,8 @@ const KEYS = {
   WEIGHT_UNIT: 'omnexus_weight_unit',
   EXPERIENCE_MODE: 'omnexus_experience_mode',
   WORKOUT_FEEDBACK: 'omnexus_workout_feedback',
+  GAMIFICATION: 'omnexus_gamification',
+  DAILY_CHALLENGE: 'omnexus_daily_challenge',
 } as const;
 
 export const WEIGHT_UNIT_CHANGED_EVENT = 'omnexus:weight-unit-changed';
@@ -423,4 +426,45 @@ export function getMostRecentFeedbackNote(): string | undefined {
   else if (latest.rating >= 4) parts.push('Last workout felt great');
   if (latest.notes?.trim()) parts.push(latest.notes.trim());
   return parts.join('. ') || undefined;
+}
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+const EMPTY_GAMIFICATION: GamificationData = {
+  totalXp: 0,
+  streak: 0,
+  streakUpdatedDate: '',
+  sparks: 0,
+  unlockedAchievementIds: [],
+  weeklyXp: 0,
+  weeklyXpResetDate: '',
+};
+
+export function getGamificationData(): GamificationData {
+  return safeRead<GamificationData>(KEYS.GAMIFICATION, EMPTY_GAMIFICATION);
+}
+
+export function setGamificationData(data: GamificationData): void {
+  safeWrite(KEYS.GAMIFICATION, data);
+}
+
+// ─── Daily Challenge ──────────────────────────────────────────────────────────
+
+export interface DailyChallengeState {
+  /** YYYY-MM-DD UTC — the day this challenge applies to */
+  date: string;
+  courseId: string;
+  moduleId: string;
+  lessonId: string;
+  lessonTitle: string;
+  courseTitle: string;
+  completed: boolean;
+}
+
+export function getDailyChallengeState(): DailyChallengeState | null {
+  return safeRead<DailyChallengeState | null>(KEYS.DAILY_CHALLENGE, null);
+}
+
+export function setDailyChallengeState(state: DailyChallengeState): void {
+  safeWrite(KEYS.DAILY_CHALLENGE, state);
 }

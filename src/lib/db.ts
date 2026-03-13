@@ -23,6 +23,8 @@ import type {
   ChallengeParticipant,
   ChallengeInvitation,
   NotificationPreferences,
+  XpEvent,
+  SpacedRepCard,
 } from '../types';
 
 let supabasePromise: Promise<(typeof import('./supabase'))['supabase']> | null = null;
@@ -1148,4 +1150,64 @@ export async function getAiChallenges(userId: string): Promise<AiChallenge[]> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return [...(personal ?? []).map((r: any) => mapAiChallenge(r)), ...(shared ?? []).map((r: any) => mapAiChallenge(r))];
+}
+
+// ─── XP Events ────────────────────────────────────────────────────────────────
+
+/**
+ * Write one XP event to the `xp_events` table.
+ * Fire-and-forget safe — callers should catch or void this.
+ */
+export async function recordXpEvent(userId: string, event: XpEvent): Promise<void> {
+  const supabase = await getSupabase();
+  const { error } = await supabase.from('xp_events').insert({
+    id: event.id,
+    user_id: userId,
+    type: event.type,
+    amount: event.amount,
+    label: event.label,
+    reference_id: event.referenceId ?? null,
+    occurred_at: event.occurredAt,
+  });
+  if (error) throw new Error(`[recordXpEvent] ${error.message}`);
+}
+
+// ─── Spaced Repetition (learning_review_queue) ────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapSpacedRepCard(row: any): SpacedRepCard {
+  return {
+    cardId: row.card_id,
+    userId: row.user_id,
+    easinessFactor: row.easiness_factor,
+    intervalDays: row.interval_days,
+    repetitions: row.repetitions,
+    nextDueAt: row.next_due_at,
+    lastReviewedAt: row.last_reviewed_at,
+  };
+}
+
+export async function fetchSpacedRepCards(userId: string): Promise<SpacedRepCard[]> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from('learning_review_queue')
+    .select('*')
+    .eq('user_id', userId);
+  if (error) throw new Error(`[fetchSpacedRepCards] ${error.message}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => mapSpacedRepCard(r));
+}
+
+export async function upsertSpacedRepCard(card: SpacedRepCard): Promise<void> {
+  const supabase = await getSupabase();
+  const { error } = await supabase.from('learning_review_queue').upsert({
+    card_id: card.cardId,
+    user_id: card.userId,
+    easiness_factor: card.easinessFactor,
+    interval_days: card.intervalDays,
+    repetitions: card.repetitions,
+    next_due_at: card.nextDueAt,
+    last_reviewed_at: card.lastReviewedAt,
+  }, { onConflict: 'card_id,user_id' });
+  if (error) throw new Error(`[upsertSpacedRepCard] ${error.message}`);
 }

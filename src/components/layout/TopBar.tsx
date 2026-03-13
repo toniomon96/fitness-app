@@ -19,6 +19,7 @@ export function TopBar({ title, showBack, backTo, right, showProfile }: TopBarPr
   const navigate = useNavigate();
   const { state } = useApp();
   const [unreadCount, setUnreadCount] = useState(() => getUnreadNotificationCount());
+  const streak = state.streak;
 
   useEffect(() => {
     const unsubscribe = subscribeToNotificationsUpdated(() => {
@@ -71,6 +72,14 @@ export function TopBar({ title, showBack, backTo, right, showProfile }: TopBarPr
         {/* Default right: theme toggle + profile avatar */}
         {!right && displayProfile && (
           <div className="ml-auto flex items-center gap-1">
+            {streak > 0 && (
+              <span
+                className="flex items-center gap-0.5 rounded-full bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 text-xs font-semibold text-orange-600 dark:text-orange-400"
+                title={`${streak}-day training streak`}
+              >
+                🔥 {streak}
+              </span>
+            )}
             <Link
               to="/notifications"
               className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
