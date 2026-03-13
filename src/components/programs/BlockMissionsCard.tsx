@@ -39,11 +39,17 @@ export function BlockMissionsCard({ programId, programName, daysPerWeek, duratio
   const userId = user?.id ?? '';
 
   const [missions, setMissions] = useState<BlockMission[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(userId));
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setMissions([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     let cancelled = false;
     async function load() {
       try {
@@ -112,14 +118,18 @@ export function BlockMissionsCard({ programId, programName, daysPerWeek, duratio
 
       {!loading && missions.length === 0 && !generating && (
         <p className="text-sm text-slate-400 text-center py-2">
-          Generate AI missions to track your progress this block.
+          {userId
+            ? 'Generate AI missions to track your progress this block.'
+            : 'Sign in to generate and track block missions.'}
         </p>
       )}
 
       {!loading && missions.length > 0 && (
         <div className="space-y-3">
           {missions.map((m) => {
-            const pct = Math.min(100, Math.round((m.progress.current / m.target.value) * 100));
+            const safeTargetValue = Math.max(1, Number(m.target.value) || 1);
+            const safeCurrent = Math.max(0, Number(m.progress.current) || 0);
+            const pct = Math.min(100, Math.round((safeCurrent / safeTargetValue) * 100));
             const isComplete = m.status === 'completed';
             return (
               <div key={m.id}>
@@ -134,7 +144,7 @@ export function BlockMissionsCard({ programId, programName, daysPerWeek, duratio
                     <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug">{m.description}</p>
                   </div>
                   <span className="text-xs font-bold tabular-nums text-slate-500 shrink-0">
-                    {m.progress.current}/{m.target.value} {m.target.unit}
+                    {safeCurrent}/{safeTargetValue} {m.target.unit}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
