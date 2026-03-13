@@ -323,7 +323,7 @@ export function ProgressionReportPage() {
                 <div key={muscle}>
                   <div className="flex justify-between text-xs text-slate-400 mb-1">
                     <span className="capitalize">{muscle}</span>
-                    <span>{Math.round(vol).toLocaleString()} kg</span>
+                    <span>{Math.round(weightUnit === 'lbs' ? vol * 2.2046 : vol).toLocaleString()} {weightUnit}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-slate-800">
                     <div
@@ -380,7 +380,7 @@ export function ProgressionReportPage() {
           <div className="space-y-2">
             <ContinuationCard
               icon={<TrendingUp size={18} className="text-brand-400" />}
-              title="Continue &amp; Intensify"
+              title="Continue & Intensify"
               description="Build on this block with progressive overload and higher intensity."
               onClick={() =>
                 navigate('/programs/ai/new', {

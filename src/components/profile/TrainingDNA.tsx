@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Activity, TrendingUp, Calendar, Dna } from 'lucide-react';
 import { Card } from '../ui/Card';
-import { getWorkoutHistory, getTrainingDNALocal, setTrainingDNALocal } from '../../utils/localStorage';
+import { getWorkoutHistory, getTrainingDNALocal, setTrainingDNALocal, getWeightUnit } from '../../utils/localStorage';
 import { EXERCISE_LIBRARY } from '../../data/exercises';
 import type { TrainingDNA } from '../../types';
 
@@ -69,6 +69,7 @@ export function TrainingDNA() {
   }, []);
 
   const sessions = useMemo(() => getWorkoutHistory(), []);
+  const weightUnit = getWeightUnit();
 
   if (!dna || sessions.length < 3) {
     return (
@@ -155,7 +156,7 @@ export function TrainingDNA() {
               <div key={muscle}>
                 <div className="flex justify-between text-xs text-slate-400 mb-1">
                   <span className="capitalize">{muscle}</span>
-                  <span>{Math.round(vol).toLocaleString()} kg total</span>
+                  <span>{Math.round(weightUnit === 'lbs' ? vol * 2.2046 : vol).toLocaleString()} {weightUnit} total</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800">
                   <div
@@ -206,8 +207,8 @@ export function TrainingDNA() {
               <div key={lift.name} className="flex justify-between items-center">
                 <span className="text-sm text-slate-600 dark:text-slate-300 truncate pr-2">{lift.name}</span>
                 <div className="text-right flex-shrink-0">
-                  <span className="text-sm font-semibold text-amber-400">+{lift.gain} kg</span>
-                  <p className="text-[10px] text-slate-400">{lift.first} → {lift.last} kg</p>
+                  <span className="text-sm font-semibold text-amber-400">+{weightUnit === 'lbs' ? (lift.gain * 2.2046).toFixed(1) : lift.gain} {weightUnit}</span>
+                  <p className="text-[10px] text-slate-400">{weightUnit === 'lbs' ? `${(lift.first * 2.2046).toFixed(1)} → ${(lift.last * 2.2046).toFixed(1)}` : `${lift.first} → ${lift.last}`} {weightUnit}</p>
                 </div>
               </div>
             ))}
