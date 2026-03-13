@@ -2,8 +2,9 @@ import type { SpacedRepCard, SpacedRepQuality } from '../types';
 
 // ─── SM-2 Algorithm ────────────────────────────────────────────────────────────
 // Based on the original SM-2 algorithm by Piotr Wozniak (SuperMemo).
-// Quality scale: 0–5 (0-1 = fail, 2 = barely recall, 3 = correct w/ difficulty,
-//                        4 = correct, 5 = perfect)
+// Quality scale: 0–5 (0-2 = failed recall, 3+ = successful recall)
+// Note: the UI exposes only qualities 1 (Forgot), 3 (Hard), 4 (Good), 5 (Easy).
+// Quality 0 and 2 are valid SM-2 values but not surfaced in the review modal.
 
 const MIN_EASINESS = 1.3;
 const DEFAULT_EASINESS = 2.5;

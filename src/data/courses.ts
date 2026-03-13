@@ -4746,3 +4746,13 @@ export function getAllLessonIds(courseId: string): string[] {
     m.lessons.map((l) => l.id),
   ) ?? [];
 }
+
+export function getLessonById(lessonId: string): { lesson: import('../types').Lesson; courseTitle: string } | undefined {
+  for (const course of courses) {
+    for (const mod of course.modules) {
+      const lesson = mod.lessons.find((l) => l.id === lessonId);
+      if (lesson) return { lesson, courseTitle: course.title };
+    }
+  }
+  return undefined;
+}
