@@ -1033,11 +1033,12 @@ function toSafeMissionProgress(value: unknown): BlockMission['progress'] {
   const history = Array.isArray(candidate.history)
     ? candidate.history
         .map((entry) => {
-          const date = typeof entry?.date === 'string' && entry.date.length > 0
-            ? entry.date
+          const trimmedDate = typeof entry?.date === 'string' ? entry.date.trim() : '';
+          const date = trimmedDate.length > 0
+            ? trimmedDate
             : new Date().toISOString().split('T')[0];
           const parsed = Number(entry?.value);
-          const safeValue = Number.isFinite(parsed) ? parsed : 0;
+          const safeValue = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
           return { date, value: safeValue };
         })
         .slice(-30)
