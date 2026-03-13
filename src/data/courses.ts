@@ -2624,7 +2624,7 @@ The importance of training with sufficient load and through a full range of moti
               {
                 title: 'Exercise and Cortisol — Friend or Foe?',
                 authors: 'Duclos M, Tabarin A',
-                journal: 'Annales d\'Endocrinologie',
+                journal: "Annales d'Endocrinologie",
                 year: 2016,
                 url: 'https://pubmed.ncbi.nlm.nih.gov/26922573/',
                 type: 'journal',
