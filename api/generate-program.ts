@@ -21,22 +21,25 @@ const EXERCISE_IDS = [
   // Chest
   'barbell-bench-press', 'dumbbell-bench-press', 'incline-dumbbell-press',
   'incline-barbell-press', 'cable-chest-fly', 'push-up', 'dips',
+  'close-grip-bench-press', 'dumbbell-fly',
   // Back
   'barbell-row', 'dumbbell-row', 'lat-pulldown', 'pull-up', 'seated-cable-row',
-  'face-pull', 't-bar-row',
+  'face-pull', 't-bar-row', 'chest-supported-row',
   // Shoulders
   'overhead-press', 'dumbbell-lateral-raise', 'dumbbell-shoulder-press',
   'arnold-press', 'rear-delt-fly',
   // Arms
   'barbell-curl', 'hammer-curl', 'tricep-pushdown', 'skull-crusher', 'overhead-tricep-extension',
+  'preacher-curl', 'incline-dumbbell-curl',
   // Legs — Quads
   'barbell-back-squat', 'goblet-squat', 'leg-press', 'leg-extension',
-  'walking-lunge', 'bulgarian-split-squat', 'step-up',
+  'walking-lunge', 'bulgarian-split-squat', 'step-up', 'hack-squat', 'front-squat',
   // Legs — Posterior chain
   'romanian-deadlift', 'deadlift', 'hip-thrust', 'glute-bridge',
-  'leg-curl', 'nordic-hamstring-curl',
+  'leg-curl', 'nordic-hamstring-curl', 'single-leg-romanian-deadlift',
   // Calves & Core
   'standing-calf-raise', 'plank', 'hanging-leg-raise', 'ab-wheel-rollout', 'cable-crunch',
+  'pallof-press', 'hyperextension',
   // Cardio / Conditioning
   'kettlebell-swing', 'box-jump', 'mountain-climbers',
 ];
@@ -49,17 +52,20 @@ const VALID_DAY_TYPES = new Set(['full-body', 'upper', 'lower', 'push', 'pull', 
 const PUSH_IDS = new Set([
   'barbell-bench-press', 'dumbbell-bench-press', 'incline-dumbbell-press', 'incline-barbell-press',
   'cable-chest-fly', 'push-up', 'dips', 'overhead-press', 'dumbbell-shoulder-press', 'arnold-press',
+  'close-grip-bench-press', 'dumbbell-fly',
 ]);
 const PULL_IDS = new Set([
   'barbell-row', 'dumbbell-row', 'lat-pulldown', 'pull-up', 'seated-cable-row', 'face-pull', 't-bar-row',
+  'chest-supported-row',
 ]);
 const LOWER_IDS = new Set([
   'barbell-back-squat', 'goblet-squat', 'leg-press', 'leg-extension', 'walking-lunge', 'bulgarian-split-squat',
   'step-up', 'romanian-deadlift', 'deadlift', 'hip-thrust', 'glute-bridge', 'leg-curl', 'nordic-hamstring-curl',
-  'standing-calf-raise',
+  'standing-calf-raise', 'hack-squat', 'front-squat', 'single-leg-romanian-deadlift', 'hyperextension',
 ]);
 const CORE_OR_CARDIO_IDS = new Set([
   'plank', 'hanging-leg-raise', 'ab-wheel-rollout', 'cable-crunch', 'kettlebell-swing', 'box-jump', 'mountain-climbers',
+  'pallof-press',
 ]);
 
 const DEFAULT_EXERCISE_PROGRESS = 'W1: 3x10 @RPE7 | W2: 4x8 @RPE7 | W3: 4x8 @RPE8 | W4: Deload 2x10 @RPE6 | W5: 4x8 @RPE8 | W6: 4x6 @RPE8 | W7: 5x5 @RPE9 | W8: Test or deload';
@@ -79,6 +85,11 @@ interface UserTrainingProfile {
   priorityMuscles?: string[];
   programStyle?: string;
   includeCardio?: boolean;
+  // Optional strength context — used to give realistic weight/load guidance in notes
+  bodyweightKg?: number;
+  currentLiftsKg?: { bench?: number; squat?: number; deadlift?: number; press?: number };
+  // Recent workout feedback — summarised for program personalisation
+  recentFeedback?: string;
 }
 
 interface SetScheme {
@@ -665,6 +676,17 @@ function buildSystemPrompt(profile: UserTrainingProfile): string {
     ? 'YES — build 1-2 conditioning sessions into the weekly schedule'
     : 'NO — pure lifting only';
 
+  // Optional profile enrichment context
+  const bodyweightLine = profile.bodyweightKg
+    ? `Bodyweight: ${profile.bodyweightKg} kg — use for dip/pull-up progressions and bodyweight exercise scaling`
+    : '';
+  const liftsLine = profile.currentLiftsKg
+    ? `Current working lifts (kg): bench=${profile.currentLiftsKg.bench ?? '?'}, squat=${profile.currentLiftsKg.squat ?? '?'}, deadlift=${profile.currentLiftsKg.deadlift ?? '?'}, press=${profile.currentLiftsKg.press ?? '?'} — use to calibrate realistic load recommendations in notes`
+    : '';
+  const feedbackLine = profile.recentFeedback
+    ? `RECENT FEEDBACK FROM ATHLETE: "${sanitize(profile.recentFeedback)}" — reflect this in your exercise selection, volume, and notes`
+    : '';
+
   // Determine the mandatory split
   const style = profile.programStyle;
   let mandatorySplit: string;
@@ -721,10 +743,26 @@ Session duration: ${profile.sessionDurationMinutes} minutes
 Equipment available: ${profile.equipment.map(sanitize).join(', ') || 'full commercial gym (all equipment)'}
 Injuries/limitations: ${profile.injuries.map(sanitize).join(', ') || 'none'}
 Include cardio/conditioning: ${cardioText}
-
+${bodyweightLine ? bodyweightLine + '\n' : ''}${liftsLine ? liftsLine + '\n' : ''}${feedbackLine ? feedbackLine + '\n' : ''}
 MANDATORY SPLIT FOR THIS PERSON: ${mandatorySplit}
 ${equipRestrictions.length ? '\nEQUIPMENT RESTRICTIONS — apply strictly:\n' + equipRestrictions.map(r => '• ' + r).join('\n') : ''}
 ${injuryMods.length ? '\nINJURY ACCOMMODATIONS — apply immediately:\n' + injuryMods.map(n => '• ' + n).join('\n') : ''}
+${expLevel === 'beginner' ? `
+BEGINNER RULES — MANDATORY:
+• MAX 5 exercises per session. Big compounds only — no more than 1 isolation per session.
+• Rep ranges: 3 sets × 8-12 reps on everything. Simple linear progression.
+• No RPE targets above 8. Technique over intensity always.
+• Notes format simplified: "W1-W3: 3×10 — add 2.5 kg each week when all reps clean | W4: Deload 2×10 | W5-W7: 3×8 heavier — same small jumps | W8: Test top set of 5"
+• Do NOT include advanced techniques (drop sets, supersets, rest-pause).` : ''}
+${profile.daysPerWeek >= 4 ? `
+A/B SESSION DIFFERENTIATION — MANDATORY:
+When the program includes multiple sessions of the same day type (e.g. Upper A and Upper B, or Push A and Push B):
+• The two sessions MUST use DIFFERENT primary exercises. No repeating the same main lift on both.
+• Upper A example: barbell-bench-press as horizontal push → Upper B example: incline-dumbbell-press or dips
+• Push A: barbell-bench-press + overhead-press → Push B: incline-dumbbell-press + dumbbell-shoulder-press
+• Lower A (quad-dominant): barbell-back-squat or front-squat → Lower B (hip-dominant): romanian-deadlift or deadlift
+• Pull A: barbell-row → Pull B: chest-supported-row or cable-row
+• This variation is essential to prevent overuse injury and to stimulate all muscle fibres across the week.` : ''}
 
 ═══════════════════ PERIODIZATION — MANDATORY 8-WEEK STRUCTURE ═══════════════════
 You MUST follow this exact periodization model:
@@ -847,7 +885,10 @@ FINAL CHECKLIST before generating:
 - Priority muscles (${priorityText}) have highest volume allocation
 - Session duration respected: ${durationGuide}
 - All injury accommodations applied
-- weeklyProgressionNotes has exactly 8 entries`;
+- weeklyProgressionNotes has exactly 8 entries
+${profile.daysPerWeek >= 4 ? '- A and B sessions of the same day type use DIFFERENT primary exercises (no duplicate main lifts)' : ''}
+${expLevel === 'beginner' ? '- Max 5 exercises per session, 3 sets, 8-12 reps, no advanced techniques' : ''}
+${feedbackLine ? '- Recent athlete feedback is addressed in exercise selection or notes' : ''}`;
 }
 
 function extractProgramJsonCandidate(text: string): string {
