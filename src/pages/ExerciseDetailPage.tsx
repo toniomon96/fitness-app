@@ -219,6 +219,14 @@ export function ExerciseDetailPage() {
         .slice(0, 3)
     : [];
 
+  // Pattern alternatives — same pattern, not already in relatedExercises, up to 4
+  const relatedIds = new Set([exercise.id, ...relatedExercises.map((e) => e.id)]);
+  const patternAlternatives = exercise.pattern
+    ? EXERCISE_LIBRARY
+        .filter((e) => !relatedIds.has(e.id) && e.pattern === exercise.pattern)
+        .slice(0, 4)
+    : [];
+
   async function handleAiSuggestion() {
     if (!exercise) return;
     setAiLoading(true);
@@ -523,26 +531,51 @@ export function ExerciseDetailPage() {
           </Card>
         )}
 
-        {/* Movement Pattern Library — placeholder for Sprint I */}
+        {/* Movement Pattern section */}
         {exercise.pattern && (
-          <button
-            type="button"
-            onClick={() => navigate('/library', { state: { filterPattern: exercise.pattern } })}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-xl bg-brand-500/10 flex items-center justify-center shrink-0">
-              <Grid3X3 size={15} className="text-brand-500" />
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Grid3X3 size={15} className="text-brand-500" />
+                Movement Pattern
+              </h2>
+              <span className="text-xs font-medium text-brand-500 bg-brand-500/10 px-2 py-0.5 rounded-full capitalize">
+                {exercise.pattern.replace(/-/g, ' ')}
+              </span>
             </div>
-            <div className="flex-1 text-left min-w-0">
-              <p className="text-sm font-medium text-slate-900 dark:text-white capitalize">
-                Browse {exercise.pattern.replace(/-/g, ' ')} Exercises
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                See all exercises in this movement pattern
-              </p>
-            </div>
-            <ArrowRight size={15} className="text-slate-400 shrink-0" />
-          </button>
+            {patternAlternatives.length > 0 && (
+              <>
+                <p className="text-xs text-slate-400 mb-2">More exercises in this pattern</p>
+                <ul className="space-y-2 mb-3">
+                  {patternAlternatives.map((alt) => (
+                    <li key={alt.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/library/${alt.id}`)}
+                        className="w-full flex items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-3 py-2.5 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
+                      >
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug">{alt.name}</p>
+                          <p className="text-xs text-slate-400 mt-0.5 capitalize">
+                            {(alt.equipment ?? []).join(', ')} · {(alt.primaryMuscles ?? []).join(', ')}
+                          </p>
+                        </div>
+                        <ArrowRight size={14} className="shrink-0 text-brand-500" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate('/library', { state: { filterPattern: exercise.pattern } })}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-brand-400 dark:hover:border-brand-600 transition-colors text-sm font-medium text-brand-500"
+            >
+              <span>Browse all {exercise.pattern.replace(/-/g, ' ')} exercises</span>
+              <ArrowRight size={14} className="shrink-0" />
+            </button>
+          </Card>
         )}
 
         {/* AI Progression Suggestion */}
