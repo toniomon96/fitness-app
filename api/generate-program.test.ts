@@ -416,6 +416,7 @@ describe('generate-program integrity pipeline', () => {
 
     expect(getStatusCode()).toBe(200);
     const body = getBody() as { program?: { name?: string } };
-    expect(body.program?.name).toBe('Full-Body Foundation Program');
+    // Fallback is now split-aware: upper-lower profile gets an upper/lower fallback program.
+    expect(body.program?.name).toBe('Upper/Lower Split Program');
   });
 });
