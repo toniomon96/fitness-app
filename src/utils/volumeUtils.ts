@@ -117,17 +117,12 @@ export function getWeeklyVolumeByMuscle(
   weeks = 4,
 ): Record<MuscleGroup, number[]> {
   const result: Record<MuscleGroup, number[]> = {
-    chest: [],
-    back: [],
-    shoulders: [],
-    biceps: [],
-    triceps: [],
-    quads: [],
-    hamstrings: [],
-    glutes: [],
-    calves: [],
-    core: [],
-    cardio: [],
+    chest: [], back: [], shoulders: [], biceps: [], triceps: [],
+    quads: [], hamstrings: [], glutes: [], calves: [], core: [], cardio: [],
+    adductors: [], abductors: [], 'hip-flexors': [], tibialis: [],
+    'front-deltoid': [], 'side-deltoid': [], 'rear-deltoid': [], 'rotator-cuff': [],
+    forearms: [], lats: [], traps: [], rhomboids: [], serratus: [], erectors: [],
+    abs: [], obliques: [],
   };
 
   const now = new Date();
