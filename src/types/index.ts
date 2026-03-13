@@ -693,6 +693,41 @@ export interface XpProfile {
   rankLabel: string;
 }
 
+// ─── Achievements ────────────────────────────────────────────────────────────
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold';
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  tier: AchievementTier;
+  /** Emoji icon shown in the badge */
+  icon: string;
+  /** XP bonus awarded on first unlock */
+  xpReward: number;
+  /** Human-readable unlock condition summary */
+  conditionSummary: string;
+}
+
+export interface UserAchievement {
+  achievementId: string;
+  unlockedAt: string;
+}
+
+/** Persisted gamification state (localStorage + Supabase sync). */
+export interface GamificationData {
+  totalXp: number;
+  /** Current training streak in days */
+  streak: number;
+  /** YYYY-MM-DD of the last day that was counted towards the streak */
+  streakUpdatedDate: string;
+  /** Virtual currency balance */
+  sparks: number;
+  /** IDs of achievements the user has unlocked */
+  unlockedAchievementIds: string[];
+}
+
 // ─── Streak Freeze ───────────────────────────────────────────────────────────
 
 export interface StreakFreeze {

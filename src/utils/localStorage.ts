@@ -13,6 +13,7 @@ import type {
   HealthArticle,
   WeightUnit,
   WorkoutFeedback,
+  GamificationData,
 } from '../types';
 
 const KEYS = {
@@ -35,6 +36,7 @@ const KEYS = {
   WEIGHT_UNIT: 'omnexus_weight_unit',
   EXPERIENCE_MODE: 'omnexus_experience_mode',
   WORKOUT_FEEDBACK: 'omnexus_workout_feedback',
+  GAMIFICATION: 'omnexus_gamification',
 } as const;
 
 export const WEIGHT_UNIT_CHANGED_EVENT = 'omnexus:weight-unit-changed';
@@ -423,4 +425,22 @@ export function getMostRecentFeedbackNote(): string | undefined {
   else if (latest.rating >= 4) parts.push('Last workout felt great');
   if (latest.notes?.trim()) parts.push(latest.notes.trim());
   return parts.join('. ') || undefined;
+}
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+const EMPTY_GAMIFICATION: GamificationData = {
+  totalXp: 0,
+  streak: 0,
+  streakUpdatedDate: '',
+  sparks: 0,
+  unlockedAchievementIds: [],
+};
+
+export function getGamificationData(): GamificationData {
+  return safeRead<GamificationData>(KEYS.GAMIFICATION, EMPTY_GAMIFICATION);
+}
+
+export function setGamificationData(data: GamificationData): void {
+  safeWrite(KEYS.GAMIFICATION, data);
 }

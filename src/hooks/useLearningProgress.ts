@@ -7,6 +7,10 @@ export function useLearningProgress() {
 
   function completeLesson(lessonId: string) {
     dispatch({ type: 'COMPLETE_LESSON', payload: lessonId });
+    // Award XP for each newly completed lesson (guard against double-counting)
+    if (!progress.completedLessons.includes(lessonId)) {
+      dispatch({ type: 'AWARD_XP', payload: { eventType: 'lesson_completed', referenceId: lessonId } });
+    }
   }
 
   function completeModule(moduleId: string) {
@@ -19,6 +23,10 @@ export function useLearningProgress() {
 
   function recordQuizAttempt(moduleId: string, attempt: QuizAttempt) {
     dispatch({ type: 'RECORD_QUIZ_ATTEMPT', payload: { moduleId, attempt } });
+    // Award XP for passing a quiz (score >= 60%)
+    if (attempt.score >= 60) {
+      dispatch({ type: 'AWARD_XP', payload: { eventType: 'quiz_passed', referenceId: moduleId } });
+    }
   }
 
   function isLessonComplete(lessonId: string): boolean {

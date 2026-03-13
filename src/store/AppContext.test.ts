@@ -46,6 +46,10 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     activeSession: null,
     theme: 'light',
     learningProgress: { ...emptyLP },
+    xpProfile: null,
+    streak: 0,
+    sparks: 0,
+    unlockedAchievementIds: [],
     ...overrides,
   };
 }

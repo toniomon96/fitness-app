@@ -352,6 +352,12 @@ export function useWorkoutSession() {
       dispatch({ type: 'APPEND_SESSION', payload: completed });
       dispatch({ type: 'CLEAR_ACTIVE_SESSION' });
 
+      // Award XP for workout completion and any personal records
+      dispatch({ type: 'AWARD_XP', payload: { eventType: 'workout_completed', referenceId: completed.id } });
+      for (const pr of prs) {
+        dispatch({ type: 'AWARD_XP', payload: { eventType: 'pr_achieved', referenceId: pr.exerciseId } });
+      }
+
       trackWorkoutCompleted({
         durationSeconds: completed.durationSeconds ?? 0,
         totalVolumeKg: completed.totalVolumeKg ?? 0,
