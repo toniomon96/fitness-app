@@ -2,7 +2,7 @@
 -- Run in the Supabase SQL editor.
 
 CREATE TABLE IF NOT EXISTS daily_checkins (
-  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID REFERENCES auth.users ON DELETE CASCADE,
   checkin_date    DATE NOT NULL,
   energy_level    INTEGER NOT NULL CHECK (energy_level BETWEEN 1 AND 10),

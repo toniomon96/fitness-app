@@ -86,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? sanitizeFreeText(body.notes, 300) ?? undefined
     : undefined;
 
-  if (!energyLevel || !sleepQuality || !sorenessLevel) {
+  if (isNaN(energyLevel) || isNaN(sleepQuality) || isNaN(sorenessLevel)) {
     return res.status(400).json({ error: 'energyLevel, sleepQuality, and sorenessLevel are required' });
   }
 
@@ -121,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const checkinId = `checkin_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const checkinId = crypto.randomUUID();
   const today = new Date().toISOString().split('T')[0];
 
   // Persist to Supabase if user is authenticated

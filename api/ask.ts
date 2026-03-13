@@ -67,9 +67,6 @@ healthcare professional.
 End EVERY response with this exact line:
 ⚠️ This is educational information only, not medical advice. Please consult a qualified healthcare professional for personal health concerns.`;
 
-// Keep backward-compatible alias
-const SYSTEM_PROMPT = SCIENCE_SYSTEM_PROMPT;
-
 function buildCoachSystemPrompt(coachContext: {
   firstName?: string;
   goal?: string;
@@ -377,7 +374,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           currentWeekNote: typeof coachContext.currentWeekNote === 'string' ? coachContext.currentWeekNote : undefined,
           checkInSummary: typeof coachContext.checkInSummary === 'string' ? coachContext.checkInSummary : undefined,
         })
-      : SYSTEM_PROMPT;
+      : SCIENCE_SYSTEM_PROMPT;
 
     // Append user context as a lightweight annotation, not part of the question.
     // Whitelist the values before embedding them in the prompt.
