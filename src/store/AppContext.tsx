@@ -225,24 +225,22 @@ export function reducer(state: AppState, action: Action): AppState {
           .catch((err) => { if (import.meta.env.DEV) console.error('[AppContext] recordXpEvent failed:', err); });
       }
 
+      const prevRankLabel = state.xpProfile?.rankLabel ?? '';
+      const rankUpCelebrations: PendingCelebration[] = prevRankLabel !== '' && prevRankLabel !== finalProfile.rankLabel
+        ? [{ id: uuidv4(), kind: 'rank_up' as CelebrationKind, payload: finalProfile.rankLabel, queuedAt: new Date().toISOString() }]
+        : [];
+      const achievementCelebrations: PendingCelebration[] = newUnlocks.map((a) => ({
+        id: uuidv4(),
+        kind: 'achievement' as CelebrationKind,
+        payload: a.id,
+        queuedAt: new Date().toISOString(),
+      }));
+
       return {
         ...state,
         xpProfile: finalProfile,
         unlockedAchievementIds: newAchievementIds,
-        pendingCelebrations: [
-          ...state.pendingCelebrations,
-          ...(
-            (state.xpProfile?.rankLabel ?? '') !== finalProfile.rankLabel && (state.xpProfile?.rankLabel ?? '') !== ''
-              ? [{ id: uuidv4(), kind: 'rank_up' as CelebrationKind, payload: finalProfile.rankLabel, queuedAt: new Date().toISOString() }]
-              : []
-          ),
-          ...newUnlocks.map((a) => ({
-            id: uuidv4(),
-            kind: 'achievement' as CelebrationKind,
-            payload: a.id,
-            queuedAt: new Date().toISOString(),
-          })),
-        ],
+        pendingCelebrations: [...state.pendingCelebrations, ...rankUpCelebrations, ...achievementCelebrations],
       };
     }
     case 'SET_GAMIFICATION': {
