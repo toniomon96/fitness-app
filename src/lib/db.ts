@@ -1033,7 +1033,7 @@ export async function getFriendFeed(userId: string): Promise<FeedSession[]> {
     .limit(30);
 
   if (!joinError && sessionsWithProfiles) {
-    return (sessionsWithProfiles as DbFeedSessionWithProfileRow[]).map((s) => ({
+    return (sessionsWithProfiles as unknown as DbFeedSessionWithProfileRow[]).map((s) => ({
       sessionId: s.id,
       userId: s.user_id,
       userName: s.profiles?.name ?? 'Unknown',
