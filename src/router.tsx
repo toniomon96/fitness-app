@@ -72,6 +72,7 @@ const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ defaul
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
 const GuidedPathwaysPage = lazy(() => import('./pages/GuidedPathwaysPage').then(m => ({ default: m.GuidedPathwaysPage })))
 const ProgressionReportPage = lazy(() => import('./pages/ProgressionReportPage').then(m => ({ default: m.ProgressionReportPage })))
+const TransformationTimelinePage = lazy(() => import('./pages/TransformationTimelinePage').then(m => ({ default: m.TransformationTimelinePage })))
 
 function RootLayout() {
   return (
@@ -636,6 +637,7 @@ export const router = createBrowserRouter([
           { path: '/ask', element: <AskPage /> },
           { path: '/nutrition', element: <NutritionPage /> },
           { path: '/measurements', element: <MeasurementsPage /> },
+          { path: '/timeline', element: <TransformationTimelinePage /> },
           { path: '/workout/quick', element: <QuickLogPage /> },
           { path: '/tools/plate-calculator', element: <PlateCalculatorPage /> },
           { path: '/briefing', element: <PreWorkoutBriefingPage /> },

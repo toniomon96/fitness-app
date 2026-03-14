@@ -12,6 +12,7 @@ import { MIN_PASSWORD_LENGTH, passwordLengthError } from '../../lib/passwordPoli
 import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { startGeneration } from '../../lib/programGeneration';
+import { PremiumUnlockStep } from './PremiumUnlockStep';
 
 async function signOutAuthSession() {
   const { supabase } = await import('../../lib/supabase');
@@ -32,9 +33,8 @@ async function upsertTrainingProfileToDb(userId: string, profile: UserTrainingPr
   return upsertTrainingProfile(userId, profile);
 }
 
-// Step 0: Account, Step 1: Name, Step 2: AI Chat, Step 3: Profile summary + kick-off
-const STEPS = ['Account', 'Name', 'Discover', 'Your Plan'];
-
+// Step 0: Account, Step 1: Name, Step 2: AI Chat, Step 3: Profile summary + kick-off, Step 4: Premium unlock
+const STEPS = ['Account', 'Name', 'Discover', 'Your Plan', 'Unlock'];
 export function OnboardingForm() {
   const navigate = useNavigate();
   const { dispatch } = useApp();
@@ -59,6 +59,8 @@ export function OnboardingForm() {
   const [generating, setGenerating] = useState(false);
   const [generatingIdx, setGeneratingIdx] = useState(0);
   const [generateError, setGenerateError] = useState('');
+  // Whether a Supabase session is available when entering step 4
+  const [generatedWithSession, setGeneratedWithSession] = useState(false);
 
   // Cycle through generating messages while generation is in progress
   useEffect(() => {
@@ -216,7 +218,7 @@ export function OnboardingForm() {
         return;
       }
 
-      // 7. Session available → enter the app immediately
+      // 7. Session available → show premium unlock step before entering the app
       //    activeProgramId is null for now; dashboard will set it when generation completes
       const user = {
         id: userId,
@@ -233,7 +235,8 @@ export function OnboardingForm() {
       dispatch({ type: 'SET_USER', payload: user });
       dispatch({ type: 'SET_THEME', payload: 'dark' });
 
-      navigate('/');
+      setGeneratedWithSession(true);
+      setStep(4);
     } finally {
       setGenerating(false);
     }
@@ -423,6 +426,11 @@ export function OnboardingForm() {
               </div>
             )}
           </>
+        )}
+
+        {/* Step 4 — Premium unlock */}
+        {step === 4 && (
+          <PremiumUnlockStep hasSession={generatedWithSession} />
         )}
       </div>
 

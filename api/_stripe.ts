@@ -10,6 +10,7 @@ export type StripeConfigResult = {
   stripe: Stripe | null;
   appUrl: string;
   priceId?: string;
+  annualPriceId?: string;
   webhookSecret?: string;
   error?: string;
 };
@@ -93,6 +94,7 @@ function isLocalAppUrl(appUrl: string): boolean {
 export function getStripeConfig(options: StripeConfigOptions = {}): StripeConfigResult {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
   const priceId = process.env.STRIPE_PRICE_ID?.trim() ?? '';
+  const annualPriceId = process.env.STRIPE_PRICE_ID_ANNUAL?.trim() ?? '';
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? '';
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').trim();
 
@@ -140,6 +142,7 @@ export function getStripeConfig(options: StripeConfigOptions = {}): StripeConfig
     stripe: new Stripe(secretKey),
     appUrl,
     priceId: priceId || undefined,
+    annualPriceId: annualPriceId || undefined,
     webhookSecret: webhookSecret || undefined,
   };
 }

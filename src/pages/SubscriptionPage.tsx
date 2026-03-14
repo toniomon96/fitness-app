@@ -23,6 +23,8 @@ const FEATURES: { label: string; free: boolean; premium: boolean }[] = [
   { label: 'Priority AI responses (2× detail)', free: false, premium: true },
 ];
 
+const ANNUAL_DISCOUNT_PCT = 20;
+
 export function SubscriptionPage() {
   const [searchParams] = useSearchParams();
   const successParam = searchParams.get('success');
@@ -33,6 +35,7 @@ export function SubscriptionPage() {
   const { toast } = useToast();
   const [upgrading, setUpgrading] = useState(false);
   const [managing, setManaging] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [verifyingCheckout, setVerifyingCheckout] = useState(false);
   const [checkoutVerified, setCheckoutVerified] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -103,7 +106,7 @@ export function SubscriptionPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ cycle: billingCycle }),
       });
       const data = await res.json();
       if (res.status === 409 && data.alreadyPremium) {
@@ -303,23 +306,62 @@ export function SubscriptionPage() {
 
         {/* Upgrade CTA */}
         {!effectivePremium && !blockUpgrade && (
-          <Button
-            fullWidth
-            onClick={handleUpgrade}
-            disabled={upgrading}
-          >
-            {upgrading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin" />
-                Redirecting to checkout…
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Zap size={16} fill="currentColor" />
-                Upgrade to Premium
-              </span>
-            )}
-          </Button>
+          <>
+            {/* Billing cycle toggle */}
+            <div className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl p-1">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={[
+                  'flex-1 py-2 rounded-lg text-sm font-medium transition-colors',
+                  billingCycle === 'monthly'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400',
+                ].join(' ')}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('annual')}
+                className={[
+                  'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors',
+                  billingCycle === 'annual'
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400',
+                ].join(' ')}
+              >
+                Annual
+                <span className={[
+                  'text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
+                  billingCycle === 'annual' ? 'bg-white/20' : 'bg-brand-500/15 text-brand-500',
+                ].join(' ')}>
+                  -{ANNUAL_DISCOUNT_PCT}%
+                </span>
+              </button>
+            </div>
+
+            <Button
+              fullWidth
+              onClick={handleUpgrade}
+              disabled={upgrading}
+            >
+              {upgrading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin" />
+                  Redirecting to checkout…
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Zap size={16} fill="currentColor" />
+                  Upgrade to Premium
+                  {billingCycle === 'annual' && (
+                    <span className="text-xs font-normal opacity-80">· Save {ANNUAL_DISCOUNT_PCT}%</span>
+                  )}
+                </span>
+              )}
+            </Button>
+          </>
         )}
 
         {!effectivePremium && blockUpgrade && !showVerifiedSuccess && (

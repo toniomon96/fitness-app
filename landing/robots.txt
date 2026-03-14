@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://omnexus.fit/sitemap.xml
