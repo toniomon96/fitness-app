@@ -162,3 +162,38 @@ export function getWeeklyVolumeByMuscle(
 
   return result;
 }
+
+/** Count completed sessions in the last 30 days. */
+export function countSessionsLast30Days(sessions: WorkoutSession[]): number {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return sessions.filter(
+    (s) => s.completedAt && new Date(s.completedAt).getTime() >= cutoff,
+  ).length;
+}
+
+/** Total volume (kg) lifted across all completed sessions in the last 7 days. */
+export function getTotalWeeklyVolumeKg(sessions: WorkoutSession[]): number {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return sessions
+    .filter((s) => s.completedAt && new Date(s.completedAt).getTime() >= cutoff)
+    .reduce((total, s) => total + calculateTotalVolume(s), 0);
+}
+
+/** Average RPE across all completed sets in the last `days` days (default 30). Returns 0 when no RPE data exists. */
+export function getAvgRpeRecent(sessions: WorkoutSession[], days = 30): number {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  let total = 0;
+  let count = 0;
+  for (const session of sessions) {
+    if (!session.completedAt || new Date(session.completedAt).getTime() < cutoff) continue;
+    for (const ex of session.exercises) {
+      for (const set of ex.sets) {
+        if (set.completed && set.rpe != null) {
+          total += set.rpe;
+          count++;
+        }
+      }
+    }
+  }
+  return count > 0 ? Math.round((total / count) * 10) / 10 : 0;
+}

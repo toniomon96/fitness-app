@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useWeightUnit } from '../hooks/useWeightUnit';
 import { useToast } from '../contexts/ToastContext';
@@ -14,7 +14,8 @@ import { Input } from '../components/ui/Input';
 import { TermHelpChips } from '../components/ui/TermHelpChips';
 import { Trophy, Plus, X, ChevronDown, Sparkles, Mail } from 'lucide-react';
 import { trackChallengeJoined, trackChallengeCreated, trackInvitationResponded } from '../lib/analytics';
-import { getExperienceMode } from '../utils/localStorage';
+import { getExperienceMode, getWorkoutHistory } from '../utils/localStorage';
+import { countSessionsLast30Days, getTotalWeeklyVolumeKg, getAvgRpeRecent } from '../utils/volumeUtils';
 
 interface CreateForm {
   name: string;
@@ -96,6 +97,15 @@ export function ChallengesPage() {
   const userId = state.user?.id ?? '';
   const user = state.user;
   const isGuidedMode = user ? getExperienceMode(user.id) === 'guided' : true;
+
+  const workoutStats = useMemo(() => {
+    const sessions = getWorkoutHistory();
+    return {
+      sessionsLast30Days: countSessionsLast30Days(sessions),
+      weeklyVolumeKg: Math.round(getTotalWeeklyVolumeKg(sessions)),
+      avgRpe: getAvgRpeRecent(sessions),
+    };
+  }, []);
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [sharedChallenge, setSharedChallenge] = useState<AiChallenge | null>(null);
@@ -260,9 +270,9 @@ export function ChallengesPage() {
             userId={userId}
             goal={user.goal}
             experienceLevel={user.experienceLevel}
-            weeklyVolumeKg={0}
-            sessionsLast30Days={0}
-            avgRpe={0}
+            weeklyVolumeKg={workoutStats.weeklyVolumeKg}
+            sessionsLast30Days={workoutStats.sessionsLast30Days}
+            avgRpe={workoutStats.avgRpe}
           />
         )}
 
