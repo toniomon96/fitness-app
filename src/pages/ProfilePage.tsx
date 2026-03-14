@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
-import { LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock, Camera, Zap, HelpCircle, ChevronRight } from 'lucide-react';
+import { LogOut, Save, ChevronDown, Download, Trash2, AlertTriangle, Bell, BellOff, Lock, Camera, Zap, HelpCircle, ChevronRight, Activity } from 'lucide-react';
 import { apiBase } from '../lib/api';
 import { MIN_PASSWORD_LENGTH, passwordLengthError } from '../lib/passwordPolicy';
 import {
@@ -611,6 +611,22 @@ export function ProfilePage() {
             </div>
           </Card>
         )}
+
+        {/* Transformation Timeline */}
+        <button type="button" onClick={() => navigate('/timeline')} className="w-full text-left">
+          <Card>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-brand-500/10 dark:bg-brand-500/10 flex items-center justify-center shrink-0">
+                <Activity size={18} className="text-brand-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 dark:text-white">Transformation Timeline</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Weight, body comp & workout progress</p>
+              </div>
+              <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
+            </div>
+          </Card>
+        </button>
 
         {/* Help & Support */}
         <button type="button" onClick={() => navigate('/help')} className="w-full text-left">

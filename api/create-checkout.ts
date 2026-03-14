@@ -45,6 +45,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: stripeConfig.error ?? 'Payment service not configured' });
   }
 
+  // Support optional billing cycle: 'annual' uses STRIPE_PRICE_ID_ANNUAL if configured,
+  // falling back to the default monthly price.
+  const bodyObj = req.body as { cycle?: string } | undefined ?? {};
+  const wantsAnnual = bodyObj.cycle === 'annual';
+  const resolvedPriceId = (wantsAnnual && stripeConfig.annualPriceId)
+    ? stripeConfig.annualPriceId
+    : stripeConfig.priceId;
+
   try {
     const { data: existingSubscription } = await supabaseAdmin
       .from('subscriptions')
@@ -136,7 +144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // BUG-01: client_reference_id lets the webhook find the user by ID even if
         // stripe_customer_id hasn't been persisted to profiles yet (race condition).
         client_reference_id: user.id,
-        line_items: [{ price: stripeConfig.priceId, quantity: 1 }],
+        line_items: [{ price: resolvedPriceId, quantity: 1 }],
         mode: 'subscription',
         success_url: `${stripeConfig.appUrl}/subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${stripeConfig.appUrl}/subscription`,
@@ -158,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       session = await stripeConfig.stripe.checkout.sessions.create({
         customer: recoveredCustomerId,
         client_reference_id: user.id,
-        line_items: [{ price: stripeConfig.priceId, quantity: 1 }],
+        line_items: [{ price: resolvedPriceId, quantity: 1 }],
         mode: 'subscription',
         success_url: `${stripeConfig.appUrl}/subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${stripeConfig.appUrl}/subscription`,
