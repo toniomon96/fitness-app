@@ -78,7 +78,7 @@ export function QuickLogPage() {
 
   return (
     <AppShell>
-      <TopBar title={QUICK_SESSION_LABEL} />
+      <TopBar title={QUICK_SESSION_LABEL} showBack />
       <div className="p-4 space-y-5 pb-32">
 
         {/* Beginner instructions */}

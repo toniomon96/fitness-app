@@ -5,6 +5,27 @@ interface MarkdownTextProps {
   className?: string;
 }
 
+/**
+ * Sanitize raw AI output by removing special characters that appear as noise
+ * when the model emits raw Markdown that is not fully rendered.
+ * Strips: ***, ---, >>>, | (pipe dividers), ## headings markers.
+ */
+function sanitizeAiText(raw: string): string {
+  return raw
+    // Remove triple-star or triple-dash separator lines
+    .replace(/^\s*\*{3,}\s*$/gm, '')
+    .replace(/^\s*-{3,}\s*$/gm, '')
+    // Remove leading > quote markers
+    .replace(/^>{1,}\s?/gm, '')
+    // Remove ## heading markers (keep text)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove table pipe characters used as dividers
+    .replace(/\|/g, '')
+    // Collapse multiple consecutive blank lines into one
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Converts **bold** spans within a line of text. */
 function renderInline(line: string): ReactNode {
   const parts = line.split(/(\*\*[^*]+\*\*)/g);
@@ -25,8 +46,10 @@ function renderInline(line: string): ReactNode {
  * Handles: **headings**, - bullet lists, 1. numbered lists, paragraphs.
  */
 export function MarkdownText({ text, className = '' }: MarkdownTextProps) {
+  // Sanitize raw AI output before parsing
+  const sanitized = sanitizeAiText(text);
   // Split on one or more blank lines to get logical blocks
-  const blocks = text.split(/\n{2,}/);
+  const blocks = sanitized.split(/\n{2,}/);
   const elements: ReactNode[] = [];
 
   for (let bi = 0; bi < blocks.length; bi++) {

@@ -122,6 +122,7 @@ export function AskPage() {
   const [checkinError, setCheckinError] = useState<string | null>(null);
 
   const answerRef = useRef<HTMLDivElement>(null);
+  const hasScrolledForCurrentQuestion = useRef(false);
   const CONVO_KEY = 'omnexus_ask_conversation';
 
   // ── Derive active program for Coach Mode context ─────────────────────────────
@@ -210,8 +211,15 @@ export function AskPage() {
   }, [currentAnswer, currentQuestion, conversationHistory, followUps, currentCitations]);
 
   useEffect(() => {
-    if (currentAnswer && answerRef.current) {
+    // Auto-scroll to answer only once per question (when answer first appears).
+    // Subsequent token updates during streaming do NOT force-scroll, so the
+    // user can freely scroll up to re-read earlier content.
+    if (currentAnswer && !hasScrolledForCurrentQuestion.current && answerRef.current) {
+      hasScrolledForCurrentQuestion.current = true;
       answerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (!currentAnswer) {
+      hasScrolledForCurrentQuestion.current = false;
     }
   }, [currentAnswer]);
 
@@ -220,6 +228,7 @@ export function AskPage() {
     if (!q || loading) return;
 
     setLoading(true);
+    hasScrolledForCurrentQuestion.current = false;
     setCurrentAnswer('');
     setCurrentQuestion(q);
     setError(null);

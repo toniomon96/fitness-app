@@ -65,11 +65,12 @@ export function HeatmapCalendar({ sessions, weeks = 26 }: HeatmapCalendarProps) 
   });
 
   return (
-    <div>
+    <div className="overflow-x-auto">
+      <div style={{ minWidth: `${weeks * 14}px` }}>
       <h2 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">Training Heatmap</h2>
 
       {/* Month labels */}
-      <div className="flex mb-1 overflow-hidden" style={{ gap: 2 }}>
+      <div className="flex mb-1" style={{ gap: 2 }}>
         {columns.map((_, i) => {
           const lbl = monthLabels.find((m) => m.colIdx === i);
           return (
@@ -81,7 +82,7 @@ export function HeatmapCalendar({ sessions, weeks = 26 }: HeatmapCalendarProps) 
       </div>
 
       {/* Grid */}
-      <div className="flex gap-0.5 overflow-hidden">
+      <div className="flex gap-0.5">
         {/* Day labels */}
         <div className="flex flex-col gap-0.5 mr-1">
           {DAYS.map((d) => (
@@ -92,7 +93,7 @@ export function HeatmapCalendar({ sessions, weeks = 26 }: HeatmapCalendarProps) 
         </div>
 
         {/* Columns */}
-        <div className="flex gap-0.5 overflow-x-auto flex-1">
+        <div className="flex gap-0.5 flex-1">
           {columns.map((col, ci) => (
             <div key={ci} className="flex flex-col gap-0.5 flex-shrink-0">
               {col.map((day) => {
@@ -122,6 +123,7 @@ export function HeatmapCalendar({ sessions, weeks = 26 }: HeatmapCalendarProps) 
           <div key={c} className={`w-3 h-3 rounded-sm ${c}`} />
         ))}
         <span className="text-[9px] text-slate-500">More</span>
+      </div>
       </div>
     </div>
   );
