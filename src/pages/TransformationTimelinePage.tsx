@@ -11,6 +11,23 @@ import { toDisplayWeight } from '../utils/weightUnits';
 import { useWeightUnit } from '../hooks/useWeightUnit';
 import type { MeasurementMetric } from '../types';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const BODY_METRIC_DEFS: { key: MeasurementMetric; label: string }[] = [
+  { key: 'weight',    label: 'Weight' },
+  { key: 'body-fat',  label: 'Body Fat' },
+  { key: 'waist',     label: 'Waist' },
+  { key: 'chest',     label: 'Chest' },
+  { key: 'left-arm',  label: 'Left Arm' },
+  { key: 'right-arm', label: 'Right Arm' },
+];
+
+function metricUnit(key: MeasurementMetric, weightUnit: string): string {
+  if (key === 'weight') return weightUnit;
+  if (key === 'body-fat') return '%';
+  return 'cm';
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Range = '4w' | '12w' | 'all';
@@ -56,15 +73,6 @@ export function TransformationTimelinePage() {
 
   // ── Measurements ──────────────────────────────────────────────────────────
 
-  const BODY_METRICS: { key: MeasurementMetric; label: string; unit: string }[] = [
-    { key: 'weight',    label: 'Weight',    unit: weightUnit === 'kg' ? 'kg' : 'lbs' },
-    { key: 'body-fat',  label: 'Body Fat',  unit: '%' },
-    { key: 'waist',     label: 'Waist',     unit: 'cm' },
-    { key: 'chest',     label: 'Chest',     unit: 'cm' },
-    { key: 'left-arm',  label: 'Left Arm',  unit: 'cm' },
-    { key: 'right-arm', label: 'Right Arm', unit: 'cm' },
-  ];
-
   const weightData = useMemo(() => {
     const raw = getMeasurements(userId, 'weight')
       .filter(m => !cutoff || new Date(m.measuredAt) >= cutoff)
@@ -83,7 +91,8 @@ export function TransformationTimelinePage() {
   }, [userId, cutoff]);
 
   const latestMeasurements = useMemo(() => {
-    return BODY_METRICS.map(({ key, label, unit }) => {
+    return BODY_METRIC_DEFS.map(({ key, label }) => {
+      const unit = metricUnit(key, weightUnit);
       const entries = getMeasurements(userId, key)
         .sort((a, b) => b.measuredAt.localeCompare(a.measuredAt));
       const latest = entries[0];

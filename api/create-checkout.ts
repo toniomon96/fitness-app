@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Support optional billing cycle: 'annual' uses STRIPE_PRICE_ID_ANNUAL if configured,
   // falling back to the default monthly price.
-  const bodyObj = req.body as { cycle?: string } | undefined ?? {};
+  const bodyObj = (req.body as { cycle?: string } | undefined) ?? {};
   const wantsAnnual = bodyObj.cycle === 'annual';
   const resolvedPriceId = (wantsAnnual && stripeConfig.annualPriceId)
     ? stripeConfig.annualPriceId

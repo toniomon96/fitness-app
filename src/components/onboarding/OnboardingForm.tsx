@@ -35,7 +35,6 @@ async function upsertTrainingProfileToDb(userId: string, profile: UserTrainingPr
 
 // Step 0: Account, Step 1: Name, Step 2: AI Chat, Step 3: Profile summary + kick-off, Step 4: Premium unlock
 const STEPS = ['Account', 'Name', 'Discover', 'Your Plan', 'Unlock'];
-
 export function OnboardingForm() {
   const navigate = useNavigate();
   const { dispatch } = useApp();
