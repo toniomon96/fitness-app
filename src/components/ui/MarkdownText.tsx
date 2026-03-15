@@ -5,6 +5,32 @@ interface MarkdownTextProps {
   className?: string;
 }
 
+/**
+ * Sanitize raw AI output by removing or converting special characters that appear
+ * as noise when the model emits raw Markdown that is not fully rendered.
+ * - Converts ## headings to **bold** so they render via the inline renderer
+ * - Removes triple-star/triple-dash separator lines
+ * - Removes blockquote > markers
+ * - Removes table-formatting pipes (only pipes used as column dividers, i.e. at
+ *   line start/end or surrounded by whitespace, not mid-word)
+ */
+function sanitizeAiText(raw: string): string {
+  return raw
+    // Convert ATX heading lines (## Heading) to bold so the renderer picks them up
+    .replace(/^#{1,6}\s+(.+)$/gm, '**$1**')
+    // Remove triple-star or triple-dash horizontal rule / separator lines
+    .replace(/^\s*\*{3,}\s*$/gm, '')
+    .replace(/^\s*-{3,}\s*$/gm, '')
+    // Remove leading blockquote > markers
+    .replace(/^>{1,}\s?/gm, '')
+    // Remove table pipe characters used as column dividers:
+    // only pipes at start-of-line, end-of-line, or surrounded by spaces
+    .replace(/(?:^\s*\||\|\s*$|\s\|\s)/gm, ' ')
+    // Collapse multiple consecutive blank lines into one
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Converts **bold** spans within a line of text. */
 function renderInline(line: string): ReactNode {
   const parts = line.split(/(\*\*[^*]+\*\*)/g);
@@ -25,8 +51,10 @@ function renderInline(line: string): ReactNode {
  * Handles: **headings**, - bullet lists, 1. numbered lists, paragraphs.
  */
 export function MarkdownText({ text, className = '' }: MarkdownTextProps) {
+  // Sanitize raw AI output before parsing
+  const sanitized = sanitizeAiText(text);
   // Split on one or more blank lines to get logical blocks
-  const blocks = text.split(/\n{2,}/);
+  const blocks = sanitized.split(/\n{2,}/);
   const elements: ReactNode[] = [];
 
   for (let bi = 0; bi < blocks.length; bi++) {

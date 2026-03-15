@@ -195,7 +195,7 @@ export function ExerciseLibraryPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <AppShell>
-      <TopBar title="Exercise Library" />
+      <TopBar title="Exercise Library" showBack />
 
       {/* ── Discovery mode tab bar ── */}
       <div className="flex gap-1 overflow-x-auto scrollbar-hide px-4 py-2 border-b border-slate-200 dark:border-slate-700">

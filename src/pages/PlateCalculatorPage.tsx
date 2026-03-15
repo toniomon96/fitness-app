@@ -165,7 +165,7 @@ export function PlateCalculatorPage() {
 
   return (
     <AppShell>
-      <TopBar title="Plate Calculator" />
+      <TopBar title="Plate Calculator" showBack />
       <div className="p-4 space-y-5 pb-28">
 
         {/* Bar selector */}

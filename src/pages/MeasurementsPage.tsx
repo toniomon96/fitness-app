@@ -204,7 +204,7 @@ export function MeasurementsPage() {
 
   return (
     <AppShell>
-      <TopBar title="Body Measurements" />
+      <TopBar title="Body Measurements" showBack />
       <div className="p-4 space-y-5 pb-28">
 
         {isGuest && (

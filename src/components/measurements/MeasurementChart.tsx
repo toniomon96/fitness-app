@@ -16,7 +16,7 @@ export default function MeasurementChart({ data, unit }: MeasurementChartProps) 
   if (data.length < 2) {
     return (
       <div className="flex items-center justify-center h-36 text-sm text-slate-400">
-        Log {data.length === 0 ? '2' : 'one more'} entr{data.length === 0 ? 'ies' : 'y'} to see your trend
+        Log {data.length === 0 ? 'two' : 'one more'} entr{data.length === 0 ? 'ies' : 'y'} to see your trend
       </div>
     );
   }

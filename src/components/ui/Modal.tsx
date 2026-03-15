@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         onClick={onClose}
       />
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 shadow-xl p-6 animate-in slide-in-from-bottom-4 duration-200">
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 shadow-xl p-6 animate-in slide-in-from-bottom-4 duration-200 overflow-y-auto max-h-[calc(100dvh-2rem)]">
         {(title || onClose) && (
           <div className="flex items-center justify-between mb-4">
             {title && (

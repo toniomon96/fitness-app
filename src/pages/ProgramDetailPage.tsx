@@ -54,7 +54,7 @@ export function ProgramDetailPage() {
 
   const isActive = state.user?.activeProgramId === program.id;
   const isDraft = program.aiLifecycleStatus === 'draft';
-  const [roadmapOpen, setRoadmapOpen] = useState(true);
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
   const experienceMode = state.user ? getExperienceMode(state.user.id) : 'guided';
   const isGuidedMode = experienceMode === 'guided';
 
